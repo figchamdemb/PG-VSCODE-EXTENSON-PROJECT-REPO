@@ -1,0 +1,21 @@
+{
+  "profile": "frontend",
+  "generated_at_utc": "2026-02-19 21:43",
+  "repo_root": "C:\\Users\\ebrim\\Desktop\\WORKING-PRO\\A PG VSCODE-EXTENSION",
+  "top_level_entries": [
+    ".clinerules",
+    ".githooks",
+    ".github",
+    "AGENTS.md",
+    "ANTIGRAVITY.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    "Memory-bank",
+    "building-plan-doc.md",
+    "pg.cmd",
+    "pg.ps1",
+    "scripts"
+  ],
+  "component_roots": [],
+  "migration_files": []
+}

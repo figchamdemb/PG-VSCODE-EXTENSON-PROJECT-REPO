@@ -1,0 +1,19 @@
+{
+  "started_at_utc": "2026-02-19T21:43:40Z",
+  "expires_at_utc": "2026-02-20T09:43:40Z",
+  "profile": "frontend",
+  "author": "agent",
+  "max_commits": 5,
+  "max_hours": 12,
+  "anchor_commit": "",
+  "required_start_docs": [
+    "Memory-bank/daily/LATEST.md",
+    "Memory-bank/project-spec.md",
+    "Memory-bank/project-details.md",
+    "Memory-bank/structure-and-db.md",
+    "Memory-bank/tools-and-commands.md",
+    "Memory-bank/agentsGlobal-memory.md",
+    "Memory-bank/mastermind.md"
+  ],
+  "daily_keep_days": 7
+}

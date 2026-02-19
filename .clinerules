@@ -1,0 +1,16 @@
+Follow AGENTS.md in this repository.
+
+Start-of-session (required):
+- Run `.\pg.ps1 start -Yes`.
+- Read Memory-bank/daily/LATEST.md and latest daily file.
+- Read Memory-bank/project-spec.md and Memory-bank/structure-and-db.md.
+- Read latest Memory-bank/agentsGlobal-memory.md entries.
+- Check Memory-bank/mastermind.md for open decisions.
+
+End-of-session for code changes (required):
+- Update relevant Memory-bank docs.
+- Append Memory-bank/agentsGlobal-memory.md.
+- Update Memory-bank/daily/YYYY-MM-DD.md and Memory-bank/daily/LATEST.md.
+- If db migration changed, update Memory-bank/db-schema/*.md.
+
+Never add secrets to code or Memory-bank docs.
