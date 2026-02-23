@@ -1,0 +1,23 @@
+
+> narrate-licensing-server@0.1.0 start
+> node dist/index.js
+
+{"level":30,"time":1771817992100,"pid":26968,"hostname":"CHAM-DEMBA","database_target":"91.98.162.101:5433/narate-enterprise?schema=narate_enterprise","msg":"Database target resolved"}
+PrismaClientInitializationError: 
+Invalid `prisma.$executeRawUnsafe()` invocation:
+
+
+Can't reach database server at `91.98.162.101:5433`
+
+Please make sure your database server is running at `91.98.162.101:5433`.
+    at ei.handleRequestError (C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\server\node_modules\@prisma\client\runtime\library.js:121:7568)
+    at ei.handleAndLogRequestError (C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\server\node_modules\@prisma\client\runtime\library.js:121:6593)
+    at ei.request (C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\server\node_modules\@prisma\client\runtime\library.js:121:6300)
+    at async a (C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\server\node_modules\@prisma\client\runtime\library.js:130:9551)
+    at async PrismaStateStore.ensureTables (C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\server\dist\prismaStore.js:93:9)
+    at async PrismaStateStore.initialize (C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\server\dist\prismaStore.js:47:9)
+    at async bootstrap (C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\server\dist\index.js:135:5) {
+  clientVersion: '6.19.2',
+  errorCode: undefined,
+  retryable: undefined
+}

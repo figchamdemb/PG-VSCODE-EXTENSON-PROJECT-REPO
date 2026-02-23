@@ -1,0 +1,20 @@
+extension/node_modules/
+extension/dist/
+extension/.narrate/
+extension/src/**/.narrate/
+server/node_modules/
+server/dist/
+server/data/
+extension/.vsix
+*.vsix
+.DS_Store
+framwork-do-and-must-not-do/
+production-checklist/
+
+# Verification folder node_modules
+.verificaton-before-production-folder/**/node_modules/
+.verificaton-before-production-folder/**/dist/
+
+# Logs
+extension/logs/
+server/logs/

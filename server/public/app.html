@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PG Narrate Portal</title>
+  <meta name="description" content="PG Narrate secure customer and enterprise admin portal." />
+  <link rel="stylesheet" href="/assets/site.css" />
+  <link rel="stylesheet" href="/assets/app.css" />
+</head>
+<body>
+  <div class="bg-orb orb-a"></div>
+  <div class="bg-orb orb-b"></div>
+
+  <header class="topbar portal-topbar reveal">
+    <div class="brand">
+      <span class="brand-mark">PG</span>
+      <span class="brand-text">PG Narrate Portal</span>
+    </div>
+    <div class="portal-top-actions">
+      <a class="btn btn-ghost small-btn" href="/">Back to Website</a>
+      <button id="signOutBtn" class="btn btn-ghost small-btn hidden">Sign Out</button>
+    </div>
+  </header>
+
+  <main class="portal-main">
+    <section id="authShell" class="section reveal auth-shell">
+      <h2>Secure Sign In</h2>
+      <p class="lead-sm">Sign in to open your customer, team, or admin workspace.</p>
+      <div class="cards two">
+        <article class="card">
+          <h3>Email Login</h3>
+          <label>Email</label>
+          <input id="emailInput" type="email" placeholder="you@company.com" />
+          <button id="sendCodeBtn" class="btn btn-secondary">Send Email Code</button>
+          <label>Verification Code</label>
+          <input id="codeInput" type="text" placeholder="6-digit code" />
+          <button id="verifyCodeBtn" class="btn btn-primary">Verify Email Login</button>
+          <p id="authState" class="auth-state">Not signed in.</p>
+        </article>
+        <article class="card">
+          <h3>OAuth Login</h3>
+          <p class="small">Use your existing account for faster onboarding.</p>
+          <button id="githubSignInBtn" class="btn btn-ghost">Sign In with GitHub</button>
+          <button id="googleSignInBtn" class="btn btn-ghost">Sign In with Google</button>
+          <p class="small">GitHub and Google callback returns directly to this secure portal.</p>
+        </article>
+      </div>
+      <article class="card console-card">
+        <h3>Activity Console</h3>
+        <pre id="consoleOutput">Ready.</pre>
+      </article>
+    </section>
+
+    <section id="portalShell" class="section reveal hidden">
+      <div class="portal-shell">
+        <aside class="portal-sidebar">
+          <div class="portal-user-box">
+            <p id="profileEmail" class="profile-email">-</p>
+            <p id="profilePlan" class="profile-plan">Plan: -</p>
+          </div>
+          <button class="portal-nav-btn is-active" data-tab="overview">Overview</button>
+          <button class="portal-nav-btn" data-tab="billing">Billing</button>
+          <button class="portal-nav-btn" data-tab="support">Support</button>
+          <button id="teamNavBtn" class="portal-nav-btn hidden" data-tab="team">Team Admin</button>
+          <button id="adminNavBtn" class="portal-nav-btn hidden" data-tab="admin">Admin Board</button>
+        </aside>
+
+        <section class="portal-content">
+          <article class="card portal-panel" data-panel="overview">
+            <h3>Account Overview</h3>
+            <p class="small">See plan, renewal, quota, and entitlement state.</p>
+            <div class="inline-actions">
+              <button id="accountSummaryBtn" class="btn btn-secondary">Refresh Summary</button>
+              <button id="statusBtn" class="btn btn-ghost">Refresh License Status</button>
+            </div>
+            <pre id="accountOutput">No account data loaded.</pre>
+          </article>
+
+          <article class="card portal-panel hidden" data-panel="billing">
+            <h3>Billing & Payment</h3>
+            <div class="cards two compact-cards">
+              <div class="card inner-card">
+                <h4>Stripe Checkout</h4>
+                <label>Plan</label>
+                <select id="planSelect">
+                  <option value="pro">Pro</option>
+                  <option value="team">Team</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+                <label>Module</label>
+                <select id="moduleSelect">
+                  <option value="narrate">Narrate</option>
+                  <option value="memorybank">Memory-bank</option>
+                  <option value="bundle">Bundle</option>
+                </select>
+                <label>Affiliate Code (optional)</label>
+                <input id="affiliateInput" type="text" placeholder="AFF123" />
+                <button id="checkoutBtn" class="btn btn-primary">Open Stripe Checkout</button>
+              </div>
+              <div class="card inner-card">
+                <h4>Offline Payment</h4>
+                <label>Offline Amount (cents)</label>
+                <input id="offlineAmountInput" type="number" value="9900" />
+                <button id="createOfflineBtn" class="btn btn-secondary">Create Offline Reference</button>
+                <label>Reference Code</label>
+                <input id="offlineRefInput" type="text" placeholder="OFFXXXXXX" />
+                <label>Proof URL</label>
+                <input id="offlineProofInput" type="url" placeholder="https://proof.link/..." />
+                <button id="submitProofBtn" class="btn btn-ghost">Submit Payment Proof</button>
+              </div>
+            </div>
+            <div class="cards two compact-cards">
+              <div class="card inner-card">
+                <h4>Redeem Code</h4>
+                <label>Redeem Code</label>
+                <input id="redeemInput" type="text" placeholder="RDMXXXXXX" />
+                <button id="redeemBtn" class="btn btn-primary">Apply Redeem Code</button>
+              </div>
+              <div class="card inner-card">
+                <h4>Refund</h4>
+                <label>Refund Reason</label>
+                <textarea id="refundReasonInput" rows="3" placeholder="Why are you requesting a refund?"></textarea>
+                <button id="refundRequestBtn" class="btn btn-ghost">Request Refund</button>
+                <button id="billingHistoryBtn" class="btn btn-secondary">Load Billing History</button>
+              </div>
+            </div>
+            <pre id="billingOutput">No billing data loaded.</pre>
+          </article>
+
+          <article class="card portal-panel hidden" data-panel="support">
+            <h3>Support & Feedback</h3>
+            <div class="cards two compact-cards">
+              <div class="card inner-card">
+                <h4>Support Ticket</h4>
+                <label>Support Category</label>
+                <select id="supportCategorySelect">
+                  <option value="support">Support</option>
+                  <option value="billing">Billing</option>
+                  <option value="bug">Bug</option>
+                  <option value="feature">Feature</option>
+                </select>
+                <label>Severity</label>
+                <select id="supportSeveritySelect">
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                  <option value="high">High</option>
+                </select>
+                <label>Subject</label>
+                <input id="supportSubjectInput" type="text" placeholder="Need help with..." />
+                <label>Message</label>
+                <textarea id="supportMessageInput" rows="4" placeholder="Describe the issue"></textarea>
+                <button id="supportRequestBtn" class="btn btn-primary">Send Support Request</button>
+                <button id="supportHistoryBtn" class="btn btn-secondary">Load Ticket History</button>
+              </div>
+              <div class="card inner-card">
+                <h4>Product Feedback</h4>
+                <label>Rating</label>
+                <select id="feedbackRatingSelect">
+                  <option value="5">5 - Great</option>
+                  <option value="4">4 - Good</option>
+                  <option value="3">3 - OK</option>
+                  <option value="2">2 - Needs work</option>
+                  <option value="1">1 - Poor</option>
+                </select>
+                <label>Feedback Message</label>
+                <textarea id="feedbackMessageInput" rows="4" placeholder="Tell us what to improve"></textarea>
+                <button id="feedbackSubmitBtn" class="btn btn-ghost">Send Feedback</button>
+              </div>
+            </div>
+            <pre id="supportOutput">No support data loaded.</pre>
+          </article>
+
+          <article class="card portal-panel hidden" data-panel="team">
+            <h3>Team Admin</h3>
+            <p class="small">Owner/manager workspace for team and enterprise seats.</p>
+            <div class="cards two compact-cards">
+              <div class="card inner-card">
+                <h4>Create Team Account</h4>
+                <label>Team Key (optional)</label>
+                <input id="teamKeyCreateInput" type="text" placeholder="TEAM-ACME-01" />
+                <label>Plan</label>
+                <select id="teamPlanSelect">
+                  <option value="team">Team</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+                <label>Module Scope</label>
+                <select id="teamModuleSelect">
+                  <option value="bundle">Bundle</option>
+                  <option value="narrate">Narrate</option>
+                  <option value="memorybank">Memory-bank</option>
+                </select>
+                <label>Seat Limit</label>
+                <input id="teamSeatLimitInput" type="number" min="1" value="5" />
+                <label>Duration (years)</label>
+                <input id="teamYearsInput" type="number" min="1" value="1" />
+                <button id="teamCreateBtn" class="btn btn-primary">Create Team Account</button>
+              </div>
+              <div class="card inner-card">
+                <h4>Seat Management</h4>
+                <label>Team Key</label>
+                <input id="teamKeyManageInput" type="text" placeholder="TEAM-XXXXXX" />
+                <label>Member Email</label>
+                <input id="teamMemberEmailInput" type="email" placeholder="member@company.com" />
+                <label>Role</label>
+                <select id="teamMemberRoleSelect">
+                  <option value="member">Member</option>
+                  <option value="manager">Manager</option>
+                </select>
+                <label>Seat Duration (years)</label>
+                <input id="teamMemberYearsInput" type="number" min="1" value="1" />
+                <button id="teamAssignBtn" class="btn btn-secondary">Assign Team Seat</button>
+                <button id="teamRevokeBtn" class="btn btn-ghost">Revoke Team Seat</button>
+                <button id="teamStatusBtn" class="btn btn-ghost">Load Team Status</button>
+              </div>
+            </div>
+            <div class="card inner-card">
+              <h4>Provider Policy</h4>
+              <label>Local-only Provider</label>
+              <select id="policyLocalOnlySelect">
+                <option value="false">No</option>
+                <option value="true">Yes</option>
+              </select>
+              <label>Allow BYO Provider</label>
+              <select id="policyByoAllowedSelect">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+              <label>Allowlist (comma-separated)</label>
+              <input id="policyAllowlistInput" type="text" placeholder="api.openai.com, local-llm.internal" />
+              <label>Denylist (comma-separated)</label>
+              <input id="policyDenylistInput" type="text" placeholder="blocked.example.com" />
+              <button id="teamPolicyBtn" class="btn btn-ghost">Apply Team Provider Policy</button>
+            </div>
+            <div class="cards two compact-cards">
+              <div class="card inner-card">
+                <h4>Governance Settings</h4>
+                <label>Slack Integration Enabled</label>
+                <select id="govSlackEnabledSelect">
+                  <option value="false">No</option>
+                  <option value="true">Yes</option>
+                </select>
+                <label>Slack Channel (optional)</label>
+                <input id="govSlackChannelInput" type="text" placeholder="#pg-governance" />
+                <label>Vote Mode</label>
+                <select id="govVoteModeSelect">
+                  <option value="majority">Majority Vote</option>
+                  <option value="single_reviewer">Single Reviewer</option>
+                </select>
+                <label>Retention Days</label>
+                <input id="govRetentionDaysInput" type="number" min="1" max="90" value="7" />
+                <label>Max Debate Characters</label>
+                <input id="govMaxCharsInput" type="number" min="500" max="16000" value="4000" />
+                <button id="govSettingsLoadBtn" class="btn btn-secondary">Load Governance Settings</button>
+                <button id="govSettingsSaveBtn" class="btn btn-ghost">Save Governance Settings</button>
+                <label>Slack Test Message</label>
+                <input id="govSlackTestMessageInput" type="text" placeholder="PG slack bridge test" />
+                <button id="govSlackTestBtn" class="btn btn-ghost">Send Slack Test Message</button>
+              </div>
+              <div class="card inner-card">
+                <h4>End Of Day (PG EOD)</h4>
+                <label>Title</label>
+                <input id="govEodTitleInput" type="text" placeholder="Day summary" />
+                <label>Summary</label>
+                <textarea id="govEodSummaryInput" rows="4" placeholder="What changed, why, and blockers"></textarea>
+                <label>Changed Files (comma-separated)</label>
+                <input id="govEodChangedInput" type="text" placeholder="src/a.ts,src/b.ts" />
+                <label>Blockers (comma-separated)</label>
+                <input id="govEodBlockersInput" type="text" placeholder="waiting api key,review pending" />
+                <label>Source</label>
+                <select id="govEodSourceSelect">
+                  <option value="human">Human</option>
+                  <option value="agent">Agent</option>
+                </select>
+                <label>Agent Name (if source=agent)</label>
+                <input id="govEodAgentInput" type="text" placeholder="codex / claude / copilot" />
+                <button id="govEodCreateBtn" class="btn btn-primary">Submit EOD Report</button>
+                <button id="govEodListBtn" class="btn btn-ghost">Load EOD Reports</button>
+              </div>
+            </div>
+            <div class="cards two compact-cards">
+              <div class="card inner-card">
+                <h4>Mastermind Debate + Vote</h4>
+                <label>Thread Title</label>
+                <input id="govThreadTitleInput" type="text" placeholder="Should we use RBAC role scopes?" />
+                <label>Question</label>
+                <textarea id="govThreadQuestionInput" rows="4" placeholder="Debate statement and context"></textarea>
+                <label>Options (one per line: key|title|optional rationale)</label>
+                <textarea id="govThreadOptionsInput" rows="4" placeholder="rbac|Use RBAC scopes|least privilege&#10;jwt|Use JWT-only claims|faster rollout"></textarea>
+                <button id="govThreadCreateBtn" class="btn btn-secondary">Create Mastermind Thread</button>
+                <button id="govThreadListBtn" class="btn btn-ghost">Load Mastermind Threads</button>
+              </div>
+              <div class="card inner-card">
+                <h4>Thread Actions</h4>
+                <label>Thread ID</label>
+                <input id="govThreadIdInput" type="text" placeholder="thread-id" />
+                <label>Comment / Suggestion</label>
+                <textarea id="govEntryMessageInput" rows="3" placeholder="Add argument or suggestion"></textarea>
+                <button id="govThreadEntryBtn" class="btn btn-ghost">Add Entry</button>
+                <label>Vote Option Key</label>
+                <input id="govVoteOptionInput" type="text" placeholder="rbac" />
+                <label>Vote Rationale (optional)</label>
+                <input id="govVoteRationaleInput" type="text" placeholder="Best long-term maintainability" />
+                <button id="govThreadVoteBtn" class="btn btn-ghost">Cast Vote</button>
+                <label>Decision</label>
+                <select id="govDecisionSelect">
+                  <option value="approve">Approve</option>
+                  <option value="needs_change">Needs Change</option>
+                  <option value="reject">Reject</option>
+                </select>
+                <label>Decision Option Key (optional)</label>
+                <input id="govDecisionOptionInput" type="text" placeholder="rbac" />
+                <label>Decision Note (optional)</label>
+                <textarea id="govDecisionNoteInput" rows="2" placeholder="Final rationale"></textarea>
+                <button id="govThreadDecideBtn" class="btn btn-primary">Finalize Decision</button>
+                <button id="govThreadLoadBtn" class="btn btn-ghost">Load Thread Detail</button>
+                <button id="govSyncPullBtn" class="btn btn-ghost">Pull Sync Decisions</button>
+              </div>
+            </div>
+            <pre id="teamOutput">No team data loaded.</pre>
+          </article>
+
+          <article class="card portal-panel hidden" data-panel="admin">
+            <h3>Super Admin Board</h3>
+            <p class="small">Monitor users, paid status, support queue, and control subscriptions.</p>
+            <div class="inline-actions">
+              <button id="adminSummaryBtn" class="btn btn-secondary">Load Summary</button>
+              <button id="adminUsersBtn" class="btn btn-ghost">Load Users</button>
+              <button id="adminSubscriptionsBtn" class="btn btn-ghost">Load Subscriptions</button>
+              <button id="adminPaymentsBtn" class="btn btn-ghost">Load Payments</button>
+              <button id="adminSupportBtn" class="btn btn-ghost">Load Support Queue</button>
+              <button id="adminGovernanceBtn" class="btn btn-ghost">Load Governance</button>
+            </div>
+            <div class="cards two compact-cards">
+              <div class="card inner-card">
+                <h4>Support Ticket Update</h4>
+                <label>Ticket ID</label>
+                <input id="adminTicketIdInput" type="text" placeholder="ticket-id" />
+                <label>Status</label>
+                <select id="adminTicketStatusSelect">
+                  <option value="open">Open</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="closed">Closed</option>
+                </select>
+                <label>Resolution Note</label>
+                <textarea id="adminTicketNoteInput" rows="3" placeholder="Resolution details"></textarea>
+                <button id="adminTicketUpdateBtn" class="btn btn-primary">Update Ticket Status</button>
+              </div>
+              <div class="card inner-card">
+                <h4>Subscription / Session Controls</h4>
+                <label>Subscription ID</label>
+                <input id="adminSubscriptionIdInput" type="text" placeholder="subscription-id" />
+                <button id="adminRevokeSubscriptionBtn" class="btn btn-ghost">Revoke Subscription</button>
+                <label>User ID</label>
+                <input id="adminUserIdInput" type="text" placeholder="user-id" />
+                <button id="adminRevokeSessionsBtn" class="btn btn-ghost">Revoke User Sessions</button>
+              </div>
+            </div>
+            <div class="card inner-card">
+              <h4>Governance Slack Add-on Controls</h4>
+              <label>Addon Active</label>
+              <select id="adminGovernanceAddonActiveSelect">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+              <label>Team Key</label>
+              <input id="adminGovernanceTeamKeyInput" type="text" placeholder="TEAM-XXXXXX" />
+              <button id="adminGovernanceTeamAddonBtn" class="btn btn-ghost">Set Team Slack Add-on</button>
+              <label>User Email</label>
+              <input id="adminGovernanceEmailInput" type="email" placeholder="user@company.com" />
+              <button id="adminGovernanceUserAddonBtn" class="btn btn-ghost">Set User Slack Add-on</button>
+            </div>
+            <pre id="adminOutput">No admin data loaded.</pre>
+          </article>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script src="/assets/site.js"></script>
+</body>
+</html>

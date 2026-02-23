@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OAuth Complete | PG Narrate</title>
+  <link rel="stylesheet" href="/assets/site.css" />
+</head>
+<body>
+  <main style="width:min(860px,calc(100% - 2rem));margin:2rem auto;">
+    <section class="section reveal">
+      <h1 style="font-size:2rem;">Finishing Sign-In</h1>
+      <p class="lead-sm" id="statusText">Processing GitHub callback...</p>
+      <div class="card">
+        <p>If this page does not redirect, use the link below.</p>
+        <p class="small"><a href="/">Go to landing page</a></p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get("access_token");
+      const status = params.get("status");
+      const message = params.get("message");
+      if (token) {
+        localStorage.setItem("pg_access_token", token);
+      }
+      const statusEl = document.getElementById("statusText");
+      if (statusEl) {
+        if (status === "ok") {
+          statusEl.textContent = "Sign-in complete. Redirecting...";
+        } else {
+          statusEl.textContent = message
+            ? `Sign-in failed: ${message}`
+            : "Sign-in did not complete. You can retry.";
+        }
+      }
+      setTimeout(function () {
+        window.location.href = "/";
+      }, status === "ok" ? 850 : 1800);
+    })();
+  </script>
+</body>
+</html>

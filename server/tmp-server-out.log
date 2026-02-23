@@ -1,0 +1,10 @@
+{"level":30,"time":1771821024915,"pid":63884,"hostname":"CHAM-DEMBA","database_target":"91.98.162.101:5433/narate-enterprise?schema=narate_enterprise","msg":"Database target resolved"}
+{"level":30,"time":1771821028432,"pid":63884,"hostname":"CHAM-DEMBA","store_backend":"prisma","msg":"Store initialized"}
+{"level":30,"time":1771821029332,"pid":63884,"hostname":"CHAM-DEMBA","msg":"Server listening at http://0.0.0.0:8787"}
+{"level":30,"time":1771821029332,"pid":63884,"hostname":"CHAM-DEMBA","msg":"Narrate licensing server started on http://0.0.0.0:8787"}
+{"level":30,"time":1771821076506,"pid":63884,"hostname":"CHAM-DEMBA","reqId":"req-1","req":{"method":"GET","url":"/health","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":61503},"msg":"incoming request"}
+{"level":30,"time":1771821076515,"pid":63884,"hostname":"CHAM-DEMBA","reqId":"req-1","res":{"statusCode":200},"responseTime":7.398000001907349,"msg":"request completed"}
+{"level":30,"time":1771821076518,"pid":63884,"hostname":"CHAM-DEMBA","reqId":"req-2","req":{"method":"GET","url":"/health","hostname":"pg-ext.addresly.com","remoteAddress":"152.37.119.152","remotePort":61504},"msg":"incoming request"}
+{"level":30,"time":1771821076519,"pid":63884,"hostname":"CHAM-DEMBA","reqId":"req-2","res":{"statusCode":200},"responseTime":0.6160999983549118,"msg":"request completed"}
+{"level":30,"time":1771822295247,"pid":63884,"hostname":"CHAM-DEMBA","reqId":"req-3","req":{"method":"GET","url":"/integrations/slack/health","hostname":"pg-ext.addresly.com","remoteAddress":"152.37.119.152","remotePort":49518},"msg":"incoming request"}
+{"level":30,"time":1771822295249,"pid":63884,"hostname":"CHAM-DEMBA","reqId":"req-3","res":{"statusCode":200},"responseTime":0.9618000090122223,"msg":"request completed"}

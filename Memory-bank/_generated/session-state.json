@@ -1,11 +1,11 @@
 {
-  "started_at_utc": "2026-02-19T21:43:40Z",
-  "expires_at_utc": "2026-02-20T09:43:40Z",
+  "started_at_utc": "2026-02-23T04:10:12Z",
+  "expires_at_utc": "2026-02-23T16:10:12Z",
   "profile": "frontend",
   "author": "agent",
   "max_commits": 5,
   "max_hours": 12,
-  "anchor_commit": "",
+  "anchor_commit": "2132356d7d94ba088a3584ca7f3063a4acbc0085",
   "required_start_docs": [
     "Memory-bank/daily/LATEST.md",
     "Memory-bank/project-spec.md",

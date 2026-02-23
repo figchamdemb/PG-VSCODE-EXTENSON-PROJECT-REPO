@@ -1,0 +1,37 @@
+{
+  "name": "@prodguard/mcp-server-enterprise",
+  "version": "0.1.0",
+  "description": "Production readiness MCP server — Enterprise edition with encrypted offline rules and local scoring",
+  "main": "dist/index.js",
+  "bin": {
+    "prodcheck-enterprise": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.ts",
+    "inspect": "npx @modelcontextprotocol/inspector tsx src/index.ts",
+    "package": "npx pkg dist/index.js --target node18-linux-x64,node18-macos-x64,node18-win-x64 --output prodcheck-enterprise"
+  },
+  "keywords": ["mcp", "production", "checker", "enterprise", "security"],
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "glob": "^10.3.0",
+    "ts-morph": "^23.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "pkg": "^5.8.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "pkg": {
+    "scripts": "dist/**/*.js",
+    "assets": "dist/**/*"
+  }
+}

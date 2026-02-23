@@ -1052,12 +1052,41 @@ Output:
 
 * Replace JSON cache with SQLite provider (keep interface stable)
 
-## Milestone 9 — Remote command add-on (Phase 2, separate from MVP)
+## Milestone 9 — PG EOD reporting (governance baseline)
+
+* Add EOD domain entities (report header, contributors, touched files, time window, blockers)
+* Add EOD API endpoints for create/read/list with strict RBAC and audit log
+* Add EOD tab in `/app` with reviewer-friendly daily summaries
+* Add command aliases in spec (`PG EOD`, `PG EndOfDay`) for team memory and discoverability
+
+## Milestone 10 — PG Mastermind debate + decision workflow
+
+* Add mastermind thread entities (topic, options, arguments, votes, final ruling)
+* Add role-based decision actions (`approve`, `reject`, `needs-change`)
+* Add reviewer comments and immutable decision history
+* Add `/app` Mastermind tab with supervisor workflow and clear state transitions
+
+## Milestone 11 — Slack secure gateway (first integration channel)
+
+* Outbound notifications: EOD submitted, mastermind opened, decision finalized
+* Inbound signed actions: reviewer vote/decision via verified Slack signatures
+* Replay protection, rate limiting, and full audit trail for all Slack-origin actions
+* Keep payloads decision/metadata-focused; do not push full source-code memory context to cloud
+
+## Milestone 12 — Local decision sync bridge (cloud-to-local)
+
+* Add server-side decision queue per user/team with monotonically increasing event cursor
+* Extension/agent polls queue and acknowledges applied events
+* Apply approved decisions to local Memory-bank/task context (local source of truth remains local)
+* Add conflict/status states (`pending`, `applied`, `conflict`, `skipped`) for operational safety
+
+## Milestone 13 — Optional add-ons (post-MVP)
 
 * Telegram/WhatsApp bot command intake
 * Secure cloud job queue + signed short-lived jobs
 * Local daemon on developer machine to execute approved commands
 * Mobile summary notifications (changed files + result)
+* Optional private reviewer mobile app (React Native) only after Slack workflow is stable
 * Explicitly out-of-scope for MVP launch of Narrate core
 
 ---

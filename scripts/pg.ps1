@@ -1,6 +1,6 @@
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("install", "start", "end", "status", "help")]
+    [ValidateSet("install", "start", "end", "status", "governance-login", "governance-worker", "help")]
     [string]$Command = "help",
 
     [ValidateRange(1, 1000)]
@@ -26,6 +26,9 @@ function Show-Help {
     Write-Host "  .\pg.ps1 start -Yes"
     Write-Host "  .\pg.ps1 end -Note ""finished for today"""
     Write-Host "  .\pg.ps1 status"
+    Write-Host "  .\pg.ps1 governance-login -Email user@company.com"
+    Write-Host "  .\pg.ps1 governance-worker -Once"
+    Write-Host "  .\pg.ps1 governance-worker -PollSeconds 15 -ApproveCommand "".\scripts\apply_approved_work.ps1"""
     Write-Host ""
     Write-Host "Note: install delegates to global CLI if available (~\.pg-cli\pg.ps1)."
 }
@@ -66,6 +69,14 @@ switch ($Command) {
     }
     "status" {
         & python (Join-Path $scriptDir "session_status.py")
+        exit $LASTEXITCODE
+    }
+    "governance-login" {
+        & (Join-Path $scriptDir "governance_login.ps1") @Rest
+        exit $LASTEXITCODE
+    }
+    "governance-worker" {
+        & (Join-Path $scriptDir "governance_worker.ps1") @Rest
         exit $LASTEXITCODE
     }
     default {

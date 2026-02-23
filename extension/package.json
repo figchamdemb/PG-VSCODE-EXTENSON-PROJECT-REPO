@@ -1,0 +1,245 @@
+{
+  "name": "narrate-vscode-extension",
+  "displayName": "Narrate",
+  "description": "Local-first code narration with prompt handoff and incremental cache.",
+  "version": "0.1.0",
+  "publisher": "figchamdemb",
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.92.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onCommand:narrate.toggleReadingModeDev",
+    "onCommand:narrate.toggleReadingModeEdu",
+    "onCommand:narrate.switchNarrationMode",
+    "onCommand:narrate.requestChangePrompt",
+    "onCommand:narrate.exportNarrationFile",
+    "onCommand:narrate.exportNarrationWorkspace",
+    "onCommand:narrate.generateChangeReport",
+    "onCommand:narrate.pgPush",
+    "onCommand:narrate.pgGit",
+    "onCommand:narrate.authSignIn",
+    "onCommand:narrate.authSignInGitHub",
+    "onCommand:narrate.redeemCode",
+    "onCommand:narrate.startTrial",
+    "onCommand:narrate.refreshLicense",
+    "onCommand:narrate.licenseStatus",
+    "onCommand:narrate.upgradePlan",
+    "onCommand:narrate.activateProjectQuota",
+    "onCommand:narrate.showProjectQuota",
+    "onCommand:narrate.manageDevices",
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "narrate.toggleReadingModeDev",
+        "title": "Narrate: Toggle Reading Mode (Dev)"
+      },
+      {
+        "command": "narrate.toggleReadingModeEdu",
+        "title": "Narrate: Toggle Reading Mode (Edu)"
+      },
+      {
+        "command": "narrate.switchNarrationMode",
+        "title": "Narrate: Switch Narration Mode"
+      },
+      {
+        "command": "narrate.requestChangePrompt",
+        "title": "Narrate: Request Change Prompt"
+      },
+      {
+        "command": "narrate.exportNarrationFile",
+        "title": "Narrate: Export Narration (Current File)"
+      },
+      {
+        "command": "narrate.exportNarrationWorkspace",
+        "title": "Narrate: Export Narration (Workspace)"
+      },
+      {
+        "command": "narrate.generateChangeReport",
+        "title": "Narrate: Generate Change Report (Git Diff...)"
+      },
+      {
+        "command": "narrate.pgPush",
+        "title": "Narrate: PG Push (Git Add/Commit/Push)"
+      },
+      {
+        "command": "narrate.pgGit",
+        "title": "Narrate: PG Git Push"
+      },
+      {
+        "command": "narrate.authSignIn",
+        "title": "Narrate: Sign In (Email)"
+      },
+      {
+        "command": "narrate.authSignInGitHub",
+        "title": "Narrate: Sign In (GitHub)"
+      },
+      {
+        "command": "narrate.redeemCode",
+        "title": "Narrate: Redeem Code"
+      },
+      {
+        "command": "narrate.startTrial",
+        "title": "Narrate: Start Trial (48h)"
+      },
+      {
+        "command": "narrate.refreshLicense",
+        "title": "Narrate: Refresh License"
+      },
+      {
+        "command": "narrate.licenseStatus",
+        "title": "Narrate: License Status"
+      },
+      {
+        "command": "narrate.upgradePlan",
+        "title": "Narrate: Upgrade Plan (Checkout)"
+      },
+      {
+        "command": "narrate.activateProjectQuota",
+        "title": "Narrate: Activate Current Project Quota"
+      },
+      {
+        "command": "narrate.showProjectQuota",
+        "title": "Narrate: Show Project Quota"
+      },
+      {
+        "command": "narrate.manageDevices",
+        "title": "Narrate: Manage Devices"
+      }
+    ],
+    "configuration": {
+      "title": "Narrate",
+      "properties": {
+        "narrate.defaultMode": {
+          "type": "string",
+          "enum": [
+            "dev",
+            "edu"
+          ],
+          "default": "dev",
+          "description": "Default narration mode when opening the reading view."
+        },
+        "narrate.model.baseUrl": {
+          "type": "string",
+          "default": "https://api.openai.com/v1",
+          "description": "OpenAI-compatible base URL."
+        },
+        "narrate.model.modelId": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "description": "Model identifier for narration generation."
+        },
+        "narrate.model.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for the OpenAI-compatible provider. Leave empty to use local fallback narration."
+        },
+        "narrate.model.timeoutMs": {
+          "type": "number",
+          "default": 25000,
+          "minimum": 3000,
+          "maximum": 120000,
+          "description": "Timeout for provider HTTP requests."
+        },
+        "narrate.cache.maxEntries": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 1000,
+          "maximum": 200000,
+          "description": "Maximum narration cache entries stored locally."
+        },
+        "narrate.licensing.placeholderPlan": {
+          "type": "string",
+          "enum": [
+            "free",
+            "trial",
+            "pro",
+            "team",
+            "enterprise"
+          ],
+          "default": "free",
+          "description": "Local development plan selector used only when licensing mode is placeholder."
+        },
+        "narrate.licensing.mode": {
+          "type": "string",
+          "enum": [
+            "placeholder",
+            "backend"
+          ],
+          "default": "placeholder",
+          "description": "Licensing source: local placeholder config or backend entitlement service."
+        },
+        "narrate.licensing.apiBaseUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8787",
+          "description": "Backend licensing API base URL used when mode is backend."
+        },
+        "narrate.licensing.publicKeyPem": {
+          "type": "string",
+          "default": "",
+          "description": "Optional pinned PEM public key used for entitlement token verification. If empty, key is fetched from backend."
+        },
+        "narrate.licensing.autoRefreshOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "When backend mode is enabled, automatically attempts license refresh on startup."
+        },
+        "narrate.export.outputDir": {
+          "type": "string",
+          "default": ".narrate/exports",
+          "description": "Directory used for narration export artifacts. Relative paths resolve from workspace root."
+        },
+        "narrate.export.includeGlob": {
+          "type": "string",
+          "default": "**/*.{ts,tsx,js,jsx,java,kt,kts,py,go,rs,cs,cpp,c,h,hpp,json,yml,yaml,sql,xml,html,css,scss,swift,dart,md}",
+          "description": "Glob used for workspace export candidate files."
+        },
+        "narrate.export.excludeGlob": {
+          "type": "string",
+          "default": "**/{node_modules,dist,build,.git,.next,coverage,.venv,venv,.gradle,target,out}/**",
+          "description": "Exclude glob used by workspace exports."
+        },
+        "narrate.export.maxFiles": {
+          "type": "number",
+          "default": 120,
+          "minimum": 1,
+          "maximum": 2000,
+          "description": "Maximum number of files processed by workspace export."
+        },
+        "narrate.export.maxCharsPerFile": {
+          "type": "number",
+          "default": 40000,
+          "minimum": 200,
+          "maximum": 500000,
+          "description": "Skip files above this character length during workspace export to control runtime."
+        },
+        "narrate.report.outputSubdir": {
+          "type": "string",
+          "default": "reports",
+          "description": "Subfolder under export output where change report markdown files are written."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2"
+  },
+  "scripts": {
+    "clean": "rimraf dist",
+    "compile": "npm run clean && tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/node": "^20.16.5",
+    "@types/vscode": "^1.92.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,490 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlanTier {
+  free
+  trial
+  pro
+  team
+  enterprise
+}
+
+enum PaidPlanTier {
+  pro
+  team
+  enterprise
+}
+
+enum ModuleScope {
+  narrate
+  memorybank
+  bundle
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  revoked
+  refunded
+}
+
+enum SubscriptionSource {
+  stripe
+  offline
+  manual
+}
+
+enum RefundStatus {
+  requested
+  approved
+  rejected
+}
+
+enum OfflinePaymentStatus {
+  pending
+  submitted
+  approved
+  rejected
+}
+
+enum RedeemStatus {
+  unused
+  used
+  revoked
+}
+
+enum RedeemSource {
+  offline
+  admin
+}
+
+enum AffiliateCodeStatus {
+  active
+  paused
+}
+
+enum AffiliateConversionStatus {
+  clicked
+  registered
+  paid_confirmed
+  refunded
+}
+
+enum AffiliatePayoutStatus {
+  pending
+  approved
+  paid
+  rejected
+}
+
+enum ProviderScopeType {
+  user
+  team
+}
+
+enum OAuthProvider {
+  github
+  google
+}
+
+enum TeamPlan {
+  team
+  enterprise
+}
+
+enum TeamRole {
+  owner
+  manager
+  member
+}
+
+enum MembershipStatus {
+  active
+  revoked
+}
+
+enum AdminAccountStatus {
+  active
+  suspended
+  disabled
+}
+
+enum AdminScopeType {
+  department
+  shop
+}
+
+enum JwtAlg {
+  ES256
+}
+
+model User {
+  id            String   @id @db.Uuid
+  email         String   @unique
+  createdAt     DateTime @map("created_at") @db.Timestamptz(3)
+  lastLoginAt   DateTime @map("last_login_at") @db.Timestamptz(3)
+
+  @@map("users")
+}
+
+model AuthChallenge {
+  id         String   @id @db.Uuid
+  email      String
+  code       String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt  DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@map("auth_challenges")
+}
+
+model Session {
+  token      String   @id
+  userId     String   @map("user_id") @db.Uuid
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt  DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Subscription {
+  id                 String             @id @db.Uuid
+  userId             String             @map("user_id") @db.Uuid
+  planId             PaidPlanTier       @map("plan_id")
+  teamId             String?            @map("team_id") @db.Uuid
+  status             SubscriptionStatus
+  startsAt           DateTime           @map("starts_at") @db.Timestamptz(3)
+  endsAt             DateTime           @map("ends_at") @db.Timestamptz(3)
+  revokedAt          DateTime?          @map("revoked_at") @db.Timestamptz(3)
+  refundWindowEndsAt DateTime           @map("refund_window_ends_at") @db.Timestamptz(3)
+  source             SubscriptionSource
+  createdAt          DateTime           @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId, status])
+  @@map("subscriptions")
+}
+
+model ProductEntitlement {
+  id               String             @id @db.Uuid
+  userId           String             @map("user_id") @db.Uuid
+  narrateEnabled   Boolean            @map("narrate_enabled")
+  memorybankEnabled Boolean           @map("memorybank_enabled")
+  bundleEnabled    Boolean            @map("bundle_enabled")
+  startsAt         DateTime           @map("starts_at") @db.Timestamptz(3)
+  endsAt           DateTime           @map("ends_at") @db.Timestamptz(3)
+  status           SubscriptionStatus
+  createdAt        DateTime           @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId, status])
+  @@map("product_entitlements")
+}
+
+model ProjectQuota {
+  id              String    @id @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  scope           String
+  periodStart     DateTime  @map("period_start") @db.Timestamptz(3)
+  periodEnd       DateTime  @map("period_end") @db.Timestamptz(3)
+  projectsAllowed Int       @map("projects_allowed")
+  projectsUsed    Int       @map("projects_used")
+  updatedAt       DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  @@index([userId, scope])
+  @@map("project_quotas")
+}
+
+model ProjectActivation {
+  id               String   @id @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  scope            String
+  repoFingerprint  String   @map("repo_fingerprint")
+  repoLabel        String?  @map("repo_label")
+  firstActivatedAt DateTime @map("first_activated_at") @db.Timestamptz(3)
+  lastSeenAt       DateTime @map("last_seen_at") @db.Timestamptz(3)
+
+  @@unique([userId, scope, repoFingerprint])
+  @@map("project_activations")
+}
+
+model Device {
+  id          String    @id @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  installId   String    @map("install_id")
+  deviceLabel String?   @map("device_label")
+  lastSeenAt  DateTime  @map("last_seen_at") @db.Timestamptz(3)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  @@unique([userId, installId])
+  @@map("devices")
+}
+
+model Trial {
+  userId         String   @id @map("user_id") @db.Uuid
+  trialStartedAt DateTime @map("trial_started_at") @db.Timestamptz(3)
+  trialExpiresAt DateTime @map("trial_expires_at") @db.Timestamptz(3)
+
+  @@map("trials")
+}
+
+model RefundRequest {
+  id             String       @id @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  subscriptionId String       @map("subscription_id") @db.Uuid
+  requestedAt    DateTime     @map("requested_at") @db.Timestamptz(3)
+  status         RefundStatus
+  approvedAt     DateTime?    @map("approved_at") @db.Timestamptz(3)
+  reason         String?
+
+  @@index([userId])
+  @@map("refund_requests")
+}
+
+model OfflinePaymentRef {
+  id             String               @id @db.Uuid
+  email          String
+  refCode        String               @map("ref_code") @unique
+  amountCents    Int                  @map("amount_cents")
+  planId         PaidPlanTier         @map("plan_id")
+  moduleScope    ModuleScope          @map("module_scope")
+  years          Int
+  proofUrl       String?              @map("proof_url")
+  status         OfflinePaymentStatus
+  expiresAt      DateTime             @map("expires_at") @db.Timestamptz(3)
+  createdAt      DateTime             @map("created_at") @db.Timestamptz(3)
+  submittedAt    DateTime?            @map("submitted_at") @db.Timestamptz(3)
+  approvedAt     DateTime?            @map("approved_at") @db.Timestamptz(3)
+  rejectedAt     DateTime?            @map("rejected_at") @db.Timestamptz(3)
+  rejectionReason String?             @map("rejection_reason")
+  redeemCode     String?              @map("redeem_code")
+
+  @@map("offline_payment_refs")
+}
+
+model RedeemCode {
+  id           String       @id @db.Uuid
+  code         String       @unique
+  email        String
+  planId       PaidPlanTier @map("plan_id")
+  moduleScope  ModuleScope  @map("module_scope")
+  years        Int
+  status       RedeemStatus
+  source       RedeemSource
+  createdAt    DateTime     @map("created_at") @db.Timestamptz(3)
+  usedAt       DateTime?    @map("used_at") @db.Timestamptz(3)
+  usedByUserId String?      @map("used_by_user_id") @db.Uuid
+  revokedAt    DateTime?    @map("revoked_at") @db.Timestamptz(3)
+
+  @@map("redeem_codes")
+}
+
+model StripeEvent {
+  id        String   @id @db.Uuid
+  eventId   String   @map("event_id") @unique
+  eventType String   @map("event_type")
+  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@map("stripe_events")
+}
+
+model AffiliateCode {
+  id                String              @id @db.Uuid
+  userId            String              @map("user_id") @db.Uuid
+  code              String              @unique
+  commissionRateBps Int                 @map("commission_rate_bps")
+  status            AffiliateCodeStatus
+  createdAt         DateTime            @map("created_at") @db.Timestamptz(3)
+
+  @@map("affiliate_codes")
+}
+
+model AffiliateConversion {
+  id                  String                    @id @db.Uuid
+  affiliateUserId     String                    @map("affiliate_user_id") @db.Uuid
+  buyerUserId         String?                   @map("buyer_user_id") @db.Uuid
+  refCode             String                    @map("ref_code")
+  status              AffiliateConversionStatus
+  orderId             String?                   @map("order_id")
+  grossAmountCents    Int                       @map("gross_amount_cents")
+  commissionAmountCents Int                     @map("commission_amount_cents")
+  confirmedAt         DateTime?                 @map("confirmed_at") @db.Timestamptz(3)
+  createdAt           DateTime                  @map("created_at") @db.Timestamptz(3)
+  payoutId            String?                   @map("payout_id") @db.Uuid
+
+  @@index([affiliateUserId, status])
+  @@map("affiliate_conversions")
+}
+
+model AffiliatePayout {
+  id              String               @id @db.Uuid
+  affiliateUserId String               @map("affiliate_user_id") @db.Uuid
+  periodStart     DateTime             @map("period_start") @db.Timestamptz(3)
+  periodEnd       DateTime             @map("period_end") @db.Timestamptz(3)
+  amountCents     Int                  @map("amount_cents")
+  status          AffiliatePayoutStatus
+  payoutReference String?              @map("payout_reference")
+  paidAt          DateTime?            @map("paid_at") @db.Timestamptz(3)
+  createdAt       DateTime             @map("created_at") @db.Timestamptz(3)
+
+  @@index([affiliateUserId, status])
+  @@map("affiliate_payouts")
+}
+
+model ProviderPolicy {
+  id         String            @id @db.Uuid
+  scopeType  ProviderScopeType @map("scope_type")
+  scopeId    String            @map("scope_id")
+  localOnly  Boolean           @map("local_only")
+  byoAllowed Boolean           @map("byo_allowed")
+  allowlist  String[]
+  denylist   String[]
+  createdAt  DateTime          @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime          @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([scopeType, scopeId])
+  @@map("provider_policies")
+}
+
+model OAuthState {
+  id         String        @id @db.Uuid
+  state      String        @unique
+  provider   OAuthProvider
+  installId  String?       @map("install_id")
+  callbackUrl String?      @map("callback_url")
+  createdAt  DateTime      @map("created_at") @db.Timestamptz(3)
+  expiresAt  DateTime      @map("expires_at") @db.Timestamptz(3)
+  consumedAt DateTime?     @map("consumed_at") @db.Timestamptz(3)
+
+  @@map("oauth_states")
+}
+
+model Team {
+  id         String      @id @db.Uuid
+  teamKey    String      @map("team_key") @unique
+  ownerUserId String     @map("owner_user_id") @db.Uuid
+  planId     TeamPlan    @map("plan_id")
+  moduleScope ModuleScope @map("module_scope")
+  seatLimit  Int         @map("seat_limit")
+  createdAt  DateTime    @map("created_at") @db.Timestamptz(3)
+
+  @@map("teams")
+}
+
+model TeamMembership {
+  id          String           @id @db.Uuid
+  teamId      String           @map("team_id") @db.Uuid
+  userId      String           @map("user_id") @db.Uuid
+  role        TeamRole
+  status      MembershipStatus
+  invitedEmail String?         @map("invited_email")
+  createdAt   DateTime         @map("created_at") @db.Timestamptz(3)
+  revokedAt   DateTime?        @map("revoked_at") @db.Timestamptz(3)
+
+  @@unique([teamId, userId])
+  @@map("team_memberships")
+}
+
+model AdminAccount {
+  id            String             @id @db.Uuid
+  email         String             @unique
+  fullName      String             @map("full_name")
+  status        AdminAccountStatus
+  isSuperAdmin  Boolean            @map("is_super_admin")
+  createdAt     DateTime           @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime           @map("updated_at") @db.Timestamptz(3)
+  lastLoginAt   DateTime?          @map("last_login_at") @db.Timestamptz(3)
+
+  @@map("admin_accounts")
+}
+
+model AdminRole {
+  id           String   @id @db.Uuid
+  roleKey      String   @map("role_key") @unique
+  displayName  String   @map("display_name")
+  description  String?
+  isSystemRole Boolean  @map("is_system_role")
+  createdAt    DateTime @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @map("updated_at") @db.Timestamptz(3)
+
+  @@map("admin_roles")
+}
+
+model AdminPermission {
+  id             String   @id @db.Uuid
+  permissionKey  String   @map("permission_key") @unique
+  description    String?
+  createdAt      DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@map("admin_permissions")
+}
+
+model AdminRolePermission {
+  id            String   @id @db.Uuid
+  roleId        String   @map("role_id") @db.Uuid
+  permissionId  String   @map("permission_id") @db.Uuid
+  createdAt     DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("admin_role_permissions")
+}
+
+model AdminScope {
+  id         String         @id @db.Uuid
+  scopeType  AdminScopeType @map("scope_type")
+  scopeKey   String         @map("scope_key")
+  name       String
+  isActive   Boolean        @map("is_active")
+  createdAt  DateTime       @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime       @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([scopeType, scopeKey])
+  @@map("admin_scopes")
+}
+
+model AdminAccountRole {
+  id                 String    @id @db.Uuid
+  adminAccountId     String    @map("admin_account_id") @db.Uuid
+  roleId             String    @map("role_id") @db.Uuid
+  scopeId            String?   @map("scope_id") @db.Uuid
+  assignedByAdminId  String?   @map("assigned_by_admin_id") @db.Uuid
+  createdAt          DateTime  @map("created_at") @db.Timestamptz(3)
+  revokedAt          DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  @@index([adminAccountId])
+  @@index([roleId])
+  @@index([scopeId])
+  @@index([assignedByAdminId])
+  @@map("admin_account_roles")
+}
+
+model AdminAuditLog {
+  id             String    @id @db.Uuid
+  actorAdminId   String?   @map("actor_admin_id") @db.Uuid
+  action         String
+  targetType     String    @map("target_type")
+  targetId       String?   @map("target_id")
+  scopeId        String?   @map("scope_id") @db.Uuid
+  metadata       Json?
+  createdAt      DateTime  @map("created_at") @db.Timestamptz(3)
+
+  @@index([actorAdminId])
+  @@index([scopeId])
+  @@index([targetType, targetId])
+  @@map("admin_audit_logs")
+}
+
+model ServerKey {
+  id           String  @id
+  alg          JwtAlg
+  privateKeyPem String @map("private_key_pem")
+  publicKeyPem String  @map("public_key_pem")
+
+  @@map("keys")
+}

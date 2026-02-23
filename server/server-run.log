@@ -1,0 +1,38 @@
+{"level":30,"time":1771804756791,"pid":12940,"hostname":"CHAM-DEMBA","database_target":"91.98.162.101:5433/narate-enterprise?schema=narate_enterprise","msg":"Database target resolved"}
+{"level":30,"time":1771804760685,"pid":12940,"hostname":"CHAM-DEMBA","store_backend":"prisma","msg":"Store initialized"}
+{"level":30,"time":1771804762881,"pid":12940,"hostname":"CHAM-DEMBA","msg":"Server listening at http://0.0.0.0:8787"}
+{"level":30,"time":1771804762881,"pid":12940,"hostname":"CHAM-DEMBA","msg":"Narrate licensing server started on http://0.0.0.0:8787"}
+{"level":30,"time":1771804797767,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-1","req":{"method":"GET","url":"/health","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":60610},"msg":"incoming request"}
+{"level":30,"time":1771804797776,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-1","res":{"statusCode":200},"responseTime":8.29560001194477,"msg":"request completed"}
+{"level":30,"time":1771804992822,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-2","req":{"method":"POST","url":"/integrations/slack/commands","hostname":"pg-ext.addresly.com","remoteAddress":"44.204.30.109","remotePort":56564},"msg":"incoming request"}
+{"level":30,"time":1771804992920,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-2","res":{"statusCode":200},"responseTime":97.93620000779629,"msg":"request completed"}
+{"level":30,"time":1771805021501,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-3","req":{"method":"POST","url":"/integrations/slack/actions","hostname":"pg-ext.addresly.com","remoteAddress":"54.172.19.50","remotePort":56564},"msg":"incoming request"}
+{"level":30,"time":1771805024924,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-3","res":{"statusCode":200},"responseTime":3422.21629999578,"msg":"request completed"}
+{"level":30,"time":1771805036648,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-4","req":{"method":"POST","url":"/integrations/slack/actions","hostname":"pg-ext.addresly.com","remoteAddress":"184.73.40.121","remotePort":56564},"msg":"incoming request"}
+{"level":30,"time":1771805040073,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-4","res":{"statusCode":200},"responseTime":3425.032099992037,"msg":"request completed"}
+{"level":30,"time":1771805053146,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-5","req":{"method":"POST","url":"/integrations/slack/actions","hostname":"pg-ext.addresly.com","remoteAddress":"44.198.177.173","remotePort":56590},"msg":"incoming request"}
+{"level":30,"time":1771805056575,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-5","res":{"statusCode":200},"responseTime":3428.881799995899,"msg":"request completed"}
+{"level":30,"time":1771805059250,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-6","req":{"method":"POST","url":"/integrations/slack/actions","hostname":"pg-ext.addresly.com","remoteAddress":"3.93.144.242","remotePort":56590},"msg":"incoming request"}
+{"level":30,"time":1771805064009,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-6","res":{"statusCode":200},"responseTime":4759.129299998283,"msg":"request completed"}
+{"level":30,"time":1771805066226,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-7","req":{"method":"POST","url":"/integrations/slack/actions","hostname":"pg-ext.addresly.com","remoteAddress":"3.86.216.44","remotePort":56564},"msg":"incoming request"}
+{"level":30,"time":1771805068082,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-7","res":{"statusCode":200},"responseTime":1855.717500001192,"msg":"request completed"}
+{"level":30,"time":1771805071631,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-8","req":{"method":"POST","url":"/integrations/slack/actions","hostname":"pg-ext.addresly.com","remoteAddress":"100.25.44.118","remotePort":56564},"msg":"incoming request"}
+{"level":30,"time":1771805073538,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-8","res":{"statusCode":400},"responseTime":1907.4921000003815,"msg":"request completed"}
+{"level":30,"time":1771808466502,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-9","req":{"method":"GET","url":"/health","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":62310},"msg":"incoming request"}
+{"level":30,"time":1771808466503,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-9","res":{"statusCode":200},"responseTime":0.715499997138977,"msg":"request completed"}
+{"level":30,"time":1771809201214,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-a","req":{"method":"GET","url":"/health","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":52876},"msg":"incoming request"}
+{"level":30,"time":1771809201217,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-a","res":{"statusCode":200},"responseTime":2.8711000084877014,"msg":"request completed"}
+{"level":30,"time":1771809261579,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-b","req":{"method":"GET","url":"/integrations/slack/health","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":52927},"msg":"incoming request"}
+{"level":30,"time":1771809261580,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-b","res":{"statusCode":200},"responseTime":0.7451999932527542,"msg":"request completed"}
+{"level":30,"time":1771809261583,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-c","req":{"method":"GET","url":"/health","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":52928},"msg":"incoming request"}
+{"level":30,"time":1771809261584,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-c","res":{"statusCode":200},"responseTime":0.43620000779628754,"msg":"request completed"}
+{"level":30,"time":1771809339297,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-d","req":{"method":"POST","url":"/integrations/slack/actions","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":52015},"msg":"incoming request"}
+{"level":30,"time":1771809339516,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-d","res":{"statusCode":403},"responseTime":218.5388000011444,"msg":"request completed"}
+{"level":30,"time":1771809421509,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-e","req":{"method":"POST","url":"/integrations/slack/actions","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":59949},"msg":"incoming request"}
+{"level":30,"time":1771809421726,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-e","res":{"statusCode":403},"responseTime":217.05730000138283,"msg":"request completed"}
+{"level":30,"time":1771809475085,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-f","req":{"method":"GET","url":"/health","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":65330},"msg":"incoming request"}
+{"level":30,"time":1771809475086,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-f","res":{"statusCode":200},"responseTime":0.5703999996185303,"msg":"request completed"}
+{"level":30,"time":1771812666976,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-g","req":{"method":"POST","url":"/integrations/slack/actions","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":60888},"msg":"incoming request"}
+{"level":30,"time":1771812667195,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-g","res":{"statusCode":403},"responseTime":218.50959999859333,"msg":"request completed"}
+{"level":30,"time":1771812667261,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-h","req":{"method":"POST","url":"/integrations/slack/actions","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":60890},"msg":"incoming request"}
+{"level":30,"time":1771812667446,"pid":12940,"hostname":"CHAM-DEMBA","reqId":"req-h","res":{"statusCode":403},"responseTime":184.94879999756813,"msg":"request completed"}
