@@ -45,6 +45,44 @@ export class JsonStore implements StateStore {
   }
 }
 
+const DEFAULT_ARRAY_COLLECTIONS: Omit<StoreState, "keys" | "updated_at"> = {
+  users: [],
+  auth_challenges: [],
+  sessions: [],
+  subscriptions: [],
+  product_entitlements: [],
+  project_quotas: [],
+  project_activations: [],
+  devices: [],
+  trials: [],
+  refund_requests: [],
+  offline_payment_refs: [],
+  redeem_codes: [],
+  stripe_events: [],
+  affiliate_codes: [],
+  affiliate_conversions: [],
+  affiliate_payouts: [],
+  provider_policies: [],
+  oauth_states: [],
+  teams: [],
+  team_memberships: [],
+  support_tickets: [],
+  feedback_entries: [],
+  governance_settings: [],
+  governance_eod_reports: [],
+  mastermind_threads: [],
+  mastermind_options: [],
+  mastermind_entries: [],
+  mastermind_votes: [],
+  mastermind_outcomes: [],
+  governance_decision_events: [],
+  governance_decision_acks: []
+};
+
+const ARRAY_STATE_KEYS = Object.keys(DEFAULT_ARRAY_COLLECTIONS) as Array<
+  keyof Omit<StoreState, "keys" | "updated_at">
+>;
+
 function assertState(value: StoreState | undefined): asserts value is StoreState {
   if (!value) {
     throw new Error("Store is not initialized.");
@@ -52,6 +90,7 @@ function assertState(value: StoreState | undefined): asserts value is StoreState
 }
 
 export function createDefaultState(): StoreState {
+  const collections = structuredClone(DEFAULT_ARRAY_COLLECTIONS);
   const keyPair = generateKeyPairSync("ec", {
     namedCurve: "prime256v1",
     publicKeyEncoding: { format: "pem", type: "spki" },
@@ -59,37 +98,7 @@ export function createDefaultState(): StoreState {
   });
 
   return {
-    users: [],
-    auth_challenges: [],
-    sessions: [],
-    subscriptions: [],
-    product_entitlements: [],
-    project_quotas: [],
-    project_activations: [],
-    devices: [],
-    trials: [],
-    refund_requests: [],
-    offline_payment_refs: [],
-    redeem_codes: [],
-    stripe_events: [],
-    affiliate_codes: [],
-    affiliate_conversions: [],
-    affiliate_payouts: [],
-    provider_policies: [],
-    oauth_states: [],
-    teams: [],
-    team_memberships: [],
-    support_tickets: [],
-    feedback_entries: [],
-    governance_settings: [],
-    governance_eod_reports: [],
-    mastermind_threads: [],
-    mastermind_options: [],
-    mastermind_entries: [],
-    mastermind_votes: [],
-    mastermind_outcomes: [],
-    governance_decision_events: [],
-    governance_decision_acks: [],
+    ...collections,
     keys: {
       alg: "ES256",
       private_key_pem: keyPair.privateKey,
@@ -101,44 +110,30 @@ export function createDefaultState(): StoreState {
 
 export function normalizeLoadedState(raw: Partial<StoreState>): StoreState {
   const base = createDefaultState();
-  return {
+  const state: StoreState = {
     ...base,
     ...raw,
-    users: raw.users ?? [],
-    auth_challenges: raw.auth_challenges ?? [],
-    sessions: raw.sessions ?? [],
-    subscriptions: (raw.subscriptions ?? []).map((item) => ({
-      ...item,
-      team_id: item.team_id ?? null
-    })),
-    product_entitlements: raw.product_entitlements ?? [],
-    project_quotas: raw.project_quotas ?? [],
-    project_activations: raw.project_activations ?? [],
-    devices: raw.devices ?? [],
-    trials: raw.trials ?? [],
-    refund_requests: raw.refund_requests ?? [],
-    offline_payment_refs: raw.offline_payment_refs ?? [],
-    redeem_codes: raw.redeem_codes ?? [],
-    stripe_events: raw.stripe_events ?? [],
-    affiliate_codes: raw.affiliate_codes ?? [],
-    affiliate_conversions: raw.affiliate_conversions ?? [],
-    affiliate_payouts: raw.affiliate_payouts ?? [],
-    provider_policies: raw.provider_policies ?? [],
-    oauth_states: raw.oauth_states ?? [],
-    teams: raw.teams ?? [],
-    team_memberships: raw.team_memberships ?? [],
-    support_tickets: raw.support_tickets ?? [],
-    feedback_entries: raw.feedback_entries ?? [],
-    governance_settings: raw.governance_settings ?? [],
-    governance_eod_reports: raw.governance_eod_reports ?? [],
-    mastermind_threads: raw.mastermind_threads ?? [],
-    mastermind_options: raw.mastermind_options ?? [],
-    mastermind_entries: raw.mastermind_entries ?? [],
-    mastermind_votes: raw.mastermind_votes ?? [],
-    mastermind_outcomes: raw.mastermind_outcomes ?? [],
-    governance_decision_events: raw.governance_decision_events ?? [],
-    governance_decision_acks: raw.governance_decision_acks ?? [],
+    subscriptions: normalizeSubscriptions(raw.subscriptions),
     keys: raw.keys ?? base.keys,
     updated_at: raw.updated_at ?? new Date().toISOString()
   };
+  applyArrayFallbacks(state, raw);
+  return state;
+}
+
+function normalizeSubscriptions(rawSubscriptions: StoreState["subscriptions"] | undefined): StoreState["subscriptions"] {
+  return (rawSubscriptions ?? []).map((item) => ({
+    ...item,
+    team_id: item.team_id ?? null
+  }));
+}
+
+function applyArrayFallbacks(state: StoreState, raw: Partial<StoreState>): void {
+  for (const key of ARRAY_STATE_KEYS) {
+    if (key === "subscriptions") {
+      continue;
+    }
+    const rawValue = raw[key] as unknown;
+    state[key] = (Array.isArray(rawValue) ? rawValue : []) as never;
+  }
 }

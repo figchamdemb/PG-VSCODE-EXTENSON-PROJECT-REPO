@@ -66,3 +66,13 @@
 {"level":30,"time":1771827795741,"pid":38688,"hostname":"CHAM-DEMBA","reqId":"req-u","res":{"statusCode":200},"responseTime":384.98639999330044,"msg":"request completed"}
 {"level":30,"time":1771827795759,"pid":38688,"hostname":"CHAM-DEMBA","reqId":"req-v","req":{"method":"GET","url":"/account/governance/sync/pull?since_sequence=0&limit=20","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":59178},"msg":"incoming request"}
 {"level":30,"time":1771827795761,"pid":38688,"hostname":"CHAM-DEMBA","reqId":"req-v","res":{"statusCode":200},"responseTime":1.7293999940156937,"msg":"request completed"}
+{"level":30,"time":1771860680937,"pid":38688,"hostname":"CHAM-DEMBA","reqId":"req-w","req":{"method":"GET","url":"/account/summary","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":62928},"msg":"incoming request"}
+{"level":30,"time":1771860683612,"pid":38688,"hostname":"CHAM-DEMBA","reqId":"req-w","res":{"statusCode":200},"responseTime":2674.1053000092506,"msg":"request completed"}
+{"level":30,"time":1771861019976,"pid":38688,"hostname":"CHAM-DEMBA","reqId":"req-x","req":{"method":"GET","url":"/account/governance/sync/pull?since_sequence=0&limit=100","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":54567},"msg":"incoming request"}
+{"level":30,"time":1771861019981,"pid":38688,"hostname":"CHAM-DEMBA","reqId":"req-x","res":{"statusCode":200},"responseTime":4.716199994087219,"msg":"request completed"}
+{"level":30,"time":1771861020415,"pid":38688,"hostname":"CHAM-DEMBA","reqId":"req-y","req":{"method":"POST","url":"/account/governance/sync/ack","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":54567},"msg":"incoming request"}
+{"level":30,"time":1771861030236,"pid":38688,"hostname":"CHAM-DEMBA","reqId":"req-y","res":{"statusCode":200},"responseTime":9820.421499997377,"msg":"request completed"}
+{"level":30,"time":1771861030550,"pid":38688,"hostname":"CHAM-DEMBA","reqId":"req-z","req":{"method":"POST","url":"/account/governance/sync/ack","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":54567},"msg":"incoming request"}
+{"level":30,"time":1771861035924,"pid":38688,"hostname":"CHAM-DEMBA","reqId":"req-z","res":{"statusCode":200},"responseTime":5373.090300023556,"msg":"request completed"}
+{"level":30,"time":1771861196415,"pid":38688,"hostname":"CHAM-DEMBA","reqId":"req-10","req":{"method":"GET","url":"/account/governance/sync/pull?since_sequence=0&limit=20","hostname":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":60728},"msg":"incoming request"}
+{"level":30,"time":1771861196417,"pid":38688,"hostname":"CHAM-DEMBA","reqId":"req-10","res":{"statusCode":200},"responseTime":1.493499994277954,"msg":"request completed"}

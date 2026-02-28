@@ -36,6 +36,150 @@ const TABLE_KEY_MAP: Array<{ table: string; key: keyof StoreState }> = [
   { table: "governance_decision_acks", key: "governance_decision_acks" }
 ];
 
+const TEAM_ROLE_ENUM_MIGRATION = `DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'TeamRole') THEN
+     BEGIN
+       ALTER TYPE "TeamRole" ADD VALUE IF NOT EXISTS 'manager';
+     EXCEPTION WHEN duplicate_object THEN
+       NULL;
+     END;
+   END IF;
+ END $$;`;
+
+const GOVERNANCE_TABLE_DDLS = [
+  `CREATE TABLE IF NOT EXISTS support_tickets (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    email TEXT NOT NULL,
+    category TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    message TEXT NOT NULL,
+    status TEXT NOT NULL,
+    resolution_note TEXT NULL,
+    created_at TIMESTAMPTZ(3) NOT NULL,
+    updated_at TIMESTAMPTZ(3) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS feedback_entries (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    email TEXT NOT NULL,
+    rating INTEGER NOT NULL,
+    message TEXT NULL,
+    created_at TIMESTAMPTZ(3) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS governance_settings (
+    id TEXT PRIMARY KEY,
+    scope_type TEXT NOT NULL,
+    scope_id TEXT NOT NULL,
+    slack_enabled BOOLEAN NOT NULL,
+    slack_addon_active BOOLEAN NOT NULL,
+    slack_channel TEXT NULL,
+    vote_mode TEXT NOT NULL,
+    max_debate_chars INTEGER NOT NULL,
+    retention_days INTEGER NOT NULL,
+    created_at TIMESTAMPTZ(3) NOT NULL,
+    updated_at TIMESTAMPTZ(3) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS governance_eod_reports (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    email TEXT NOT NULL,
+    team_id TEXT NULL,
+    title TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    work_started_at TIMESTAMPTZ(3) NULL,
+    work_ended_at TIMESTAMPTZ(3) NULL,
+    changed_files TEXT[] NOT NULL DEFAULT '{}',
+    blockers TEXT[] NOT NULL DEFAULT '{}',
+    source TEXT NOT NULL,
+    agent_name TEXT NULL,
+    created_at TIMESTAMPTZ(3) NOT NULL,
+    updated_at TIMESTAMPTZ(3) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS mastermind_threads (
+    id TEXT PRIMARY KEY,
+    team_id TEXT NULL,
+    created_by_user_id TEXT NOT NULL,
+    created_by_email TEXT NOT NULL,
+    title TEXT NOT NULL,
+    question TEXT NOT NULL,
+    status TEXT NOT NULL,
+    vote_mode TEXT NOT NULL,
+    decision TEXT NULL,
+    decision_option_key TEXT NULL,
+    decision_note TEXT NULL,
+    decided_by_user_id TEXT NULL,
+    decided_by_email TEXT NULL,
+    decided_at TIMESTAMPTZ(3) NULL,
+    last_activity_at TIMESTAMPTZ(3) NOT NULL,
+    expires_at TIMESTAMPTZ(3) NOT NULL,
+    created_at TIMESTAMPTZ(3) NOT NULL,
+    updated_at TIMESTAMPTZ(3) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS mastermind_options (
+    id TEXT PRIMARY KEY,
+    thread_id TEXT NOT NULL,
+    option_key TEXT NOT NULL,
+    title TEXT NOT NULL,
+    rationale TEXT NULL,
+    created_at TIMESTAMPTZ(3) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS mastermind_entries (
+    id TEXT PRIMARY KEY,
+    thread_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    email TEXT NOT NULL,
+    entry_type TEXT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TIMESTAMPTZ(3) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS mastermind_votes (
+    id TEXT PRIMARY KEY,
+    thread_id TEXT NOT NULL,
+    option_key TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    email TEXT NOT NULL,
+    weight INTEGER NOT NULL,
+    rationale TEXT NULL,
+    created_at TIMESTAMPTZ(3) NOT NULL,
+    updated_at TIMESTAMPTZ(3) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS mastermind_outcomes (
+    id TEXT PRIMARY KEY,
+    thread_id TEXT NOT NULL,
+    team_id TEXT NULL,
+    title TEXT NOT NULL,
+    decision TEXT NOT NULL,
+    winning_option_key TEXT NULL,
+    decision_note TEXT NULL,
+    decided_by_email TEXT NULL,
+    decided_at TIMESTAMPTZ(3) NOT NULL,
+    created_at TIMESTAMPTZ(3) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS governance_decision_events (
+    id TEXT PRIMARY KEY,
+    sequence INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    thread_id TEXT NOT NULL,
+    team_id TEXT NULL,
+    decision TEXT NOT NULL,
+    winning_option_key TEXT NULL,
+    summary TEXT NOT NULL,
+    created_at TIMESTAMPTZ(3) NOT NULL,
+    expires_at TIMESTAMPTZ(3) NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS governance_decision_acks (
+    id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    note TEXT NULL,
+    updated_at TIMESTAMPTZ(3) NOT NULL,
+    acked_at TIMESTAMPTZ(3) NULL
+  )`
+];
+
 export class PrismaStateStore implements StateStore {
   private state: StoreState | undefined;
   private writeChain: Promise<void> = Promise.resolve();
@@ -50,15 +194,11 @@ export class PrismaStateStore implements StateStore {
     const loaded: Partial<StoreState> = {};
 
     for (const item of TABLE_KEY_MAP) {
-      const rows = await this.prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-        `SELECT * FROM ${quoteIdent(item.table)}`
-      );
+      const rows = await this.selectRowsForTable(item.table);
       (loaded[item.key] as unknown) = rows.map((row) => normalizeDbObject(row));
     }
 
-    const keyRows = await this.prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-      "SELECT * FROM keys ORDER BY id ASC LIMIT 1"
-    );
+    const keyRows = await this.selectRowsForTable("keys", " ORDER BY id ASC LIMIT 1");
     if (keyRows.length > 0) {
       loaded.keys = normalizeDbObject(keyRows[0]) as unknown as StoreState["keys"];
     } else {
@@ -111,171 +251,18 @@ export class PrismaStateStore implements StateStore {
   }
 
   private async ensureTables(): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `DO $$ BEGIN
-         IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'TeamRole') THEN
-           BEGIN
-             ALTER TYPE "TeamRole" ADD VALUE IF NOT EXISTS 'manager';
-           EXCEPTION WHEN duplicate_object THEN
-             NULL;
-           END;
-         END IF;
-       END $$;`
-    );
+    await this.ensureTeamRoleEnum();
+    await this.ensureGovernanceTables();
+  }
 
-    await this.prisma.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS support_tickets (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        email TEXT NOT NULL,
-        category TEXT NOT NULL,
-        severity TEXT NOT NULL,
-        subject TEXT NOT NULL,
-        message TEXT NOT NULL,
-        status TEXT NOT NULL,
-        resolution_note TEXT NULL,
-        created_at TIMESTAMPTZ(3) NOT NULL,
-        updated_at TIMESTAMPTZ(3) NOT NULL
-      )`
-    );
-    await this.prisma.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS feedback_entries (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        email TEXT NOT NULL,
-        rating INTEGER NOT NULL,
-        message TEXT NULL,
-        created_at TIMESTAMPTZ(3) NOT NULL
-      )`
-    );
-    await this.prisma.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS governance_settings (
-        id TEXT PRIMARY KEY,
-        scope_type TEXT NOT NULL,
-        scope_id TEXT NOT NULL,
-        slack_enabled BOOLEAN NOT NULL,
-        slack_addon_active BOOLEAN NOT NULL,
-        slack_channel TEXT NULL,
-        vote_mode TEXT NOT NULL,
-        max_debate_chars INTEGER NOT NULL,
-        retention_days INTEGER NOT NULL,
-        created_at TIMESTAMPTZ(3) NOT NULL,
-        updated_at TIMESTAMPTZ(3) NOT NULL
-      )`
-    );
-    await this.prisma.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS governance_eod_reports (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        email TEXT NOT NULL,
-        team_id TEXT NULL,
-        title TEXT NOT NULL,
-        summary TEXT NOT NULL,
-        work_started_at TIMESTAMPTZ(3) NULL,
-        work_ended_at TIMESTAMPTZ(3) NULL,
-        changed_files TEXT[] NOT NULL DEFAULT '{}',
-        blockers TEXT[] NOT NULL DEFAULT '{}',
-        source TEXT NOT NULL,
-        agent_name TEXT NULL,
-        created_at TIMESTAMPTZ(3) NOT NULL,
-        updated_at TIMESTAMPTZ(3) NOT NULL
-      )`
-    );
-    await this.prisma.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS mastermind_threads (
-        id TEXT PRIMARY KEY,
-        team_id TEXT NULL,
-        created_by_user_id TEXT NOT NULL,
-        created_by_email TEXT NOT NULL,
-        title TEXT NOT NULL,
-        question TEXT NOT NULL,
-        status TEXT NOT NULL,
-        vote_mode TEXT NOT NULL,
-        decision TEXT NULL,
-        decision_option_key TEXT NULL,
-        decision_note TEXT NULL,
-        decided_by_user_id TEXT NULL,
-        decided_by_email TEXT NULL,
-        decided_at TIMESTAMPTZ(3) NULL,
-        last_activity_at TIMESTAMPTZ(3) NOT NULL,
-        expires_at TIMESTAMPTZ(3) NOT NULL,
-        created_at TIMESTAMPTZ(3) NOT NULL,
-        updated_at TIMESTAMPTZ(3) NOT NULL
-      )`
-    );
-    await this.prisma.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS mastermind_options (
-        id TEXT PRIMARY KEY,
-        thread_id TEXT NOT NULL,
-        option_key TEXT NOT NULL,
-        title TEXT NOT NULL,
-        rationale TEXT NULL,
-        created_at TIMESTAMPTZ(3) NOT NULL
-      )`
-    );
-    await this.prisma.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS mastermind_entries (
-        id TEXT PRIMARY KEY,
-        thread_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        email TEXT NOT NULL,
-        entry_type TEXT NOT NULL,
-        message TEXT NOT NULL,
-        created_at TIMESTAMPTZ(3) NOT NULL
-      )`
-    );
-    await this.prisma.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS mastermind_votes (
-        id TEXT PRIMARY KEY,
-        thread_id TEXT NOT NULL,
-        option_key TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        email TEXT NOT NULL,
-        weight INTEGER NOT NULL,
-        rationale TEXT NULL,
-        created_at TIMESTAMPTZ(3) NOT NULL,
-        updated_at TIMESTAMPTZ(3) NOT NULL
-      )`
-    );
-    await this.prisma.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS mastermind_outcomes (
-        id TEXT PRIMARY KEY,
-        thread_id TEXT NOT NULL,
-        team_id TEXT NULL,
-        title TEXT NOT NULL,
-        decision TEXT NOT NULL,
-        winning_option_key TEXT NULL,
-        decision_note TEXT NULL,
-        decided_by_email TEXT NULL,
-        decided_at TIMESTAMPTZ(3) NOT NULL,
-        created_at TIMESTAMPTZ(3) NOT NULL
-      )`
-    );
-    await this.prisma.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS governance_decision_events (
-        id TEXT PRIMARY KEY,
-        sequence INTEGER NOT NULL,
-        event_type TEXT NOT NULL,
-        thread_id TEXT NOT NULL,
-        team_id TEXT NULL,
-        decision TEXT NOT NULL,
-        winning_option_key TEXT NULL,
-        summary TEXT NOT NULL,
-        created_at TIMESTAMPTZ(3) NOT NULL,
-        expires_at TIMESTAMPTZ(3) NOT NULL
-      )`
-    );
-    await this.prisma.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS governance_decision_acks (
-        id TEXT PRIMARY KEY,
-        event_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        status TEXT NOT NULL,
-        note TEXT NULL,
-        updated_at TIMESTAMPTZ(3) NOT NULL,
-        acked_at TIMESTAMPTZ(3) NULL
-      )`
-    );
+  private ensureTeamRoleEnum(): Promise<unknown> {
+    return this.prisma.$executeRawUnsafe(TEAM_ROLE_ENUM_MIGRATION);
+  }
+
+  private async ensureGovernanceTables(): Promise<void> {
+    for (const ddl of GOVERNANCE_TABLE_DDLS) {
+      await this.prisma.$executeRawUnsafe(ddl);
+    }
   }
 
   private async loadTableColumnTypes(): Promise<void> {
@@ -300,6 +287,17 @@ export class PrismaStateStore implements StateStore {
       }
       this.tableColumnTypes.set(table, typeMap);
     }
+  }
+
+  private async selectRowsForTable(table: string, suffix = ""): Promise<Array<Record<string, unknown>>> {
+    const columnMap = this.tableColumnTypes.get(table);
+    if (!columnMap || columnMap.size === 0) {
+      throw new Error(`No column metadata loaded for table '${table}'.`);
+    }
+    const projection = Array.from(columnMap.keys()).map((column) => quoteIdent(column)).join(", ");
+    return this.prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
+      `SELECT ${projection} FROM ${quoteIdent(table)}${suffix}`
+    );
   }
 }
 

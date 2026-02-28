@@ -9,6 +9,7 @@
     "build": "tsc -p ./",
     "start": "node dist/index.js",
     "smoke:web": "node scripts/smoke-web.mjs",
+    "smoke:playwright": "playwright test --config playwright.config.ts --grep @smoke",
     "seed:governance-user": "node scripts/bootstrap-governance-user.mjs",
     "prisma:generate": "prisma generate",
     "prisma:dbpush": "prisma db push",
@@ -22,9 +23,12 @@
     "@prisma/client": "^6.6.0",
     "dotenv": "^17.3.1",
     "fastify": "^4.28.1",
+    "js-yaml": "^4.1.1",
     "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/js-yaml": "^4.0.9",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^20.16.5",
     "prisma": "^6.6.0",

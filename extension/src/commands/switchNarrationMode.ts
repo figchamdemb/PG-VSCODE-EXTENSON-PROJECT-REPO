@@ -1,11 +1,20 @@
 import * as vscode from "vscode";
 import { FeatureGateService } from "../licensing/featureGates";
+import { NarrateSchemeProvider } from "../readingView/narrateSchemeProvider";
 import { NarrationMode } from "../types";
-import { getCurrentMode, setCurrentMode } from "./modeState";
+import {
+  getCurrentEduDetailLevel,
+  getCurrentMode,
+  getCurrentReadingPaneMode,
+  getCurrentReadingSnippetMode,
+  getCurrentReadingViewMode,
+  setCurrentMode
+} from "./modeState";
 
 export function registerSwitchNarrationModeCommand(
   context: vscode.ExtensionContext,
   gates: FeatureGateService,
+  provider: NarrateSchemeProvider,
   onModeChanged: (mode: NarrationMode) => void
 ): vscode.Disposable {
   return vscode.commands.registerCommand("narrate.switchNarrationMode", async () => {
@@ -29,6 +38,15 @@ export function registerSwitchNarrationModeCommand(
 
     await setCurrentMode(context, picked.value);
     onModeChanged(picked.value);
-    vscode.window.showInformationMessage(`Narrate mode set to ${picked.value.toUpperCase()}.`);
+    const opened = await provider.openNarrationFromContext({
+      mode: picked.value,
+      viewMode: getCurrentReadingViewMode(context),
+      paneMode: getCurrentReadingPaneMode(context),
+      snippetMode: getCurrentReadingSnippetMode(context),
+      eduDetailLevel: getCurrentEduDetailLevel(context)
+    });
+    if (!opened) {
+      vscode.window.showInformationMessage(`Narrate mode set to ${picked.value.toUpperCase()}.`);
+    }
   });
 }

@@ -15,63 +15,7 @@ export function registerGenerateChangeReportCommand(
   gates: FeatureGateService
 ): vscode.Disposable {
   return vscode.commands.registerCommand("narrate.generateChangeReport", async () => {
-    const allowed = await gates.requireProFeature("Generate Change Report");
-    if (!allowed) {
-      return;
-    }
-
-    const git = GitClient.fromWorkspace();
-    if (!git) {
-      vscode.window.showWarningMessage("Narrate: open a workspace folder to generate a change report.");
-      return;
-    }
-
-    if (!(await git.isGitRepository())) {
-      vscode.window.showWarningMessage("Narrate: workspace is not a git repository.");
-      return;
-    }
-
-    const diffRaw = await git.getWorkingTreeDiffAgainstHead();
-    if (!diffRaw.trim()) {
-      vscode.window.showInformationMessage("Narrate: no changes detected against HEAD.");
-      return;
-    }
-
-    const parsedFiles = parseUnifiedDiff(diffRaw);
-    if (parsedFiles.length === 0) {
-      vscode.window.showInformationMessage("Narrate: unable to parse changed files from git diff.");
-      return;
-    }
-
-    const mode = getCurrentMode(context);
-    const repoRoot = await git.getRepositoryRoot();
-    const branch = await git.getCurrentBranchName();
-    const analysis = await buildFileAnalyses(parsedFiles, repoRoot, narrationEngine, mode);
-
-    const report = renderChangeReportMarkdown({
-      branch,
-      mode,
-      generatedAt: new Date().toISOString(),
-      files: analysis
-    });
-
-    const exportBase = await resolveExportBaseDir(context);
-    const reportSubdir = vscode.workspace
-      .getConfiguration("narrate.report")
-      .get<string>("outputSubdir", "reports")
-      .trim();
-    const reportsDir = path.join(exportBase, reportSubdir || "reports");
-    await fs.mkdir(reportsDir, { recursive: true });
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const reportPath = path.join(
-      reportsDir,
-      `change-report-${sanitizePathSegment(branch)}-${timestamp}.md`
-    );
-
-    await fs.writeFile(reportPath, report, "utf8");
-    const doc = await vscode.workspace.openTextDocument(reportPath);
-    await vscode.window.showTextDocument(doc, { preview: false });
-    vscode.window.showInformationMessage(`Narrate: change report created at ${reportPath}`);
+    await runGenerateChangeReport(context, narrationEngine, gates);
   });
 }
 
@@ -80,6 +24,79 @@ interface FileAnalysis {
   addedCount: number;
   removedCount: number;
   narratedAddedLines: Array<{ lineNumber: number; narration: string }>;
+}
+
+async function runGenerateChangeReport(
+  context: vscode.ExtensionContext,
+  narrationEngine: NarrationEngine,
+  gates: FeatureGateService
+): Promise<void> {
+  const allowed = await gates.requireProFeature("Generate Change Report");
+  if (!allowed) {
+    return;
+  }
+
+  const git = GitClient.fromWorkspace();
+  if (!git) {
+    vscode.window.showWarningMessage("Narrate: open a workspace folder to generate a change report.");
+    return;
+  }
+
+  if (!(await git.isGitRepository())) {
+    vscode.window.showWarningMessage("Narrate: workspace is not a git repository.");
+    return;
+  }
+
+  const diffRaw = await git.getWorkingTreeDiffAgainstHead();
+  if (!diffRaw.trim()) {
+    vscode.window.showInformationMessage("Narrate: no changes detected against HEAD.");
+    return;
+  }
+
+  const parsedFiles = parseUnifiedDiff(diffRaw);
+  if (parsedFiles.length === 0) {
+    vscode.window.showInformationMessage("Narrate: unable to parse changed files from git diff.");
+    return;
+  }
+
+  const mode = getCurrentMode(context);
+  const repoRoot = await git.getRepositoryRoot();
+  const branch = await git.getCurrentBranchName();
+  const analysis = await buildFileAnalyses(parsedFiles, repoRoot, narrationEngine, mode);
+
+  const report = renderChangeReportMarkdown({
+    branch,
+    mode,
+    generatedAt: new Date().toISOString(),
+    files: analysis
+  });
+
+  const reportPath = await writeChangeReportFile(context, branch, report);
+  const doc = await vscode.workspace.openTextDocument(reportPath);
+  await vscode.window.showTextDocument(doc, { preview: false });
+  vscode.window.showInformationMessage(`Narrate: change report created at ${reportPath}`);
+}
+
+async function writeChangeReportFile(
+  context: vscode.ExtensionContext,
+  branch: string,
+  report: string
+): Promise<string> {
+  const exportBase = await resolveExportBaseDir(context);
+  const reportSubdir = vscode.workspace
+    .getConfiguration("narrate.report")
+    .get<string>("outputSubdir", "reports")
+    .trim();
+  const reportsDir = path.join(exportBase, reportSubdir || "reports");
+  await fs.mkdir(reportsDir, { recursive: true });
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const reportPath = path.join(
+    reportsDir,
+    `change-report-${sanitizePathSegment(branch)}-${timestamp}.md`
+  );
+
+  await fs.writeFile(reportPath, report, "utf8");
+  return reportPath;
 }
 
 async function buildFileAnalyses(
@@ -187,42 +204,64 @@ function renderChangeReportMarkdown(input: {
   ];
 
   for (const file of input.files) {
-    const displayPath =
-      file.file.status === "renamed"
-        ? `${file.file.oldPath} -> ${file.file.newPath}`
-        : file.file.newPath !== "/dev/null"
-        ? file.file.newPath
-        : file.file.oldPath;
-
-    sections.push(`## File: \`${displayPath}\``);
-    sections.push(`- Status: ${file.file.status}`);
-    sections.push(`- Added lines: ${file.addedCount}`);
-    sections.push(`- Removed lines: ${file.removedCount}`);
-    sections.push("");
-
-    for (const hunk of file.file.hunks) {
-      sections.push(`### Hunk ${hunk.header}`);
-      sections.push("```diff");
-      for (const line of hunk.lines) {
-        const prefix = line.kind === "added" ? "+" : line.kind === "removed" ? "-" : " ";
-        sections.push(`${prefix}${line.content}`);
-      }
-      sections.push("```");
-      sections.push("");
-    }
-
-    if (file.narratedAddedLines.length > 0) {
-      sections.push("### Narrated Added Lines");
-      for (const entry of file.narratedAddedLines) {
-        sections.push(`- [${entry.lineNumber}] ${entry.narration}`);
-      }
-      sections.push("");
-    } else {
-      sections.push("### Narrated Added Lines");
-      sections.push("- No narration available (file removed/unavailable or no added lines).");
-      sections.push("");
-    }
+    appendFileSection(sections, file);
   }
 
   return sections.join("\n");
+}
+
+function appendFileSection(sections: string[], file: FileAnalysis): void {
+  const displayPath = resolveDisplayPath(file.file);
+  sections.push(`## File: \`${displayPath}\``);
+  sections.push(`- Status: ${file.file.status}`);
+  sections.push(`- Added lines: ${file.addedCount}`);
+  sections.push(`- Removed lines: ${file.removedCount}`);
+  sections.push("");
+
+  for (const hunk of file.file.hunks) {
+    appendHunkSection(sections, hunk);
+  }
+
+  appendNarratedLinesSection(sections, file.narratedAddedLines);
+}
+
+function resolveDisplayPath(file: DiffFile): string {
+  if (file.status === "renamed") {
+    return `${file.oldPath} -> ${file.newPath}`;
+  }
+  if (file.newPath !== "/dev/null") {
+    return file.newPath;
+  }
+  return file.oldPath;
+}
+
+function appendHunkSection(
+  sections: string[],
+  hunk: DiffFile["hunks"][number]
+): void {
+  sections.push(`### Hunk ${hunk.header}`);
+  sections.push("```diff");
+  for (const line of hunk.lines) {
+    const prefix = line.kind === "added" ? "+" : line.kind === "removed" ? "-" : " ";
+    sections.push(`${prefix}${line.content}`);
+  }
+  sections.push("```");
+  sections.push("");
+}
+
+function appendNarratedLinesSection(
+  sections: string[],
+  narratedAddedLines: Array<{ lineNumber: number; narration: string }>
+): void {
+  sections.push("### Narrated Added Lines");
+  if (narratedAddedLines.length === 0) {
+    sections.push("- No narration available (file removed/unavailable or no added lines).");
+    sections.push("");
+    return;
+  }
+
+  for (const entry of narratedAddedLines) {
+    sections.push(`- [${entry.lineNumber}] ${entry.narration}`);
+  }
+  sections.push("");
 }

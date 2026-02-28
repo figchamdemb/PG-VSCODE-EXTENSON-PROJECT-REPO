@@ -1,6 +1,6 @@
 # DB Schema - narrate-postgres-prisma
 
-LAST_UPDATED_UTC: 2026-02-21 23:58
+LAST_UPDATED_UTC: 2026-02-27 22:25
 UPDATED_BY: codex
 
 ## Purpose
@@ -45,6 +45,15 @@ Document the PostgreSQL schema provisioned by Prisma for Narrate licensing domai
 ## Notes
 - `oauth_states.provider` supports both `github` and `google`.
 - `team_memberships.role` supports `owner|manager|member`.
+- Index hardening batch (2026-02-27) added missing Prisma-side indexes on relational FK-like fields to satisfy coding/DB policy gates:
+  - `subscriptions(plan_id)`, `subscriptions(team_id)`
+  - `refund_requests(subscription_id)`
+  - `offline_payment_refs(plan_id)`
+  - `redeem_codes(plan_id)`, `redeem_codes(used_by_user_id)`
+  - `affiliate_codes(user_id)`
+  - `affiliate_conversions(buyer_user_id)`, `affiliate_conversions(order_id)`, `affiliate_conversions(payout_id)`
+  - `oauth_states(install_id)`
+  - `teams(owner_user_id)`, `teams(plan_id)`
 - Admin/operator identities are isolated from customer identities:
   - customer identities remain in `users`
   - board/admin/shop-assistant control plane lives in `admin_*` tables

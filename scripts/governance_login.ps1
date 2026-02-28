@@ -18,6 +18,10 @@ function Get-DefaultStateFilePath {
     return Join-Path $root "Memory-bank\_generated\governance-agent-state.json"
 }
 
+function Get-DefaultPlaybookPath {
+    return Join-Path $PSScriptRoot "governance_action_playbook.json"
+}
+
 function Read-State([string]$path) {
     if (-not (Test-Path -LiteralPath $path)) {
         return @{}
@@ -27,11 +31,15 @@ function Read-State([string]$path) {
         return @{}
     }
     try {
-        $parsed = ConvertFrom-Json -InputObject $raw -AsHashtable
+        $parsed = ConvertFrom-Json -InputObject $raw
         if ($null -eq $parsed) {
             return @{}
         }
-        return $parsed
+        $map = @{}
+        foreach ($property in $parsed.PSObject.Properties) {
+            $map[$property.Name] = $property.Value
+        }
+        return $map
     } catch {
         Write-Warning "State file exists but is not valid JSON. A new state file will be written."
         return @{}
@@ -112,6 +120,12 @@ $state["access_token"] = $token
 $state["last_login_at"] = [DateTime]::UtcNow.ToString("o")
 $state["account_user_id"] = [string]$summary.account.user_id
 $state["team_keys"] = @($summary.teams | ForEach-Object { $_.team_key })
+if (-not $state.ContainsKey("playbook_path") -or [string]::IsNullOrWhiteSpace([string]$state["playbook_path"])) {
+    $defaultPlaybook = Get-DefaultPlaybookPath
+    if (Test-Path -LiteralPath $defaultPlaybook) {
+        $state["playbook_path"] = $defaultPlaybook
+    }
+}
 
 Write-State -path $statePath -state $state
 
@@ -121,6 +135,9 @@ Write-Host ("- email: {0}" -f $Email)
 Write-Host ("- install_id: {0}" -f $InstallId)
 Write-Host ("- plan: {0}" -f [string]$summary.plan)
 Write-Host ("- teams: {0}" -f ((@($state["team_keys"]) -join ", ")))
+if ($state.ContainsKey("playbook_path")) {
+    Write-Host ("- playbook: {0}" -f [string]$state["playbook_path"])
+}
 Write-Host ""
 Write-Host "Next:"
 Write-Host "  .\pg.ps1 governance-worker -Once"

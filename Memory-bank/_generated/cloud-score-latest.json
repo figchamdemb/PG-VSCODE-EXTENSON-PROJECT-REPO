@@ -1,0 +1,188 @@
+MCP cloud score bridge:
+- step 1/5: dependency verification scan
+- step 2/5: coding standards scan
+- step 3/5: API contract scan
+- step 4/5: build metadata-only MCP cloud payload
+- step 5/5: submit metadata to MCP cloud scoring endpoint
+{
+  "ok": false,
+  "status": "blocked",
+  "evaluator_version": "mcp-cloud-score-v1",
+  "score": 0,
+  "grade": "F",
+  "summary": {
+    "scanners": 3,
+    "scanner_blockers": 57,
+    "scanner_warnings": 69,
+    "architecture_blockers": 0,
+    "architecture_warnings": 18,
+    "blockers": 57,
+    "warnings": 89,
+    "workload_sensitivity": "regulated",
+    "source": "mcp-stdio",
+    "evaluated_at": "2026-02-27T21:06:26.11Z"
+  },
+  "findings": [
+    {
+      "rule_id": "MCP-SCAN-002",
+      "severity": "warning",
+      "source": "scanner",
+      "scanner_id": "coding",
+      "message": "Scanner 'coding' is blocked by policy findings.",
+      "hint": "Resolve scanner blockers first; cloud score does not override failed baseline checks."
+    },
+    {
+      "rule_id": "MCP-SCAN-002",
+      "severity": "warning",
+      "source": "scanner",
+      "scanner_id": "api-contract",
+      "message": "Scanner 'api-contract' is blocked by policy findings.",
+      "hint": "Resolve scanner blockers first; cloud score does not override failed baseline checks."
+    },
+    {
+      "rule_id": "CLD-NET-001",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "Cloudflare Tunnel control is not confirmed.",
+      "hint": "Enable Cloudflare Tunnel so origin IP stays hidden behind edge protection."
+    },
+    {
+      "rule_id": "CLD-ENC-001",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "Cloudflare SSL mode Full (Strict) is not confirmed.",
+      "hint": "Set SSL/TLS mode to Full (Strict) and enforce TLS 1.2+ with HSTS."
+    },
+    {
+      "rule_id": "CLD-NET-002",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "EC2 private-subnet-only control is not confirmed.",
+      "hint": "Run application servers without public IP and allow ingress only from ALB security group."
+    },
+    {
+      "rule_id": "CLD-NET-003",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "Database private-only access is not confirmed.",
+      "hint": "Block public DB access and allow PostgreSQL only through the private tunnel path."
+    },
+    {
+      "rule_id": "CLD-NET-004",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "WireGuard tunnel between compute and database is not confirmed.",
+      "hint": "Route DB traffic through WireGuard (AWS <-> Hetzner) and keep port 5432 off the public internet."
+    },
+    {
+      "rule_id": "CLD-SEC-001",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "Secrets Manager usage is not confirmed.",
+      "hint": "Store DB credentials, API keys, tunnel tokens, and signing secrets in AWS Secrets Manager."
+    },
+    {
+      "rule_id": "CLD-IAM-001",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "IAM role/no-access-keys control is not confirmed.",
+      "hint": "Use IAM roles on compute nodes and remove long-lived access keys."
+    },
+    {
+      "rule_id": "CLD-MON-001",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "CloudTrail multi-region audit logging is not confirmed.",
+      "hint": "Enable CloudTrail in all regions with log-file validation and alerts for root/IAM changes."
+    },
+    {
+      "rule_id": "CLD-DR-001",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "Backup restore drill in the last 30 days is not confirmed.",
+      "hint": "Test restore procedures at least monthly and document RTO/RPO readiness."
+    },
+    {
+      "rule_id": "CLD-SEC-002",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "IMDSv2 enforcement is not confirmed.",
+      "hint": "Disable IMDSv1 and require IMDSv2 on EC2 to reduce SSRF credential-theft risk."
+    },
+    {
+      "rule_id": "CLD-NET-005",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "Public SSH exposure control is not confirmed.",
+      "hint": "Keep port 22 closed to internet and use SSM Session Manager or approved bastion access."
+    },
+    {
+      "rule_id": "CLD-NET-006",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "Public PostgreSQL port exposure control is not confirmed.",
+      "hint": "Keep port 5432 private-only; allow DB access only through approved private network/tunnel paths."
+    },
+    {
+      "rule_id": "CLD-WAF-001",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "Managed WAF rules are not confirmed.",
+      "hint": "Enable managed WAF rules (OWASP baseline) at edge before production traffic."
+    },
+    {
+      "rule_id": "CLD-WAF-002",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "Auth/payment endpoint rate limiting is not confirmed.",
+      "hint": "Set endpoint-specific rate limits to mitigate brute-force and abuse traffic."
+    },
+    {
+      "rule_id": "CLD-SEC-003",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "CI secret scanning is not confirmed.",
+      "hint": "Enable gitleaks/trufflehog secret scans in CI and block merges on leaked secrets."
+    },
+    {
+      "rule_id": "CLD-MON-002",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "WireGuard tunnel down-alert control is not confirmed.",
+      "hint": "Alert when the compute<->database tunnel drops, and include recovery runbook steps."
+    },
+    {
+      "rule_id": "CLD-MON-003",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "Root-login alerting control is not confirmed.",
+      "hint": "Configure alerting for root login and IAM policy-change events."
+    },
+    {
+      "rule_id": "CLD-HA-001",
+      "severity": "warning",
+      "source": "architecture",
+      "scanner_id": null,
+      "message": "Multi-AZ EC2 deployment evidence is not confirmed.",
+      "hint": "Run at least two instances across AZs for production availability goals."
+    }
+  ]
+}
+

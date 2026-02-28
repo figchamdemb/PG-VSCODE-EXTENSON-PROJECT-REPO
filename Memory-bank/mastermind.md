@@ -1,9 +1,1410 @@
 # Mastermind - Decisions & Verification (Append-Only)
 
-LAST_UPDATED_UTC: 2026-02-23 00:34
+LAST_UPDATED_UTC: 2026-02-27 22:55
 UPDATED_BY: codex
 
 ## Decision Log
+
+### Topic: External architecture docs - final placement and execution sequence
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep alignment high-level only and postpone concrete execution mapping.
+2. Convert all six external docs into explicit runtime placement plus an execution order (local -> server-private -> MCP -> optional managed service).
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Removes ambiguity and prevents mixing private policy internals into client-facing surfaces. |
+| Reviewer B | Option 2 | Gives clear implementation order for low-cost, no-vendor-lock observability rollout. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User asked for a practical "what goes where" answer, not abstract architecture notes.
+- Existing platform now has enough baseline endpoints/commands (`obs-check`, `cloud-score`) to anchor an execution sequence.
+
+Risks:
+- Teams may still interpret optional managed observability as mandatory core requirement.
+
+Mitigation:
+- Keep core acceptance tied to local + server-private + MCP evidence checks.
+- Keep managed hosting explicitly optional and enterprise-only.
+
+Final Ruling:
+- Expanded `.verificaton-before-production-folder/FEATURE_ADDITIONS.md` with:
+  - exact implementation mapping by layer,
+  - build-vs-integrate table (SDK/protocol integration without vendor lock),
+  - execution order and acceptance criteria.
+- Synced milestone/planning docs to track observability rollout packs as in-progress.
+
+### Topic: External architecture doc alignment (local tools vs private policy vs MCP cloud)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Treat all external docs as immediate implementation scope and expose full policy details in client-side workflows.
+2. Use external docs as policy-source inputs, but enforce a boundary model:
+   - local deterministic checks and UX guidance,
+   - server-private policy logic/weights,
+   - MCP metadata-only scoring bridge,
+   - optional managed enterprise observability overlays.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Protects proprietary policy IP while keeping local-first value for free/pro users. |
+| Reviewer B | Option 2 | Matches current architecture and avoids overpromising full managed platform parity in core extension milestones. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User asked for explicit placement of cloud/security architecture content into the right layers.
+- Current product already has local checks + server policy endpoints + MCP cloud scorer; this model formalizes boundaries and sequencing.
+
+Risks:
+- Teams may expect immediate full Datadog-equivalent managed stack in core milestones.
+
+Mitigation:
+- Document managed observability as optional enterprise service track and keep core milestones focused on policy/scoring enforcement.
+
+Final Ruling:
+- Added alignment matrix and boundary rules to `.verificaton-before-production-folder/FEATURE_ADDITIONS.md`.
+- Updated milestone tracking to include cloud architecture boundary alignment checkpoint.
+
+### Topic: Managed observability scope in near-term roadmap
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Make managed SigNoz/Sentry/Langfuse hosting a mandatory dependency for core extension value.
+2. Keep managed observability optional enterprise scope; core extension remains local-first + metadata policy bridge.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Preserves adoption path for local-only users and avoids infrastructure lock-in for free/student tiers. |
+| Reviewer B | Option 2 | Aligns with budget-first strategy while still enabling enterprise upsell via managed overlays. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User explicitly requested both local-first and cloud options; mandatory managed hosting would conflict with local-first product promise.
+
+Risks:
+- Optional model increases documentation needs for mode selection and boundaries.
+
+Mitigation:
+- Keep placement matrix and milestone notes explicit; keep command/help UX deterministic and simple.
+
+Final Ruling:
+- Managed observability remains enterprise optional track; not a blocker for core MCP cloud scoring milestones.
+
+### Topic: Milestone 13C delivery shape (minimal command aliases vs full lifecycle state sync)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Add lightweight aliases only (`pg login/update/doctor`) without persistent lifecycle state or profile sync.
+2. Implement full lifecycle baseline with persisted CLI state, entitlement refresh, doctor diagnostics, and profile handoff into `pg prod`.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | User requested practical command UX and fewer repeated troubleshooting loops. |
+| Reviewer B | Option 2 | Entitlement-aware profile sync makes `pg prod` behavior deterministic across sessions. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- New lifecycle script now supports:
+  - `pg login` (auth bootstrap + summary sync),
+  - `pg update` (refresh entitlement snapshot/profile),
+  - `pg doctor` (PATH/auth/tooling/profile diagnostics).
+- Lifecycle state persists in `Memory-bank/_generated/pg-cli-state.json` and syncs `pg_cli_*` keys into local dev profile.
+- `pg prod` now auto-resolves recommended profile from lifecycle state when `-ProdProfile` is omitted.
+
+Risks:
+- Recommended profile auto-resolution may surprise users expecting hardcoded `standard`.
+
+Mitigation:
+- Explicit `-ProdProfile legacy|standard|strict` always overrides lifecycle recommendation.
+
+Final Ruling:
+- Option 2 approved and implemented.
+
+### Topic: Self-hosted observability implementation shape (baseline scaffold)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep observability as planning-only docs until a later enterprise phase.
+2. Ship a baseline observability adapter bridge now with PG-hosted default and optional enterprise BYOC ownership profile.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | User requested immediate practical path with no vendor lock and default easy onboarding. |
+| Reviewer B | Option 2 | Baseline route + command keeps architecture deterministic while deferring full managed stack hosting operations. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User wants no vendor lock-in and clear distinction between default PG-hosted mode and enterprise BYOC/on-prem mode.
+- Existing policy architecture already supports authenticated server-side deterministic checks and CLI bridge patterns.
+
+Risks:
+- Teams may interpret adapter baseline as full Datadog/Sentry feature parity.
+
+Mitigation:
+- Keep messaging explicit: baseline is readiness/evidence verification scaffold, not full vendor feature parity.
+- Maintain managed observability operations as optional enterprise overlay.
+
+Final Ruling:
+- Added `/account/policy/observability/check` server route + evaluator for `otlp|sentry|signoz`.
+- Added `pg observability-check` command bridge with profile/adapter flags (`pg-hosted|customer-hosted|hybrid`).
+- Updated docs and command help to reflect default PG-hosted onboarding + optional enterprise BYOC.
+
+### Topic: PG Prod rollout defaults (flag-heavy optional checks vs profile-driven defaults)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep optional checks off by default and require long explicit `-Enable*` command flags every run.
+2. Add profile-driven defaults so `pg prod` can run with short commands and predictable strictness levels.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | User repeatedly asked for simpler command UX with strict/relaxed behavior control. |
+| Reviewer B | Option 2 | Profile defaults reduce operator mistakes and complete the Milestone 13D rollout-defaults gap. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- `pg prod` now maps optional gates through `-ProdProfile`:
+  - `legacy`: dependency + coding only
+  - `standard` (default): adds API-contract + DB index maintenance
+  - `strict`: adds Playwright smoke
+- Explicit `-EnableApiContractCheck`, `-EnableDbIndexMaintenanceCheck`, and `-EnablePlaywrightSmokeCheck` remain available and force each check on.
+
+Risks:
+- Stronger defaults can surface new blockers on teams that previously relied on legacy optional checks being skipped.
+
+Mitigation:
+- `-ProdProfile legacy` provides controlled fallback for staged rollout windows.
+
+Final Ruling:
+- Option 2 approved and implemented.
+
+### Topic: Agent-first as-you-go verification (manual user-run checks vs proactive LLM self-check loop)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep verification mostly user-triggered after implementation finishes.
+2. Add a dedicated as-you-go command so the agent runs enforcement/DB/playwright checks proactively during implementation.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Reduces user burden and catches issues while context is fresh. |
+| Reviewer B | Option 2 | Aligns with production intent: fix as you build, not after full task completion. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requested agent-run validation loops so students/operators do not have to manually discover and troubleshoot avoidable errors.
+
+Risks:
+- Frequent checks can increase runtime/noise.
+
+Mitigation:
+- Added `-WarnOnly` mode and changed-file targeting.
+- Playwright remains opt-in for UI tasks.
+
+Final Ruling:
+- Added `pg self-check` (alias `pg as-you-go-check`) backed by `scripts/self_check.ps1`; updated AGENTS workflow and command docs to require proactive during-work verification.
+
+### Topic: DB-index operator guidance format (minimal hints vs copy/paste remediation + troubleshooting)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep DB-index command output as minimal hints and rely on ad-hoc assistant support.
+2. Print explicit copy/paste remediation flow in CLI/help output and mirror the same troubleshooting in Help Center docs.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Students/operators need deterministic self-serve commands without waiting for support chat. |
+| Reviewer B | Option 2 | Repeated failures came from PATH/directory/SQL-context confusion; inline troubleshooting reduces loop time. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- This converts common DB-index recovery steps into first-party runbook output directly in `pg help`, `db-index-check`, and the Narrate Help panel.
+
+Risks:
+- Help output can become too long/noisy.
+
+Mitigation:
+- Keep guidance scoped to high-frequency DB-index failure signatures only.
+
+Final Ruling:
+- Added copy/paste DB-index flow + troubleshooting to `scripts/pg.ps1`, enriched remediation/tips in `scripts/db_index_maintenance_check.ps1`, updated generated plan guidance in `scripts/db_index_fix_plan.ps1`, and mirrored troubleshooting in `extension/src/help/commandHelpContent.ts`.
+
+### Topic: DB maintenance remediation UX (manual guidance only vs generated SQL plan command)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep `db-index-check` findings as report-only and require manual SQL authoring.
+2. Add one command that generates explicit SQL remediation plan for extension enablement and unused-index cleanup workflow.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | User requested one-click path from findings to concrete SQL remediation steps. |
+| Reviewer B | Option 2 | Deterministic generated SQL reduces operator error and speeds strict-gate recovery. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- This closes the gap between detection (`db-index-check`) and safe operator action by producing ready-to-run SQL workflow output.
+
+Risks:
+- Generated candidate drop SQL could be misused without traffic-window validation.
+
+Mitigation:
+- Plan includes mandatory guard checks, explicit constraint checks, and rollback `CREATE INDEX CONCURRENTLY` statements.
+
+Final Ruling:
+- Added `pg db-index-fix-plan` and alias `pg db-index-remediate`, backed by `scripts/db_index_fix_plan.ps1`, and wired `db-index-check` to print the quick remediation command when findings exist.
+
+### Topic: DB index maintenance enforcement channel (manual advisory vs production gate-ready)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep index maintenance checks as documentation/advisory only.
+2. Add executable diagnostics command and optional strict production/trigger enforcement path.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | User requested full enforcement beyond query syntax checks, including indexing and maintenance hygiene. |
+| Reviewer B | Option 2 | Operational DB issues should be surfaced before release; optional strict gate keeps rollout safe. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- Combines deterministic policy with real runtime DB telemetry checks while preserving opt-in strict rollout.
+
+Risks:
+- Databases without `pg_stat_statements` enabled will be blocked when strict gate is enabled.
+
+Mitigation:
+- Keep gate optional (`-EnableDbIndexMaintenanceCheck`) and provide direct command (`pg db-index-check`) for staged adoption.
+
+Final Ruling:
+- Added `db-index-check` command, `db_index_maintenance_check.ps1`, and optional `pg prod`/`enforce-trigger` strict integration flags.
+
+### Topic: Query-optimization enforcement depth in coding policy gate
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep coding policy focused on structure/style only and treat DB query optimization as documentation-only guidance.
+2. Add deterministic database optimization checks directly into coding policy enforcement (`coding-verify` / `pg prod` path).
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | User explicitly requested hard enforcement for N+1, indexing, and slow-query anti-patterns. |
+| Reviewer B | Option 2 | Production gates should catch high-impact DB mistakes before deploy, not after runtime profiling. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- Query and index anti-patterns are high-cost defects that align with existing fail-closed enforcement design.
+
+Risks:
+- Heuristic checks can generate false positives in uncommon query-builder patterns.
+
+Mitigation:
+- Keep rules deterministic and explainable, with blocker/warning split and explicit rule IDs.
+
+Final Ruling:
+- Added query optimization checks and Prisma FK-index signals to server coding policy evaluator and included Prisma/SQL files in default coding scan roots.
+
+### Topic: Playwright smoke integration rollout in `pg prod`
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Make Playwright smoke checks always-on in `pg prod`.
+2. Add Playwright smoke as optional strict gate via explicit flag.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | UI smoke setup varies by repo; always-on would block repos without Playwright baseline. |
+| Reviewer B | Option 2 | User requested flexibility (strict vs relaxed enforcement), matching API-contract rollout style. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- Keeps `pg prod` reliable for repos that have not wired Playwright yet, while enabling strict UI smoke enforcement where teams choose it.
+
+Risks:
+- Teams might delay smoke coverage by not enabling the flag.
+
+Mitigation:
+- Added direct command (`pg playwright-smoke-check` / `pg ui-smoke-check`) and explicit prod flag (`-EnablePlaywrightSmokeCheck`) for CI/prod pipelines.
+
+Final Ruling:
+- Added Playwright smoke command bridge and optional `pg prod` hard gate path.
+
+### Topic: `pg prod` API contract gate rollout mode (always-on vs optional flag)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Make API contract gate always-on immediately in `pg prod`.
+2. Ship API contract gate as opt-in (`-EnableApiContractCheck`) first, then move to default-on after field validation.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | New policy surface needs real-project calibration to avoid false-positive production blocks. |
+| Reviewer B | Option 2 | User asked to continue milestones quickly while preserving team flexibility across enforcement strictness. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- Keeps production gate adoption safe while still making enforcement available immediately.
+
+Risks:
+- Teams may skip the optional gate and delay contract cleanup.
+
+Mitigation:
+- Added dedicated command (`pg api-contract-verify`) and explicit `pg prod` flag for CI/prod pipelines.
+
+Final Ruling:
+- Added server endpoint `/account/policy/api-contract/verify`, CLI bridge `pg api-contract-verify`, and optional `pg prod -EnableApiContractCheck` enforcement path.
+
+### Topic: Milestone 15B next step sequencing (wrapper extraction depth vs pg prod blocking)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Add `pg prod` contract-blocking first and keep current frontend extraction depth unchanged.
+2. Improve frontend extraction depth first (axios wrapper clients + request-config pattern), then add prod blocking.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Better extraction precision should land before hard production blocking to reduce false blockers. |
+| Reviewer B | Option 2 | User asked for next milestone continuity and practical mismatch coverage; wrapper depth is the higher-value immediate gap. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- This improves contract detection accuracy in real projects that use axios wrappers before introducing stricter enforcement gates.
+
+Risks:
+- Heuristic extraction still cannot cover all custom wrapper styles.
+
+Mitigation:
+- Added support for common wrappers (`axios.create` + `.request({ method, url, data })`) and kept backend-inference fallback active.
+
+Final Ruling:
+- API Contract Validator frontend extraction now covers axios wrapper clients and request-config calls; `pg prod` contract gate remains the next optional hardening step.
+
+### Topic: API validator parser depth (JSON-only baseline vs YAML + local schema refs)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep JSON-only OpenAPI parser and defer YAML/`$ref` support to later hardening.
+2. Add YAML parsing now and resolve local schema refs (`#/components/schemas/*`) with recursion guard.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Many OpenAPI specs are YAML-first; baseline mismatch reports should not miss those projects. |
+| Reviewer B | Option 2 | Local schema refs are common and required for accurate request/response field extraction. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- This closes the highest-value remaining gap in Milestone 15B without changing UX or command surface.
+
+Risks:
+- Recursive refs can create infinite loops if not guarded.
+
+Mitigation:
+- Added seen-ref loop protection and local-pointer-only resolution.
+
+Final Ruling:
+- API Contract Validator now parses OpenAPI JSON/YAML and resolves local `#/components/schemas/*` refs during schema extraction.
+
+### Topic: API validator UX command naming and handoff workflow
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep only long command name (`Run API Contract Validator`) and manual copy of report for external fix agents.
+2. Add short alias (`OpenAPI Check`) and one-click fix handoff prompt command.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Student/new-user command discoverability is better with shorter action name |
+| Reviewer B | Option 2 | Direct clipboard handoff reduces friction from mismatch report to implementation fix loop |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User explicitly requested simple command wording and direct report-to-LLM handoff behavior.
+
+Risks:
+- Multiple command names can cause minor duplication confusion.
+
+Mitigation:
+- Keep one canonical validator command and expose alias as UX shortcut in Help Center.
+
+Final Ruling:
+- Added `Narrate: OpenAPI Check` alias and `Narrate: OpenAPI Fix Handoff Prompt`.
+
+### Topic: Milestone 15B implementation order (API Contract Validator baseline now vs defer)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Defer API Contract Validator until full parser stack (OpenAPI YAML + wrapper inference + prod blocking) is complete.
+2. Ship baseline now with OpenAPI-first JSON parsing, backend inference fallback, and explicit mismatch rule IDs.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | User requested direct milestone-by-milestone continuation; baseline gives immediate practical value |
+| Reviewer B | Option 2 | OpenAPI-first + fallback aligns with roadmap while keeping deterministic, explainable findings |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- The project already has Trust/Dead-Code/Doctor checks; API contract validation is the next high-impact blocker category.
+- A baseline command unblocks usage today without waiting for full enterprise hardening steps.
+
+Risks:
+- JSON-only OpenAPI parsing misses YAML specs in some projects.
+- Wrapper-based API clients may reduce frontend-call extraction coverage.
+
+Mitigation:
+- Keep backend-inference fallback active.
+- Document remaining scope in milestone notes for next iteration.
+
+Final Ruling:
+- Added `Narrate: Run API Contract Validator` baseline with rule IDs (`API-REQ-001`, `API-REQ-002`, `API-TYPE-001`, `API-RES-001`).
+
+### Topic: Milestone 15A delivery shape (Codebase Tour baseline now vs defer)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep Codebase Tour as planned-only and move to later milestone window.
+2. Ship baseline command now with markdown architecture map + configurable scan scope.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | User requested next milestone progression immediately and needs discoverable onboarding output now |
+| Reviewer B | Option 2 | Baseline command is low-risk, local-first, and aligns with trust/dead-code workflow already in extension |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- Current roadmap had 15A planned; user asked to continue milestone-by-milestone without pause.
+- Baseline command delivers immediate value (entrypoints/routes/dependencies/coupling map) without blocking later visualization upgrades.
+
+Risks:
+- Heuristic entrypoint scoring can be imperfect in unusual project layouts.
+
+Mitigation:
+- Keep include/exclude/max-file settings configurable and document report as guided map, not a strict authority.
+
+Final Ruling:
+- Added `Narrate: Generate Codebase Tour` baseline with settings + help integration.
+
+### Topic: PG Push dead-code gate remediation UX (block only vs fix+recheck)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep PG Push dead-code gate as block/warn only with report links.
+2. Add in-gate `Apply Safe Fixes + Recheck` action so users can remediate without leaving push flow.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Reduces friction and improves adoption of strict mode enforcement |
+| Reviewer B | Option 2 | Safe autofix is imports-only and deterministic enough for in-flow remediation |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requested continuing milestone progression with practical cleanup workflows, not just detection.
+
+Risks:
+- Autofix may not resolve all high-confidence findings in one pass.
+
+Mitigation:
+- Gate re-runs scan after fix and keeps strict block until high-confidence count is zero.
+
+Final Ruling:
+- PG Push dead-code gate now offers `Apply Safe Fixes + Recheck` in strict/relaxed paths.
+
+### Topic: Dead-code autofix scope (safe imports-only vs broad deletion)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Attempt broad automatic deletion of all high-confidence dead-code findings.
+2. Restrict auto-fix to organize-imports on high-confidence files and keep other cleanup manual.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Import cleanup is deterministic and low-risk; variable/function deletion can still break behavior in edge cases |
+| Reviewer B | Option 2 | User safety requirement favors non-destructive automation with measurable before/after report |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- Next-step implementation should speed cleanup without introducing brittle destructive edits.
+
+Risks:
+- Organize-imports does not resolve all dead-code findings (for example, unused locals/functions).
+
+Mitigation:
+- Re-run scan and show before/after delta; keep remaining findings explicit for manual review.
+
+Final Ruling:
+- Added `Narrate: Apply Safe Dead Code Fixes` for imports-only safe autofix path with post-fix rescan report.
+
+### Topic: Dead-code cleanup execution workflow (branch-first safety)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep cleanup as manual scan + manual git steps only.
+2. Add one command to create/switch cleanup branch and open dead-code report in that branch.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Reduces cleanup friction and avoids accidental direct changes on feature/release branches |
+| Reviewer B | Option 2 | Matches safety requirement: detect first, branch isolate, then clean incrementally |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User asked to continue to next step after strict gate rollout and wanted safe cleanup flow before push.
+
+Risks:
+- Branch command can still carry current uncommitted changes.
+
+Mitigation:
+- Added explicit warning/confirmation when workspace is dirty before branch switch/create.
+
+Final Ruling:
+- Added `Narrate: Create Dead Code Cleanup Branch` command (create/switch branch + run scan + open report).
+
+### Topic: Dead-code gate default mode for this repository profile
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep repo profile on non-blocking dead-code mode (`off` or `relaxed`).
+2. Set repo profile default to strict dead-code gate while allowing manual fallback to relaxed.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Team asked for clean-before-push behavior and explicit enforcement of high-confidence unused code findings |
+| Reviewer B | Option 2 | Workspace-level setting gives strict behavior for this repo without forcing global extension defaults |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User confirmed strict repo profile is desired after gate rollout.
+
+Risks:
+- Strict mode may block pushes during legacy cleanup periods.
+
+Mitigation:
+- Relaxed mode remains one setting change away for temporary migration windows.
+
+Final Ruling:
+- Set `.vscode/settings.json` to `narrate.deadCodeScan.pgPushGateMode = strict` for this repository profile.
+
+### Topic: Dead-code enforcement behavior during PG Push
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep dead-code scan as manual report only and do not enforce during push.
+2. Add configurable PG Push dead-code gate (`off|relaxed|strict`) that blocks only on high-confidence findings.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Users asked for pre-push cleanliness enforcement without risking auto-delete of runtime-critical code |
+| Reviewer B | Option 2 | High-confidence diagnostics are safe to gate; medium/low heuristics should remain advisory |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User explicitly approved adding dead-code gate after baseline scan delivery.
+- Confidence split allows strict enforcement on deterministic findings while preserving safe manual review for heuristics.
+
+Risks:
+- TypeScript diagnostics can occasionally be stale in editor state.
+
+Mitigation:
+- Keep relaxed mode and existing TS restart/refresh command path for stale diagnostics.
+- Gate only on high-confidence findings, not medium/low orphan heuristics.
+
+Final Ruling:
+- PG Push now supports `narrate.deadCodeScan.pgPushGateMode` (`off`, `relaxed`, `strict`) and blocks in strict mode when high-confidence dead-code findings are present.
+
+### Topic: Dead-code cleanup safety model (candidate report vs auto-delete)
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Auto-delete all detected unused code before PG push.
+2. Ship confidence-tiered dead-code candidate scan (report-only), keep deletion manual with compile/test verification.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Static analysis cannot guarantee 100% unused certainty in dynamic runtime patterns; auto-delete risks regressions |
+| Reviewer B | Option 2 | Teams still need immediate visibility; report-first gives cleanup signal without destructive behavior |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User asked how the system can know if code is truly unused and requested safe cleanup flow before push.
+- High-confidence signals should come from compiler diagnostics; import-graph orphaning should remain heuristic.
+
+Risks:
+- Medium/low-confidence orphan detection can produce false positives for dynamic loaders/framework discovery.
+
+Mitigation:
+- Label findings by confidence (`high`, `medium`, `low`) and never auto-delete.
+- Require rerun of compile/tests after manual cleanup batches.
+
+Final Ruling:
+- Added `Narrate: Run Dead Code Scan` with confidence-tiered report-only output and no destructive code actions.
+
+### Topic: Trust Score rollout next step after single-file scoring
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep Trust Score limited to active-file only and defer workspace view.
+2. Add workspace aggregate scan command with actionable summary report now.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Teams need project-level signal before push/release; single-file view hides cross-file blocker concentration |
+| Reviewer B | Option 2 | Aligns with planned milestone remainder and gives immediate product value with low implementation risk |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User asked to continue immediately and this was the next pending Trust milestone item.
+- Aggregate report enables faster triage and more visible red/yellow/green project health.
+
+Risks:
+- Large workspaces can make scan slower.
+
+Mitigation:
+- Added scan max-file and include/exclude glob settings to control runtime cost.
+
+Final Ruling:
+- Added `Narrate: Run Trust Score Workspace Scan` with configurable scope and markdown summary output.
+
+### Topic: Trust recovery popup flow + validation install auto-path
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep Trust guidance as report-only text and manual command discovery.
+2. Add one-click recovery/install UX in-product (TS restart+refresh command, diagnostics popup action, validation install action with Zod fast path).
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Users need visible recovery actions when Problems tab is stale; report-only guidance is too easy to miss |
+| Reviewer B | Option 2 | Validation policy is useful only if setup path is immediate and discoverable for new projects |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requested explicit popup/policy guidance for stale TypeScript diagnostics and enforceable validation setup.
+- One-click commands reduce friction and avoid repeated manual debugging loops.
+
+Risks:
+- Frequent popups can feel noisy.
+
+Mitigation:
+- Keep existing debounce/setting guards (`showDiagnosticsRecoveryHint`, `autoSuggestValidationInstall`) and surface explicit commands in Trust panel/help.
+
+Final Ruling:
+- Added `Narrate: Restart TypeScript + Refresh Trust Score`.
+- Wired diagnostics/trust/push flows to offer one-click recovery.
+- Extended validation setup flow with direct `Install Zod Now` path plus library picker.
+
+### Topic: Zod/input-validation enforcement baseline in local trust + server coding policy
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep validation checks as planned-only and defer enforcement to later milestone.
+2. Add immediate missing-input-validation blocker detection now (Zod or equivalent signal) in both Trust Score and coding standards verifier.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | TypeScript pass alone cannot guarantee runtime input safety; immediate blocker gives practical production protection |
+| Reviewer B | Option 2 | User explicitly requested Zod policy clarity before moving on |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- Runtime payload safety requires schema validation checks independent of static TS compile success.
+- Minimal deterministic pattern-based baseline is low-risk and useful immediately.
+
+Risks:
+- Heuristic detection can false-positive on projects using external/global validation patterns not visible in the file.
+
+Mitigation:
+- Treat as baseline with Zod-or-equivalent signals (not Zod-only), and refine with profile-aware/server-policy integration in next iteration.
+
+Final Ruling:
+- Added missing-input-validation blocker rules to extension Trust Score and server coding standards verification.
+
+### Topic: Trust Score enforcement mode for PG Push
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Always hard-block PG Push when Trust Score has blockers/red status.
+2. Add configurable gate mode with `off`, `relaxed`, and `strict`.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Teams need staged rollout; strict-only can disrupt adoption on legacy codebases |
+| Reviewer B | Option 2 | Matches user request for toggleable enforcement and explicit relax mode |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requested strict enforcement availability without forcing all users into blocking mode.
+- This preserves enforcement power while supporting practical team migration.
+
+Risks:
+- Relaxed mode can allow risky pushes if teams ignore warnings.
+
+Mitigation:
+- Keep strict mode available and document clear behavior in settings/help.
+- Keep status bar/panel visibility high to reduce accidental ignores.
+
+Final Ruling:
+- PG Push now supports `narrate.trustScore.pgPushGateMode = off | relaxed | strict`.
+
+### Topic: Trust Score policy enforcement + panel UX rollout
+Date_UTC: 2026-02-27
+Owner: codex
+
+Options:
+1. Keep Trust Score as lightweight status-bar heuristic only (report command required).
+2. Expand Trust Score into coding-standard enforcement with explicit UI panel + toggle/refresh actions.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | User flow requires visible pass/fail path without command-palette dependence and must enforce architecture standards beyond TS diagnostics |
+| Reviewer B | Option 2 | Policy-driven local checks (`500`/`150`/controller constraints) are aligned with existing standards docs and improve explainability |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User explicitly requested standard enforcement (controller boundaries, line limits, anti-pattern guards) and stronger visual UX.
+- Sidebar panel + title-bar actions provide discoverable controls for students.
+
+Risks:
+- Local heuristic implementation can still differ from full server policy profile.
+- Additional checks can increase warning volume on legacy files.
+
+Mitigation:
+- Keep rule-ID output deterministic and visible in panel/report.
+- Support manual mode via `narrate.trustScore.autoRefreshOnSave=false` plus explicit refresh command.
+
+Final Ruling:
+- Trust Score now includes local coding-standard enforcement and dedicated panel UX (toggle/refresh/report/findings navigation).
+
+### Topic: Environment Doctor quick-fix and Trust Score baseline rollout
+Date_UTC: 2026-02-26
+Owner: codex
+
+Options:
+1. Keep Environment Doctor report-only and defer all remediation/trust scoring to later milestones.
+2. Add immediate quick-fix for `.env.example` plus start deterministic Trust Score baseline now.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Converts report output into action and gives visible quality signal in daily coding loop |
+| Reviewer B | Option 2 | Low implementation risk with strong user value and clean path to server-policy integration later |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requested immediate continuation and milestone progression, including practical quick-fix behavior.
+- Deterministic local scoring and `.env.example` autofill are safe to run locally without external API dependency.
+
+Risks:
+- Local-only trust heuristics can differ from full server policy evaluations.
+- Auto-appended `.env.example` placeholders may require manual cleanup for edge cases.
+
+Mitigation:
+- Keep trust findings rule-ID based and clearly labeled as baseline.
+- Use explicit placeholder value `__REQUIRED__` and keep quick-fix opt-in by user action.
+
+Final Ruling:
+- Added commands `Narrate: Environment Doctor Quick Fix (.env.example)` and `Narrate: Show Trust Score Report`, plus on-save trust status-bar baseline.
+
+### Topic: Scalability architecture ask-before-build enforcement placement
+Date_UTC: 2026-02-26
+Owner: codex
+
+Options:
+1. Keep scalability architecture guide as optional reference only.
+2. Promote guide into enforced planning policy for real-time/async/comms features and add milestone-backed rollout.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Prevents AI from defaulting to easy but non-scalable patterns and forces explicit architecture intent |
+| Reviewer B | Option 2 | Fits enterprise quality model and reduces expensive rework from premature stack choices |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requirement is explicit: AI should ask discovery questions and co-decide scalable architecture before building.
+- This aligns with existing dependency/coding enforcement model and can be layered as server-private policy profile.
+
+Risks:
+- Overly strict gating can slow small prototype workflows.
+- Questionnaire fatigue if applied to every trivial task.
+
+Mitigation:
+- Scope gate to architecture-affecting tasks (real-time, async jobs, inter-service communication, state distribution).
+- Keep lightweight bypass for clearly non-scalable toy/prototype tasks with explicit user acknowledgement.
+
+Final Ruling:
+- Added guide into verification folder and added Milestone 10N for policy-vault/server-enforced rollout.
+
+### Topic: Slack command grammar hardening in Help Center
+Date_UTC: 2026-02-25
+Owner: codex
+
+Options:
+1. Keep label-based examples (`approve`, `needs-change`) in vote commands.
+2. Use key-based examples (`opt1`, `opt2`) and explicitly require slash command as first token.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Prevents invalid option-key errors and lowers operator confusion |
+| Reviewer B | Option 2 | Matches backend parser behavior and observed Slack usage failures |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- Backend thread creation returns option keys (`opt1/opt2/...`) and vote/decide reference those keys.
+- Slack composer can fail to trigger slash parsing when text precedes `/pg`.
+
+Risks:
+- Existing screenshots/docs may still show old examples.
+
+Mitigation:
+- Update extension Help Center commands + troubleshooting and sync Memory-bank command docs in same session.
+
+Final Ruling:
+- Option 2 approved and implemented.
+
+### Topic: Help Center diagnostics execution model
+Date_UTC: 2026-02-25
+Owner: codex
+
+Options:
+1. Keep diagnostics as manual command list only inside help text.
+2. Add one-click command that executes key checks and produces a structured report.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Reduces operator mistakes and speeds incident triage |
+| Reviewer B | Option 2 | Improves student/team onboarding by validating setup in one action |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- Users repeatedly hit the same setup/runtime errors.
+- Automated diagnostics gives deterministic pass/fail output and immediate fix guidance.
+
+Risks:
+- Diagnostics can fail noisily if backend is intentionally offline.
+
+Mitigation:
+- Report includes clear fix hints and distinguishes health/token/worker failures.
+
+Final Ruling:
+- Add `Narrate: Run Command Diagnostics` and surface it from the Help Center.
+
+### Topic: Command Help Center delivery shape (sidebar now vs docs-only defer)
+Date_UTC: 2026-02-24
+Owner: codex
+
+Options:
+1. Keep help only in Memory-bank/docs and defer extension UI help until final hardening.
+2. Ship extension sidebar Help Center now with real commands + troubleshooting mapped to observed failures.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Users are blocked by command syntax and state issues, not missing backend capability |
+| Reviewer B | Option 2 | Low implementation risk and immediate UX gain for student/team onboarding |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- Current failures are operational (`<THREAD_ID>` parsing, token state, backend down, Slack dispatch) and need in-product guidance.
+- Sidebar help keeps local-first model and reduces repeated support loops.
+
+Risks:
+- Help content can drift from command behavior.
+
+Mitigation:
+- Treat help page as versioned product surface and update it with command-surface changes in the same milestone.
+
+Final Ruling:
+- Sidebar command help baseline is implemented now; optional web-hosted mirror remains a follow-up.
+
+### Topic: Local dev credential profile boundary (developer speed vs secret safety)
+Date_UTC: 2026-02-24
+Owner: codex
+
+Options:
+1. Keep credentials only in `.env` and docs; no local dev profile support.
+2. Allow a dedicated local dev profile file for test/runtime hints, but enforce local-only storage and no-secrets-in-docs guardrails.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Prevents agent/test loops from missing tool/DB context while keeping production secret model unchanged |
+| Reviewer B | Option 2 | Matches local-first workflow and reduces setup friction for students/dev teams |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- Development agents need stable local tool/runtime metadata and test credentials to validate flows.
+- Production credentials must still be controlled by `.env`/vault + production gates.
+
+Risks:
+- Users could accidentally paste live credentials into Memory-bank/docs.
+
+Mitigation:
+- Keep profile file in gitignored `.narrate/dev-profile.local.json`.
+- Add gitignore-policy check in `pg dev-profile check`.
+- Add pre-commit guard scan for likely real secrets/private keys in staged Memory-bank/verification docs.
+
+Final Ruling:
+- Local dev profile is approved for development-only use; no production secret storage outside `.env`/vault.
+
+### Topic: Dedicated command help page timing and scope
+Date_UTC: 2026-02-24
+Owner: codex
+
+Options:
+1. Defer user-facing help page until after final product hardening.
+2. Add a dedicated command-help milestone now and implement immediately after current Slack/Narrate closure items.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Current user errors are mostly operational (`<THREAD_ID>` placeholders, token state, server-not-running) and are blocking adoption more than missing backend capability |
+| Reviewer B | Option 2 | Low-cost, high-impact UX layer for students and new teams; reduces support load and failed setup loops |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- The platform already has working command surfaces, but discoverability and correct usage are weak.
+- A clear in-product Help Center keeps local-first architecture intact while making governance workflows usable without trial-and-error.
+
+Risks:
+- Help docs can drift from runtime behavior as commands evolve.
+
+Mitigation:
+- Treat Help Center content as versioned product surface linked to `tools-and-commands.md` and updated in the same release as command changes.
+
+Final Ruling:
+- Add Milestone 10L for Command Help Center (quickstart, decision workflow, expected outputs, troubleshooting matrix).
+
+### Topic: Governance approval execution mapping model (manual commands vs playbook allowlist bindings)
+Date_UTC: 2026-02-24
+Owner: codex
+
+Options:
+1. Keep global decision command overrides only (`approve_command` / `needs_change_command` / `reject_command`).
+2. Add thread-scoped bindings (`thread_id -> action_key`) that resolve commands from an allowlisted local playbook, with global overrides kept as fallback.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Gives real approval-to-action automation while avoiding arbitrary command injection through ad-hoc strings |
+| Reviewer B | Option 2 | Cleaner enterprise model: predictable action catalog + auditable binding per decision thread |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requested that approve decisions should be able to continue work automatically.
+- Playbook + binding keeps local-first execution and improves security/operability.
+
+Risks:
+- Misbound thread/action pairs can run wrong workflow.
+- Stale playbook path could break local execution.
+
+Mitigation:
+- Added `pg governance-bind -List/-Remove` for visibility/control.
+- Worker falls back to default handler when playbook loading fails.
+- Ack note records command source and action key for audit.
+
+Final Ruling:
+- Option 2 approved and implemented as 10K baseline extension.
+
+### Topic: Extension-native governance auto-consumer rollout mode (10K baseline)
+Date_UTC: 2026-02-24
+Owner: codex
+
+Options:
+1. Keep local governance consumption manual-only (`pg governance-worker -Once` by hand).
+2. Add extension-native auto-sync loop with configurable interval plus manual sync command for deterministic one-shot pull/apply/ack.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Converts Slack/server approval into near-real-time local execution without introducing cloud-side code execution risk |
+| Reviewer B | Option 2 | Keeps local-first security model while giving teams an operationally usable flow |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requested end-to-end behavior where approval in Slack/server can be picked up by local agent runtime without manual polling every time.
+- Local execution remains in trusted workstation context and ack is still recorded server-side for audit.
+
+Risks:
+- Poll loop can produce noise if backend mode/token is missing.
+- Misconfigured intervals can be too aggressive on weak devices.
+
+Mitigation:
+- Added config controls: enable/disable, interval seconds, backend-mode requirement, dry-run, and notification behavior.
+- Kept explicit manual command (`Narrate: Governance Sync Now`) for deterministic operator-triggered runs.
+
+Final Ruling:
+- Option 2 approved and implemented as 10K baseline.
+
+### Topic: Extension enforcement wiring mode (save hook + PG push preflight)
+Date_UTC: 2026-02-24
+Owner: codex
+
+Options:
+1. Keep enforcement checks CLI-only and rely on manual runs (`pg prod`, `enforce-trigger`).
+2. Wire extension runtime hooks: post-write trigger on save and pre-push preflight in `Narrate: PG Push`, with warn-first defaults.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Reduces missed checks and keeps quality feedback close to developer flow |
+| Reviewer B | Option 2 | Warn-first mode preserves usability while enforcement rules mature on legacy files |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User asked to continue directly on the next important item and prioritize real enforcement usage.
+- Existing trigger engine already existed; extension wiring was the missing practical adoption step.
+
+Risks:
+- Legacy large files can raise many blockers/noise during early rollout.
+- Missing local token/server can cause enforcement runtime errors in dev loop.
+
+Mitigation:
+- Keep post-write default in warn mode and configurable debounce.
+- Keep pre-push enforcement configurable, and retain hard gate in dedicated `pg prod` command.
+
+Final Ruling:
+- Option 2 approved and implemented for baseline.
+
+### Topic: Trust score and API validator implementation strategy
+Date_UTC: 2026-02-24
+Owner: codex
+
+Options:
+1. Build trust score as heuristic-only UI and API validator as backend-parser-only.
+2. Build trust score from deterministic policy findings (rule-ID based) and API validator as OpenAPI-first with backend-parser fallback.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Keeps scoring explainable/auditable and aligns with enforcement model already chosen |
+| Reviewer B | Option 2 | OpenAPI-first reduces false positives and directly solves frontend/backend mismatch pain in real projects |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User needs trust score to explain exactly why code fails standards (e.g., controller/service limits, validation gaps).
+- User explicitly highlighted API contract mismatch pain and requested Swagger/OpenAPI mapping support.
+
+Risks:
+- Some projects lack OpenAPI specs.
+- Overly strict scoring can produce noisy red status on legacy repos.
+
+Mitigation:
+- Use backend-inference fallback when OpenAPI is unavailable.
+- Keep score weighted and surface top actionable blockers first.
+
+Final Ruling:
+- Option 2 approved. Trust score is policy-driven; API validator is OpenAPI-first with fallback parsing.
+
+### Topic: Feature additions split (core extension vs standalone products)
+Date_UTC: 2026-02-23
+Owner: codex
+
+Options:
+1. Add all proposed features directly into the current extension roadmap.
+2. Keep high-synergy trust/safety features in core, and spin out high-maintenance/orthogonal features into separate extensions later.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Prevents core product bloat and keeps delivery focused on trust + enforcement differentiator |
+| Reviewer B | Option 2 | Reduces maintenance cost and enables faster release cadence for core roadmap |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- Current product mission is local-first AI quality + governance, so features tightly coupled to trust and production safety stay in core.
+- Features with separate maintenance burden (multi-template bootstrap, cost-reporting dashboards, large dead-code workflows) are better as standalone-first products.
+
+Approved Core Features:
+- Environment Doctor
+- AI Trust Score
+- Commit Quality Gate
+- Codebase Tour Generator
+- API Contract Validator (Team/Enterprise)
+
+Standalone-first Candidates:
+- Dead Code Cemetery
+- One-Click Project Setup
+- Tech Debt Counter ($)
+
+Risks:
+- Delaying standalone candidates could leave user-requested value on hold.
+- Too much added to core could still slow roadmap if sequencing is not enforced.
+
+Mitigation:
+- Place core additions as post-enforcement milestones (after 10I/10J).
+- Create Milestone 18 packaging gate for standalone extraction decisions and timeline lock.
+
+Final Ruling:
+- Option 2 approved. Core roadmap adds trust/safety features first; standalone candidates are planned as separate products after Milestone 18 gate.
+
+### Topic: Enforcement-first milestone ordering before extension-native automation
+Date_UTC: 2026-02-23
+Owner: codex
+
+Options:
+1. Start extension-native background auto-consumer wiring first, then add dependency/coding enforcement later.
+2. Complete enforcement baseline first (dependency verification + coding standards + trigger/anti-exfil guardrails), then start extension-native wiring only after those gates pass in this repo.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Prevents local agent automation from applying low-quality changes before guardrails are live |
+| Reviewer B | Option 2 | Matches user priority: enforcement is core IP and quality gate, not an optional add-on |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requested strict enforcement before extension-native automation so agent output is consistently bounded by dependency and coding standards.
+- This keeps current delivery sequence pragmatic: close Slack and Narrate validation first, then turn on enforcement gates, then wire extension-native background execution.
+
+Risks:
+- Extension-native automation timeline shifts slightly later.
+- Early enforcement may surface blockers in existing code that require refactors.
+
+Mitigation:
+- Timebox Milestones 10H-10J and run incremental scans (start-session, post-write, pre-push) before full `pg prod` strict mode.
+- Keep blocker feedback rule-ID based and actionable so fixes are quick.
+
+Final Ruling:
+- Option 2 approved: enforcement baseline is a hard prerequisite for Milestone 10K extension-native auto-consumer work.
+
+### Topic: Policy-exfiltration and jailbreak response model
+Date_UTC: 2026-02-23
+Owner: codex
+
+Options:
+1. Immediate automatic ban on any suspected policy extraction/bypass prompt.
+2. Risk-based staged response: detect, log, soft-block, temporary restriction, then manual escalation/suspension for repeat or severe abuse.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Immediate bans create high false-positive risk and poor trust for legitimate users asking clarifications |
+| Reviewer B | Option 2 | Staged controls preserve security while keeping enforcement auditable and fair |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requested strong protection against jailbreak/emoji-obfuscated extraction while maintaining practical operations.
+- Security needs high signal quality and auditable escalation path.
+
+Risks:
+- Under-tuned detectors may miss sophisticated bypass prompts.
+- Over-tuned detectors may restrict benign prompts.
+
+Mitigation:
+- Keep detector rule packs server-side and continuously tune from audit feedback.
+- Require manual admin review for account suspension decisions.
+
+Final Ruling:
+- Option 2 approved: staged enforcement with risk scoring and audit trail, not immediate auto-ban.
+
+### Topic: Coding standards policy merge and enforcement visibility model
+Date_UTC: 2026-02-23
+Owner: codex
+
+Options:
+1. Expose full coding policy internals (all thresholds/profiles/scoring) directly to local users and apply one-size-fits-all strict limits.
+2. Keep canonical policy server-private, expose opaque rule IDs + minimal remediation hints, and enforce framework-profile-specific thresholds.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Protects IP while keeping deterministic enforcement and reducing false positives from universal thresholds |
+| Reviewer B | Option 2 | Aligns with dependency policy boundary and supports per-framework quality rules without overloading unrelated projects |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requested strict enforcement with hidden private logic and profile relevance (Java project should not load Next.js rules).
+- Dual-threshold approach (`target` warning + `hard` blocker) resolves 80-vs-150 style conflicts between drafts.
+
+Risks:
+- Too little user feedback can reduce developer trust in enforcement outcomes.
+- Profile detection mistakes in monorepos can apply wrong rule packs.
+
+Mitigation:
+- Return stable rule IDs with concise remediation hints and file anchors.
+- Add folder-level profile mapping override in project config for monorepos.
+
+Final Ruling:
+- Option 2 approved for roadmap implementation (policy vault + profile-aware enforcement + opaque rule IDs).
+
+### Topic: Approval-to-action local worker automation baseline
+Date_UTC: 2026-02-23
+Owner: codex
+
+Options:
+1. Keep decision sync as manual review only (`pull` + human action + optional manual ack).
+2. Add local worker baseline that maps approved decisions to local commands and auto-acks execution result.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Enables real team workflow where manager approval can immediately continue local agent work without waiting for manual sync steps |
+| Reviewer B | Option 2 | Preserves local-first execution while keeping server audit (`pending -> applied/conflict/skipped`) and Slack visibility |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requested direct path from Slack governance approval to local agent continuation.
+- Keeps cost low: decision logic remains server-side, execution remains local.
+
+Risks:
+- Misconfigured local command mapping can produce `conflict` ack outcomes.
+
+Mitigation:
+- Provide default handler script and explicit worker commands in `tools-and-commands.md`.
+- Keep execution status/note in ack payload and Slack follow-up visibility.
+
+Final Ruling:
+- Option 2 approved and implemented (`pg governance-login`, `pg governance-worker`, local handler script).
 
 ### Topic: Expose concrete team role in Slack governance cards
 Date_UTC: 2026-02-23
@@ -830,3 +2231,124 @@ Mitigation:
 
 Final Ruling:
 - Option 2 approved as roadmap baseline (Milestone 9-12 planning).
+
+### Topic: Milestone 10F closure execution command
+Date_UTC: 2026-02-25
+Owner: codex
+
+Options:
+1. Keep manual multi-step validation (health, thread, vote, decide, bind, worker, ack) with copy/paste commands.
+2. Ship one command that runs the full matrix and prints PASS/FAIL with a saved markdown report.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Removes operator error and gives repeatable closure evidence for Slack transport. |
+| Reviewer B | Option 2 | Faster go/no-go checks during tunnel instability and team handoff. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requested a single command to validate remaining 10F transport steps end-to-end.
+
+Risks:
+- Public checks may fail during Cloudflare tunnel interruptions even when local stack is healthy.
+
+Mitigation:
+- Add `-SkipPublicChecks` flag for local-only validation and keep explicit PASS/FAIL reporting for public checks when enabled.
+
+Final Ruling:
+- Option 2 approved and wired via `pg slack-check`.
+
+### Topic: Milestone 10G flow validation execution command
+Date_UTC: 2026-02-25
+Owner: codex
+
+Options:
+1. Keep 10G as manual extension-host checklist only.
+2. Add one-shot CLI baseline that validates core flow wiring + compile and emits PASS/FAIL report.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Unblocks milestone progression and catches wiring regressions quickly. |
+| Reviewer B | Option 2 | Gives deterministic baseline before manual UI/runtime interaction checks. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requested immediate progression to next milestone and removal of blocking/manual loops.
+
+Risks:
+- CLI baseline cannot fully simulate live editor interactions.
+
+Mitigation:
+- Keep manual extension-host interaction validation as explicit remaining step in milestone notes.
+
+Final Ruling:
+- Option 2 approved and wired via `pg narrate-check`.
+
+### Topic: Milestone closure operator command and slack-check reliability
+Date_UTC: 2026-02-25
+Owner: codex
+
+Options:
+1. Keep `pg slack-check` and `pg narrate-check` separate and require operators to run/interpret both manually.
+2. Add one combined command for milestone closure and harden Slack check to auto-recover worker cursor drift.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Reduces repeated operator loops and gives a single go/no-go output for milestone progression. |
+| Reviewer B | Option 2 | Cursor drift after restarts caused false negatives; auto-recovery makes closure checks stable. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- User requested moving forward without getting stuck in repeated Slack transport retries.
+- Combined closure reporting and self-healing ack validation remove the recurring manual failure mode.
+
+Risks:
+- Public checks can still fail when Cloudflare tunnel is down even if local stack is healthy.
+
+Mitigation:
+- Keep `-SkipPublicChecks` for local closure and report public failures explicitly as transport/tunnel dependency.
+
+Final Ruling:
+- Option 2 approved and implemented via:
+  - `scripts/milestone_closure_check.ps1`
+  - `pg closure-check`
+  - cursor recovery logic in `scripts/slack_transport_check.ps1`.
+
+### Topic: Closure gate mode for tunnel-dependent public checks
+Date_UTC: 2026-02-25
+Owner: codex
+
+Options:
+1. Keep one strict closure mode only (fail whenever Cloudflare/public endpoint is down).
+2. Add explicit gate modes: `strict` and `local-core`.
+
+Voting:
+| Reviewer | Vote | Rationale |
+|---|---|---|
+| Reviewer A | Option 2 | Prevents milestone progress from being blocked by external tunnel uptime while preserving strict mode for release checks. |
+| Reviewer B | Option 2 | Local governance execution chain is the true implementation signal; public ingress is operational dependency. |
+
+Decision:
+- Implement Option 2.
+
+Rationale:
+- Current failures were dominated by Cloudflare `530` and transient account-summary timeout while core local decision workflow was passing.
+
+Risks:
+- Teams may overuse `local-core` and skip public transport verification.
+
+Mitigation:
+- Keep `strict` as default and require explicit `-ClosureMode local-core` opt-in.
+
+Final Ruling:
+- Option 2 approved and implemented.
+

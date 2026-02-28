@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -53,6 +54,14 @@ TOOLING_HINTS = (
 )
 
 MAX_SCREEN_PAGE_LINES = 500
+DOC_SECRET_EXT = {".md", ".txt", ".json", ".yml", ".yaml", ".env", ".ps1", ".py", ".ts", ".tsx", ".js", ".sh"}
+DOC_SECRET_SCAN_PREFIXES = ("Memory-bank/", ".verificaton-before-production-folder/")
+
+ASSIGNMENT_SECRET_RE = re.compile(
+    r"(?i)\b(password|passwd|pwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key)\b[\"']?\s*[:=]\s*[\"']([^\"']{6,})[\"']"
+)
+DATABASE_URL_SECRET_RE = re.compile(r"(?i)\bpostgres(?:ql)?://[^:@/\s]+:([^@/\s]+)@")
+PRIVATE_KEY_BLOCK_RE = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")
 
 
 def run_git(args: list[str]) -> str:
@@ -129,6 +138,67 @@ def line_count(path: Path) -> int:
         return len(path.read_text(encoding="utf-8", errors="ignore").splitlines())
     except OSError:
         return 0
+
+
+def looks_like_placeholder(value: str) -> bool:
+    candidate = value.strip()
+    lower = candidate.lower()
+    if not candidate:
+        return True
+    placeholder_hints = (
+        "<", ">", "your_", "example", "sample", "changeme", "paste_", "redacted",
+        "dummy", "test_", "token_here", "password_here", "***",
+    )
+    if any(hint in lower for hint in placeholder_hints):
+        return True
+    if lower in {"token", "password", "secret", "api_key", "access_token", "refresh_token"}:
+        return True
+    if re.fullmatch(r"[A-Z0-9_\-]{6,}", candidate):
+        return True
+    return False
+
+
+def scan_doc_secrets(staged: list[str]) -> list[str]:
+    findings: list[str] = []
+    for path in staged:
+        if not path.startswith(DOC_SECRET_SCAN_PREFIXES):
+            continue
+        abs_path = ROOT / path
+        if not abs_path.exists() or not abs_path.is_file():
+            continue
+        if abs_path.suffix.lower() not in DOC_SECRET_EXT:
+            continue
+        try:
+            lines = abs_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+        except OSError:
+            continue
+
+        for idx, line in enumerate(lines, start=1):
+            if PRIVATE_KEY_BLOCK_RE.search(line):
+                findings.append(
+                    f"Potential private key leak in {path}:{idx}. Keep keys in .env/vault only."
+                )
+                continue
+
+            assignment = ASSIGNMENT_SECRET_RE.search(line)
+            if assignment:
+                value = assignment.group(2)
+                if not looks_like_placeholder(value):
+                    findings.append(
+                        f"Potential secret assignment in {path}:{idx}. Move local dev secrets to "
+                        "'.narrate/dev-profile.local.json' (gitignored) and keep production secrets in .env/vault."
+                    )
+                    continue
+
+            db_match = DATABASE_URL_SECRET_RE.search(line)
+            if db_match:
+                password_value = db_match.group(1)
+                if not looks_like_placeholder(password_value):
+                    findings.append(
+                        f"Potential database password leak in {path}:{idx}. Use local dev profile or .env/vault instead."
+                    )
+                    continue
+    return findings
 
 
 def parse_mode(cli_mode: str | None) -> str:
@@ -275,6 +345,7 @@ def main() -> int:
     warnings: list[str] = []
     session_errors = validate_session()
     errors.extend(session_errors)
+    errors.extend(scan_doc_secrets(staged))
 
     if not any(p.startswith("Memory-bank/") for p in staged):
         errors.append("Code changed but no Memory-bank file is staged.")

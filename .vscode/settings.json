@@ -1,5 +1,6 @@
 {
   "narrate.licensing.placeholderPlan": "pro",
   "narrate.export.outputDir": ".narrate/exports",
-  "narrate.report.outputSubdir": "reports"
+  "narrate.report.outputSubdir": "reports",
+  "narrate.deadCodeScan.pgPushGateMode": "strict"
 }

@@ -2,7 +2,13 @@ import * as vscode from "vscode";
 import { FeatureGateService } from "../licensing/featureGates";
 import { NarrateSchemeProvider } from "../readingView/narrateSchemeProvider";
 import { NarrationMode } from "../types";
-import { setCurrentMode } from "./modeState";
+import {
+  getCurrentEduDetailLevel,
+  getCurrentReadingPaneMode,
+  getCurrentReadingSnippetMode,
+  getCurrentReadingViewMode,
+  setCurrentMode
+} from "./modeState";
 
 export function registerToggleReadingModeCommand(
   context: vscode.ExtensionContext,
@@ -13,18 +19,6 @@ export function registerToggleReadingModeCommand(
   onModeChanged: (mode: NarrationMode) => void
 ): vscode.Disposable {
   return vscode.commands.registerCommand(commandId, async () => {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-      vscode.window.showWarningMessage("Narrate: open a source file first.");
-      return;
-    }
-
-    const activeDoc = editor.document;
-    if (activeDoc.uri.scheme === "narrate") {
-      vscode.window.showWarningMessage("Narrate: switch to a source code tab first.");
-      return;
-    }
-
     if (mode === "edu") {
       const allowed = await gates.requireEduViewFeature();
       if (!allowed) {
@@ -34,6 +28,17 @@ export function registerToggleReadingModeCommand(
 
     await setCurrentMode(context, mode);
     onModeChanged(mode);
-    await provider.openNarrationView(activeDoc, mode);
+    const opened = await provider.openNarrationFromContext({
+      mode,
+      viewMode: getCurrentReadingViewMode(context),
+      paneMode: getCurrentReadingPaneMode(context),
+      snippetMode: getCurrentReadingSnippetMode(context),
+      eduDetailLevel: getCurrentEduDetailLevel(context)
+    });
+    if (!opened) {
+      vscode.window.showWarningMessage(
+        "Narrate: open a source file (or an existing Narrate tab) before switching mode."
+      );
+    }
   });
 }

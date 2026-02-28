@@ -26,7 +26,7 @@ export class NarrationEngine {
 
       const cached = this.cache.get(document.uri.fsPath, mode, lineHash);
       if (cached) {
-        narrationByLine.set(lineNumber, cached);
+        narrationByLine.set(lineNumber, postProcessNarration(text, cached, mode));
       } else {
         linesToNarrate.push({ lineNumber, text });
       }

@@ -31,7 +31,10 @@ export function registerExportNarrationFileCommand(
 
     const mode = getCurrentMode(context);
     const narrations = await narrationEngine.narrateDocument(document, mode);
-    const rendered = renderNarrationDocument(document, mode, narrations);
+    const rendered = renderNarrationDocument(document, mode, narrations, "section", {
+      snippetMode: "withSource",
+      eduDetailLevel: "standard"
+    });
     const exportDir = await resolveExportBaseDir(context);
 
     const fileBase = sanitizePathSegment(path.basename(document.uri.fsPath));

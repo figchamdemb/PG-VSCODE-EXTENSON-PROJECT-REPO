@@ -1,12 +1,10 @@
 generator client {
   provider = "prisma-client-js"
 }
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
 enum PlanTier {
   free
   trial
@@ -14,13 +12,11 @@ enum PlanTier {
   team
   enterprise
 }
-
 enum PaidPlanTier {
   pro
   team
   enterprise
 }
-
 enum ModuleScope {
   narrate
   memorybank
@@ -167,6 +163,8 @@ model Subscription {
   createdAt          DateTime           @map("created_at") @db.Timestamptz(3)
 
   @@index([userId, status])
+  @@index([planId])
+  @@index([teamId])
   @@map("subscriptions")
 }
 
@@ -242,6 +240,7 @@ model RefundRequest {
   reason         String?
 
   @@index([userId])
+  @@index([subscriptionId])
   @@map("refund_requests")
 }
 
@@ -263,6 +262,7 @@ model OfflinePaymentRef {
   rejectionReason String?             @map("rejection_reason")
   redeemCode     String?              @map("redeem_code")
 
+  @@index([planId])
   @@map("offline_payment_refs")
 }
 
@@ -280,6 +280,8 @@ model RedeemCode {
   usedByUserId String?      @map("used_by_user_id") @db.Uuid
   revokedAt    DateTime?    @map("revoked_at") @db.Timestamptz(3)
 
+  @@index([planId])
+  @@index([usedByUserId])
   @@map("redeem_codes")
 }
 
@@ -300,6 +302,7 @@ model AffiliateCode {
   status            AffiliateCodeStatus
   createdAt         DateTime            @map("created_at") @db.Timestamptz(3)
 
+  @@index([userId])
   @@map("affiliate_codes")
 }
 
@@ -317,6 +320,9 @@ model AffiliateConversion {
   payoutId            String?                   @map("payout_id") @db.Uuid
 
   @@index([affiliateUserId, status])
+  @@index([buyerUserId])
+  @@index([orderId])
+  @@index([payoutId])
   @@map("affiliate_conversions")
 }
 
@@ -360,6 +366,7 @@ model OAuthState {
   expiresAt  DateTime      @map("expires_at") @db.Timestamptz(3)
   consumedAt DateTime?     @map("consumed_at") @db.Timestamptz(3)
 
+  @@index([installId])
   @@map("oauth_states")
 }
 
@@ -372,6 +379,8 @@ model Team {
   seatLimit  Int         @map("seat_limit")
   createdAt  DateTime    @map("created_at") @db.Timestamptz(3)
 
+  @@index([ownerUserId])
+  @@index([planId])
   @@map("teams")
 }
 

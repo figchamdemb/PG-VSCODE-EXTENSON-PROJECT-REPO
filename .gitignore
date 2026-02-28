@@ -2,6 +2,7 @@ extension/node_modules/
 extension/dist/
 extension/.narrate/
 extension/src/**/.narrate/
+.narrate/
 server/node_modules/
 server/dist/
 server/data/
@@ -18,3 +19,17 @@ production-checklist/
 # Logs
 extension/logs/
 server/logs/
+
+# Environment files with secrets
+.env
+server/.env
+extension/.env
+
+# Local governance worker state/logs (contains bearer tokens + local execution traces)
+Memory-bank/_generated/governance-agent-state.json
+Memory-bank/_generated/pg-cli-state.json
+Memory-bank/_generated/governance-worker-execution.log
+Memory-bank/_generated/governance-agent-queue.jsonl
+
+# Local temporary backend runtime logs
+server/tmp-server-*.log

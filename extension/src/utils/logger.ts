@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { sanitizeLogMessage } from "./logSanitization";
 
 export class Logger {
   private readonly output: vscode.OutputChannel;
@@ -8,15 +9,15 @@ export class Logger {
   }
 
   info(message: string): void {
-    this.output.appendLine(`[INFO] ${message}`);
+    this.output.appendLine(`[INFO] ${sanitizeLogMessage(message)}`);
   }
 
   warn(message: string): void {
-    this.output.appendLine(`[WARN] ${message}`);
+    this.output.appendLine(`[WARN] ${sanitizeLogMessage(message)}`);
   }
 
   error(message: string): void {
-    this.output.appendLine(`[ERROR] ${message}`);
+    this.output.appendLine(`[ERROR] ${sanitizeLogMessage(message)}`);
   }
 
   dispose(): void {

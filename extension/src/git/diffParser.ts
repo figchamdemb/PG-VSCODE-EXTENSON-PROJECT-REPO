@@ -2,117 +2,162 @@ import { DiffFile, DiffHunk, DiffLine } from "./types";
 
 const HUNK_HEADER_REGEX = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/;
 
+interface ParseState {
+  files: DiffFile[];
+  currentFile?: DiffFile;
+  currentHunk?: DiffHunk;
+  oldLineCursor: number;
+  newLineCursor: number;
+}
+
 export function parseUnifiedDiff(rawDiff: string): DiffFile[] {
-  const lines = rawDiff.split(/\r?\n/);
-  const files: DiffFile[] = [];
-
-  let currentFile: DiffFile | undefined;
-  let currentHunk: DiffHunk | undefined;
-  let oldLineCursor = 0;
-  let newLineCursor = 0;
-
-  for (const line of lines) {
-    if (line.startsWith("diff --git ")) {
-      if (currentFile) {
-        if (currentHunk) {
-          currentFile.hunks.push(currentHunk);
-          currentHunk = undefined;
-        }
-        files.push(currentFile);
-      }
-      const parsed = parseDiffHeader(line);
-      currentFile = {
-        oldPath: parsed.oldPath,
-        newPath: parsed.newPath,
-        status: "modified",
-        hunks: []
-      };
+  const state = createParseState();
+  for (const line of rawDiff.split(/\r?\n/)) {
+    if (handleDiffFileHeader(state, line)) {
       continue;
     }
-
-    if (!currentFile) {
+    if (!state.currentFile) {
       continue;
     }
-
-    if (line.startsWith("new file mode ")) {
-      currentFile.status = "added";
+    if (handleFileMetadataLine(state.currentFile, line)) {
       continue;
     }
-    if (line.startsWith("deleted file mode ")) {
-      currentFile.status = "deleted";
+    if (handleHunkHeaderLine(state, line)) {
       continue;
     }
-    if (line.startsWith("rename from ") || line.startsWith("rename to ")) {
-      currentFile.status = "renamed";
-      continue;
-    }
-    if (line.startsWith("--- ")) {
-      const oldPath = stripFilePrefix(line.slice(4).trim());
-      if (oldPath) {
-        currentFile.oldPath = oldPath;
-      }
-      continue;
-    }
-    if (line.startsWith("+++ ")) {
-      const newPath = stripFilePrefix(line.slice(4).trim());
-      if (newPath) {
-        currentFile.newPath = newPath;
-      }
-      continue;
-    }
-
-    const hunkMatch = line.match(HUNK_HEADER_REGEX);
-    if (hunkMatch) {
-      if (currentHunk) {
-        currentFile.hunks.push(currentHunk);
-      }
-      const oldStart = Number(hunkMatch[1]);
-      const oldCount = Number(hunkMatch[2] ?? 1);
-      const newStart = Number(hunkMatch[3]);
-      const newCount = Number(hunkMatch[4] ?? 1);
-      const headerSuffix = hunkMatch[5] ?? "";
-
-      currentHunk = {
-        oldStart,
-        oldCount,
-        newStart,
-        newCount,
-        header: `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@${headerSuffix}`,
-        lines: []
-      };
-      oldLineCursor = oldStart;
-      newLineCursor = newStart;
-      continue;
-    }
-
-    if (!currentHunk) {
-      continue;
-    }
-
-    const diffLine = parseDiffLine(line, oldLineCursor, newLineCursor);
-    if (!diffLine) {
-      continue;
-    }
-    currentHunk.lines.push(diffLine);
-
-    if (diffLine.kind === "context") {
-      oldLineCursor += 1;
-      newLineCursor += 1;
-    } else if (diffLine.kind === "removed") {
-      oldLineCursor += 1;
-    } else if (diffLine.kind === "added") {
-      newLineCursor += 1;
-    }
+    appendHunkDiffLine(state, line);
   }
 
-  if (currentFile) {
-    if (currentHunk) {
-      currentFile.hunks.push(currentHunk);
-    }
-    files.push(currentFile);
-  }
+  return finalizeParse(state);
+}
 
-  return files.filter((file) => file.hunks.length > 0 || file.status !== "modified");
+function createParseState(): ParseState {
+  return {
+    files: [],
+    oldLineCursor: 0,
+    newLineCursor: 0
+  };
+}
+
+function handleDiffFileHeader(state: ParseState, line: string): boolean {
+  if (!line.startsWith("diff --git ")) {
+    return false;
+  }
+  flushCurrentFile(state);
+  const parsed = parseDiffHeader(line);
+  state.currentFile = {
+    oldPath: parsed.oldPath,
+    newPath: parsed.newPath,
+    status: "modified",
+    hunks: []
+  };
+  return true;
+}
+
+function handleFileMetadataLine(currentFile: DiffFile, line: string): boolean {
+  if (line.startsWith("new file mode ")) {
+    currentFile.status = "added";
+    return true;
+  }
+  if (line.startsWith("deleted file mode ")) {
+    currentFile.status = "deleted";
+    return true;
+  }
+  if (line.startsWith("rename from ") || line.startsWith("rename to ")) {
+    currentFile.status = "renamed";
+    return true;
+  }
+  if (line.startsWith("--- ")) {
+    updateDiffPath(line, 4, (path) => {
+      currentFile.oldPath = path;
+    });
+    return true;
+  }
+  if (line.startsWith("+++ ")) {
+    updateDiffPath(line, 4, (path) => {
+      currentFile.newPath = path;
+    });
+    return true;
+  }
+  return false;
+}
+
+function updateDiffPath(line: string, prefixLength: number, assign: (value: string) => void): void {
+  const path = stripFilePrefix(line.slice(prefixLength).trim());
+  if (path) {
+    assign(path);
+  }
+}
+
+function handleHunkHeaderLine(state: ParseState, line: string): boolean {
+  const hunkMatch = line.match(HUNK_HEADER_REGEX);
+  if (!hunkMatch || !state.currentFile) {
+    return false;
+  }
+  flushCurrentHunk(state);
+  const oldStart = Number(hunkMatch[1]);
+  const oldCount = Number(hunkMatch[2] ?? 1);
+  const newStart = Number(hunkMatch[3]);
+  const newCount = Number(hunkMatch[4] ?? 1);
+  const headerSuffix = hunkMatch[5] ?? "";
+  state.currentHunk = {
+    oldStart,
+    oldCount,
+    newStart,
+    newCount,
+    header: `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@${headerSuffix}`,
+    lines: []
+  };
+  state.oldLineCursor = oldStart;
+  state.newLineCursor = newStart;
+  return true;
+}
+
+function appendHunkDiffLine(state: ParseState, rawLine: string): void {
+  if (!state.currentHunk) {
+    return;
+  }
+  const diffLine = parseDiffLine(rawLine, state.oldLineCursor, state.newLineCursor);
+  if (!diffLine) {
+    return;
+  }
+  state.currentHunk.lines.push(diffLine);
+  advanceLineCursors(state, diffLine);
+}
+
+function advanceLineCursors(state: ParseState, diffLine: DiffLine): void {
+  if (diffLine.kind === "context") {
+    state.oldLineCursor += 1;
+    state.newLineCursor += 1;
+    return;
+  }
+  if (diffLine.kind === "removed") {
+    state.oldLineCursor += 1;
+    return;
+  }
+  state.newLineCursor += 1;
+}
+
+function flushCurrentFile(state: ParseState): void {
+  if (!state.currentFile) {
+    return;
+  }
+  flushCurrentHunk(state);
+  state.files.push(state.currentFile);
+  state.currentFile = undefined;
+}
+
+function flushCurrentHunk(state: ParseState): void {
+  if (!state.currentFile || !state.currentHunk) {
+    return;
+  }
+  state.currentFile.hunks.push(state.currentHunk);
+  state.currentHunk = undefined;
+}
+
+function finalizeParse(state: ParseState): DiffFile[] {
+  flushCurrentFile(state);
+  return state.files.filter((file) => file.hunks.length > 0 || file.status !== "modified");
 }
 
 function parseDiffHeader(line: string): { oldPath: string; newPath: string } {

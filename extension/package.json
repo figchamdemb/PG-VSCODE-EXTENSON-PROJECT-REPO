@@ -15,13 +15,22 @@
   "activationEvents": [
     "onCommand:narrate.toggleReadingModeDev",
     "onCommand:narrate.toggleReadingModeEdu",
+    "onCommand:narrate.setModeDev",
+    "onCommand:narrate.setModeEdu",
     "onCommand:narrate.switchNarrationMode",
+    "onCommand:narrate.switchReadingViewMode",
+    "onCommand:narrate.switchReadingPaneMode",
+    "onCommand:narrate.switchReadingSnippetMode",
+    "onCommand:narrate.switchEduDetailLevel",
+    "onCommand:narrate.refreshReadingView",
     "onCommand:narrate.requestChangePrompt",
     "onCommand:narrate.exportNarrationFile",
     "onCommand:narrate.exportNarrationWorkspace",
     "onCommand:narrate.generateChangeReport",
+    "onCommand:narrate.generateCodebaseTour",
     "onCommand:narrate.pgPush",
     "onCommand:narrate.pgGit",
+    "onCommand:narrate.governanceSyncNow",
     "onCommand:narrate.authSignIn",
     "onCommand:narrate.authSignInGitHub",
     "onCommand:narrate.redeemCode",
@@ -32,6 +41,25 @@
     "onCommand:narrate.activateProjectQuota",
     "onCommand:narrate.showProjectQuota",
     "onCommand:narrate.manageDevices",
+    "onCommand:narrate.openCommandHelp",
+    "onCommand:narrate.createDeadCodeCleanupBranch",
+    "onCommand:narrate.applySafeDeadCodeFixes",
+    "onCommand:narrate.runCommandDiagnostics",
+    "onCommand:narrate.runDeadCodeScan",
+    "onCommand:narrate.runEnvironmentDoctor",
+    "onCommand:narrate.runApiContractValidator",
+    "onCommand:narrate.openApiCheck",
+    "onCommand:narrate.openApiFixHandoff",
+    "onCommand:narrate.runTrustWorkspaceScan",
+    "onCommand:narrate.setupValidationLibrary",
+    "onCommand:narrate.environmentDoctorQuickFixExample",
+    "onCommand:narrate.showTrustScoreReport",
+    "onCommand:narrate.refreshTrustScore",
+    "onCommand:narrate.restartTypeScriptAndRefreshTrust",
+    "onCommand:narrate.toggleTrustScore",
+    "onCommand:narrate.openTrustScorePanel",
+    "onView:narrate.commandHelpView",
+    "onView:narrate.trustScoreView",
     "onStartupFinished"
   ],
   "contributes": {
@@ -45,8 +73,43 @@
         "title": "Narrate: Toggle Reading Mode (Edu)"
       },
       {
+        "command": "narrate.setModeDev",
+        "title": "Narrate: Set Mode (Dev)",
+        "shortTitle": "Dev"
+      },
+      {
+        "command": "narrate.setModeEdu",
+        "title": "Narrate: Set Mode (Edu)",
+        "shortTitle": "Edu"
+      },
+      {
         "command": "narrate.switchNarrationMode",
         "title": "Narrate: Switch Narration Mode"
+      },
+      {
+        "command": "narrate.switchReadingViewMode",
+        "title": "Narrate: Switch Reading View Mode (Exact/Section)",
+        "shortTitle": "View"
+      },
+      {
+        "command": "narrate.switchReadingPaneMode",
+        "title": "Narrate: Switch Reading Pane Mode (Split/Full)",
+        "shortTitle": "Pane"
+      },
+      {
+        "command": "narrate.switchReadingSnippetMode",
+        "title": "Narrate: Toggle Source Snippet (Code/Meaning)",
+        "shortTitle": "Source"
+      },
+      {
+        "command": "narrate.switchEduDetailLevel",
+        "title": "Narrate: Toggle EDU Detail Level (Standard/Beginner/Full Beginner)",
+        "shortTitle": "Explain"
+      },
+      {
+        "command": "narrate.refreshReadingView",
+        "title": "Narrate: Refresh Reading View",
+        "shortTitle": "Refresh"
       },
       {
         "command": "narrate.requestChangePrompt",
@@ -65,12 +128,20 @@
         "title": "Narrate: Generate Change Report (Git Diff...)"
       },
       {
+        "command": "narrate.generateCodebaseTour",
+        "title": "Narrate: Generate Codebase Tour"
+      },
+      {
         "command": "narrate.pgPush",
         "title": "Narrate: PG Push (Git Add/Commit/Push)"
       },
       {
         "command": "narrate.pgGit",
         "title": "Narrate: PG Git Push"
+      },
+      {
+        "command": "narrate.governanceSyncNow",
+        "title": "Narrate: Governance Sync Now"
       },
       {
         "command": "narrate.authSignIn",
@@ -111,8 +182,174 @@
       {
         "command": "narrate.manageDevices",
         "title": "Narrate: Manage Devices"
+      },
+      {
+        "command": "narrate.openCommandHelp",
+        "title": "Narrate: Open Command Help"
+      },
+      {
+        "command": "narrate.createDeadCodeCleanupBranch",
+        "title": "Narrate: Create Dead Code Cleanup Branch"
+      },
+      {
+        "command": "narrate.applySafeDeadCodeFixes",
+        "title": "Narrate: Apply Safe Dead Code Fixes"
+      },
+      {
+        "command": "narrate.runCommandDiagnostics",
+        "title": "Narrate: Run Command Diagnostics"
+      },
+      {
+        "command": "narrate.runDeadCodeScan",
+        "title": "Narrate: Run Dead Code Scan"
+      },
+      {
+        "command": "narrate.runEnvironmentDoctor",
+        "title": "Narrate: Run Environment Doctor"
+      },
+      {
+        "command": "narrate.runApiContractValidator",
+        "title": "Narrate: Run API Contract Validator"
+      },
+      {
+        "command": "narrate.openApiCheck",
+        "title": "Narrate: OpenAPI Check"
+      },
+      {
+        "command": "narrate.openApiFixHandoff",
+        "title": "Narrate: OpenAPI Fix Handoff Prompt"
+      },
+      {
+        "command": "narrate.runTrustWorkspaceScan",
+        "title": "Narrate: Run Trust Score Workspace Scan"
+      },
+      {
+        "command": "narrate.setupValidationLibrary",
+        "title": "Narrate: Setup Validation Library"
+      },
+      {
+        "command": "narrate.environmentDoctorQuickFixExample",
+        "title": "Narrate: Environment Doctor Quick Fix (.env.example)"
+      },
+      {
+        "command": "narrate.showTrustScoreReport",
+        "title": "Narrate: Show Trust Score Report"
+      },
+      {
+        "command": "narrate.refreshTrustScore",
+        "title": "Narrate: Refresh Trust Score"
+      },
+      {
+        "command": "narrate.restartTypeScriptAndRefreshTrust",
+        "title": "Narrate: Restart TypeScript + Refresh Trust Score"
+      },
+      {
+        "command": "narrate.toggleTrustScore",
+        "title": "Narrate: Toggle Trust Score"
+      },
+      {
+        "command": "narrate.openTrustScorePanel",
+        "title": "Narrate: Open Trust Score Panel"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "narrateHelp",
+          "title": "Narrate Help",
+          "icon": "resources/help.svg"
+        }
+      ]
+    },
+    "views": {
+      "narrateHelp": [
+        {
+          "id": "narrate.commandHelpView",
+          "name": "Command Help",
+          "type": "webview"
+        },
+        {
+          "id": "narrate.trustScoreView",
+          "name": "Trust Score"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "narrate.runCommandDiagnostics",
+          "when": "view == narrate.commandHelpView",
+          "group": "navigation"
+        },
+        {
+          "command": "narrate.refreshTrustScore",
+          "when": "view == narrate.trustScoreView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "narrate.toggleTrustScore",
+          "when": "view == narrate.trustScoreView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "narrate.showTrustScoreReport",
+          "when": "view == narrate.trustScoreView",
+          "group": "navigation@3"
+        },
+        {
+          "command": "narrate.runTrustWorkspaceScan",
+          "when": "view == narrate.trustScoreView",
+          "group": "navigation@4"
+        },
+        {
+          "command": "narrate.restartTypeScriptAndRefreshTrust",
+          "when": "view == narrate.trustScoreView",
+          "group": "navigation@5"
+        },
+        {
+          "command": "narrate.setupValidationLibrary",
+          "when": "view == narrate.trustScoreView",
+          "group": "navigation@6"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "narrate.setModeDev",
+          "when": "resourceScheme == narrate",
+          "group": "navigation@1"
+        },
+        {
+          "command": "narrate.setModeEdu",
+          "when": "resourceScheme == narrate",
+          "group": "navigation@2"
+        },
+        {
+          "command": "narrate.switchReadingViewMode",
+          "when": "resourceScheme == narrate",
+          "group": "navigation@3"
+        },
+        {
+          "command": "narrate.switchReadingPaneMode",
+          "when": "resourceScheme == narrate",
+          "group": "navigation@4"
+        },
+        {
+          "command": "narrate.switchReadingSnippetMode",
+          "when": "resourceScheme == narrate",
+          "group": "navigation@5"
+        },
+        {
+          "command": "narrate.switchEduDetailLevel",
+          "when": "resourceScheme == narrate",
+          "group": "navigation@6"
+        },
+        {
+          "command": "narrate.refreshReadingView",
+          "when": "resourceScheme == narrate",
+          "group": "navigation@7"
+        }
+      ]
+    },
     "configuration": {
       "title": "Narrate",
       "properties": {
@@ -124,6 +361,48 @@
           ],
           "default": "dev",
           "description": "Default narration mode when opening the reading view."
+        },
+        "narrate.reading.defaultViewMode": {
+          "type": "string",
+          "enum": [
+            "exact",
+            "section"
+          ],
+          "default": "exact",
+          "description": "Default reading display mode. Exact is strict 1:1 line mapping."
+        },
+        "narrate.reading.defaultPaneMode": {
+          "type": "string",
+          "enum": [
+            "sideBySide",
+            "fullPage"
+          ],
+          "default": "sideBySide",
+          "description": "Default reading pane placement when opening narration output."
+        },
+        "narrate.reading.defaultSnippetMode": {
+          "type": "string",
+          "enum": [
+            "withSource",
+            "narrationOnly"
+          ],
+          "default": "withSource",
+          "description": "Exact mode source display: show source+meaning or narration-only lines."
+        },
+        "narrate.reading.defaultEduDetailLevel": {
+          "type": "string",
+          "enum": [
+            "standard",
+            "beginner",
+            "fullBeginner"
+          ],
+          "default": "standard",
+          "description": "Education detail depth for plain-English narration rendering (standard, beginner, full beginner)."
+        },
+        "narrate.reading.showStatusBarControls": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show status-bar controls for Narrate view mode, pane mode, and refresh."
         },
         "narrate.model.baseUrl": {
           "type": "string",
@@ -190,6 +469,225 @@
           "default": true,
           "description": "When backend mode is enabled, automatically attempts license refresh on startup."
         },
+        "narrate.enforcement.projectFramework": {
+          "type": "string",
+          "default": "unknown",
+          "description": "Framework hint passed to PG enforcement checks (for example: nextjs, nestjs, spring, react)."
+        },
+        "narrate.enforcement.postWrite.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run PG enforcement trigger after file save."
+        },
+        "narrate.enforcement.postWrite.warnOnly": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keep post-write enforcement non-blocking (warn mode)."
+        },
+        "narrate.enforcement.postWrite.debounceMs": {
+          "type": "number",
+          "default": 1200,
+          "minimum": 200,
+          "maximum": 10000,
+          "description": "Debounce delay for post-write enforcement trigger."
+        },
+        "narrate.enforcement.postWrite.showNotifications": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show VS Code toast notifications when post-write enforcement reports blockers/errors."
+        },
+        "narrate.enforcement.prePush.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run PG enforcement preflight before Narrate PG Push executes git push."
+        },
+        "narrate.enforcement.prePush.warnOnly": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run PG pre-push enforcement in warn mode (non-blocking)."
+        },
+        "narrate.governance.autoSync.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically poll governance decisions and apply/ack through local PG worker."
+        },
+        "narrate.governance.autoSync.intervalSeconds": {
+          "type": "number",
+          "default": 30,
+          "minimum": 10,
+          "maximum": 3600,
+          "description": "Polling interval for extension governance auto-sync worker."
+        },
+        "narrate.governance.autoSync.requireBackendMode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run governance auto-sync only when licensing mode is backend."
+        },
+        "narrate.governance.autoSync.dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run governance auto-sync in dry-run mode (no local execution)."
+        },
+        "narrate.governance.autoSync.showNotifications": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show notifications when background governance auto-sync fails."
+        },
+        "narrate.governance.stateFile": {
+          "type": "string",
+          "default": "",
+          "description": "Optional path to governance worker state JSON file. If empty, pg defaults are used."
+        },
+        "narrate.trustScore.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable deterministic Trust Score checks on save."
+        },
+        "narrate.trustScore.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Trust Score in status bar."
+        },
+        "narrate.trustScore.autoRefreshOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically refresh Trust Score on save and editor switch. Turn off for manual refresh mode."
+        },
+        "narrate.trustScore.validationLibraryPolicy": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warn",
+            "required"
+          ],
+          "default": "warn",
+          "description": "Validation package policy for Trust Score on controller/route files. required blocks when no supported validation package is detected."
+        },
+        "narrate.trustScore.autoSuggestValidationInstall": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show setup prompt when Trust Score detects missing validation setup."
+        },
+        "narrate.trustScore.showDiagnosticsRecoveryHint": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show hint to restart TypeScript server and refresh Trust Score when diagnostics blockers persist."
+        },
+        "narrate.trustScore.pgPushGateMode": {
+          "type": "string",
+          "enum": [
+            "off",
+            "relaxed",
+            "strict"
+          ],
+          "default": "off",
+          "description": "Controls Trust Score enforcement during Narrate PG Push. off: ignore trust gate, relaxed: warn then allow continue, strict: block push when trust is red/blocking."
+        },
+        "narrate.trustScore.workspaceScanMaxFiles": {
+          "type": "number",
+          "default": 250,
+          "minimum": 1,
+          "maximum": 2000,
+          "description": "Maximum files processed by Narrate: Run Trust Score Workspace Scan."
+        },
+        "narrate.trustScore.workspaceScanIncludeGlob": {
+          "type": "string",
+          "default": "**/*.{ts,tsx,js,jsx,py,java,go,rs,cs,php,rb}",
+          "description": "Include glob for workspace Trust scan command."
+        },
+        "narrate.trustScore.workspaceScanExcludeGlob": {
+          "type": "string",
+          "default": "**/{node_modules,dist,build,.git,.next,coverage,.venv,venv,.gradle,target,out}/**",
+          "description": "Exclude glob for workspace Trust scan command."
+        },
+        "narrate.deadCodeScan.maxFiles": {
+          "type": "number",
+          "default": 600,
+          "minimum": 1,
+          "maximum": 4000,
+          "description": "Maximum files processed by Narrate dead-code scan."
+        },
+        "narrate.deadCodeScan.includeGlob": {
+          "type": "string",
+          "default": "**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}",
+          "description": "Include glob for dead-code scan candidate discovery."
+        },
+        "narrate.deadCodeScan.excludeGlob": {
+          "type": "string",
+          "default": "**/{node_modules,.git,dist,build,out,coverage,.next,.turbo,Memory-bank,logs}/**",
+          "description": "Exclude glob for dead-code scan candidate discovery."
+        },
+        "narrate.deadCodeScan.pgPushGateMode": {
+          "type": "string",
+          "enum": [
+            "off",
+            "relaxed",
+            "strict"
+          ],
+          "default": "off",
+          "description": "Dead-code enforcement mode for Narrate PG Push. strict blocks push when high-confidence unused findings exist, relaxed warns and allows manual continue."
+        },
+        "narrate.apiContract.maxFiles": {
+          "type": "number",
+          "default": 1200,
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Maximum files processed by API Contract Validator."
+        },
+        "narrate.apiContract.includeGlob": {
+          "type": "string",
+          "default": "**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs,json,yml,yaml}",
+          "description": "Include glob used by API Contract Validator."
+        },
+        "narrate.apiContract.excludeGlob": {
+          "type": "string",
+          "default": "**/{node_modules,.git,dist,build,out,coverage,.next,.turbo,Memory-bank,logs,.venv,venv,target}/**",
+          "description": "Exclude glob used by API Contract Validator."
+        },
+        "narrate.codebaseTour.maxFiles": {
+          "type": "number",
+          "default": 1500,
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Maximum files processed by Narrate codebase tour scan."
+        },
+        "narrate.codebaseTour.includeGlob": {
+          "type": "string",
+          "default": "**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs,py,java,go,rs,cs,php,rb,json,yml,yaml}",
+          "description": "Include glob for codebase tour discovery."
+        },
+        "narrate.codebaseTour.excludeGlob": {
+          "type": "string",
+          "default": "**/{node_modules,.git,dist,build,out,coverage,.next,.turbo,Memory-bank,logs,.venv,venv,target}/**",
+          "description": "Exclude glob for codebase tour discovery."
+        },
+        "narrate.commitQuality.pgPushGateMode": {
+          "type": "string",
+          "enum": [
+            "off",
+            "relaxed",
+            "strict"
+          ],
+          "default": "relaxed",
+          "description": "Commit message quality enforcement mode for Narrate PG Push. strict blocks weak/generic messages, relaxed warns but allows manual override."
+        },
+        "narrate.commitQuality.requireConventional": {
+          "type": "boolean",
+          "default": true,
+          "description": "Require conventional commit format during PG Push (type(scope): summary)."
+        },
+        "narrate.commitQuality.rejectGenericMessages": {
+          "type": "boolean",
+          "default": true,
+          "description": "Reject generic commit messages such as fix/update/wip during PG Push quality checks."
+        },
+        "narrate.commitQuality.minSummaryLength": {
+          "type": "number",
+          "default": 10,
+          "minimum": 5,
+          "maximum": 120,
+          "description": "Minimum summary length required by PG Push commit quality gate."
+        },
         "narrate.export.outputDir": {
           "type": "string",
           "default": ".narrate/exports",
@@ -228,6 +726,7 @@
     }
   },
   "dependencies": {
+    "js-yaml": "^4.1.1",
     "jsonwebtoken": "^9.0.2"
   },
   "scripts": {
@@ -236,6 +735,7 @@
     "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^20.16.5",
     "@types/vscode": "^1.92.0",

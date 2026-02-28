@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${SKIP_PG_ENFORCEMENT:-0}" = "1" ]; then
+  echo "[pre-push] skipped via SKIP_PG_ENFORCEMENT=1"
+  exit 0
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+if command -v pwsh >/dev/null 2>&1; then
+  pwsh -NoProfile -ExecutionPolicy Bypass -File "$repo_root/scripts/enforcement_trigger.ps1" -Phase pre-push
+elif command -v powershell >/dev/null 2>&1; then
+  powershell -ExecutionPolicy Bypass -File "$repo_root/scripts/enforcement_trigger.ps1" -Phase pre-push
+else
+  echo "[pre-push] PowerShell is required for enforcement trigger."
+  exit 1
+fi

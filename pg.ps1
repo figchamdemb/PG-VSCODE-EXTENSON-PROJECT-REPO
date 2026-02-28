@@ -10,5 +10,10 @@ if (-not (Test-Path -LiteralPath $scriptPath)) {
     throw "Missing command script: $scriptPath"
 }
 
-& powershell -ExecutionPolicy Bypass -File $scriptPath @Arguments
+$pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+if ($pwsh) {
+    & $pwsh.Source -NoProfile -ExecutionPolicy Bypass -File $scriptPath @Arguments
+} else {
+    & powershell -ExecutionPolicy Bypass -File $scriptPath @Arguments
+}
 exit $LASTEXITCODE

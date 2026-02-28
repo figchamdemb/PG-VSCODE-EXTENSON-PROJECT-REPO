@@ -13,103 +13,202 @@ export function registerExportNarrationWorkspaceCommand(
   gates: FeatureGateService
 ): vscode.Disposable {
   return vscode.commands.registerCommand("narrate.exportNarrationWorkspace", async () => {
-    const allowed = await gates.requireProFeature("Export Narration (Workspace)");
-    if (!allowed) {
-      return;
-    }
+    await runExportNarrationWorkspace(context, narrationEngine, gates);
+  });
+}
 
-    if (!vscode.workspace.workspaceFolders?.length) {
-      vscode.window.showWarningMessage("Narrate: open a workspace folder first.");
-      return;
-    }
+type WorkspaceExportConfig = {
+  includeGlob: string;
+  excludeGlob: string;
+  maxFiles: number;
+  maxCharsPerFile: number;
+};
 
-    const mode = getCurrentMode(context);
-    const exportBaseDir = await resolveExportBaseDir(context);
-    const runTimestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const runDir = path.join(exportBaseDir, `workspace-export-${runTimestamp}`);
-    await fs.mkdir(runDir, { recursive: true });
+type WorkspaceExportStats = {
+  exportedCount: number;
+  skippedCount: number;
+};
 
-    const config = vscode.workspace.getConfiguration("narrate.export");
-    const includeGlob = config.get<string>(
+async function runExportNarrationWorkspace(
+  context: vscode.ExtensionContext,
+  narrationEngine: NarrationEngine,
+  gates: FeatureGateService
+): Promise<void> {
+  const allowed = await gates.requireProFeature("Export Narration (Workspace)");
+  if (!allowed) {
+    return;
+  }
+
+  if (!vscode.workspace.workspaceFolders?.length) {
+    vscode.window.showWarningMessage("Narrate: open a workspace folder first.");
+    return;
+  }
+
+  const mode = getCurrentMode(context);
+  const runDir = await createWorkspaceExportRunDir(context);
+  const config = readWorkspaceExportConfig();
+  const files = await vscode.workspace.findFiles(config.includeGlob, config.excludeGlob, config.maxFiles);
+  if (files.length === 0) {
+    vscode.window.showWarningMessage("Narrate: no files matched workspace export glob.");
+    return;
+  }
+
+  const indexLines = createWorkspaceExportIndex(mode, files.length);
+  const stats = await exportWorkspaceFiles(
+    files,
+    config.maxCharsPerFile,
+    mode,
+    runDir,
+    narrationEngine,
+    indexLines
+  );
+  await openWorkspaceExportIndex(runDir, indexLines, stats);
+}
+
+async function createWorkspaceExportRunDir(
+  context: vscode.ExtensionContext
+): Promise<string> {
+  const exportBaseDir = await resolveExportBaseDir(context);
+  const runTimestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const runDir = path.join(exportBaseDir, `workspace-export-${runTimestamp}`);
+  await fs.mkdir(runDir, { recursive: true });
+  return runDir;
+}
+
+function readWorkspaceExportConfig(): WorkspaceExportConfig {
+  const config = vscode.workspace.getConfiguration("narrate.export");
+  return {
+    includeGlob: config.get<string>(
       "includeGlob",
       "**/*.{ts,tsx,js,jsx,java,kt,kts,py,go,rs,cs,cpp,c,h,hpp,json,yml,yaml,sql,xml,html,css,scss,swift,dart,md}"
-    );
-    const excludeGlob = config.get<string>(
+    ),
+    excludeGlob: config.get<string>(
       "excludeGlob",
       "**/{node_modules,dist,build,.git,.next,coverage,.venv,venv,.gradle,target,out}/**"
-    );
-    const maxFiles = config.get<number>("maxFiles", 120);
-    const maxCharsPerFile = config.get<number>("maxCharsPerFile", 40000);
+    ),
+    maxFiles: config.get<number>("maxFiles", 120),
+    maxCharsPerFile: config.get<number>("maxCharsPerFile", 40000)
+  };
+}
 
-    const files = await vscode.workspace.findFiles(includeGlob, excludeGlob, maxFiles);
-    if (files.length === 0) {
-      vscode.window.showWarningMessage("Narrate: no files matched workspace export glob.");
-      return;
-    }
+function createWorkspaceExportIndex(mode: "dev" | "edu", matchedFiles: number): string[] {
+  return [
+    "# Narrate Workspace Export",
+    `Generated: ${new Date().toISOString()}`,
+    `Mode: ${mode}`,
+    `Matched files: ${matchedFiles}`,
+    ""
+  ];
+}
 
-    const indexLines: string[] = [
-      "# Narrate Workspace Export",
-      `Generated: ${new Date().toISOString()}`,
-      `Mode: ${mode}`,
-      `Matched files: ${files.length}`,
-      ""
-    ];
+async function exportWorkspaceFiles(
+  files: vscode.Uri[],
+  maxCharsPerFile: number,
+  mode: "dev" | "edu",
+  runDir: string,
+  narrationEngine: NarrationEngine,
+  indexLines: string[]
+): Promise<WorkspaceExportStats> {
+  let exportedCount = 0;
+  let skippedCount = 0;
 
-    let exportedCount = 0;
-    let skippedCount = 0;
-
-    await vscode.window.withProgress(
-      {
-        title: "Narrate: Exporting workspace narration",
-        location: vscode.ProgressLocation.Notification,
-        cancellable: false
-      },
-      async (progress) => {
-        for (let idx = 0; idx < files.length; idx += 1) {
-          const file = files[idx];
-          progress.report({
-            message: `${idx + 1}/${files.length} ${path.basename(file.fsPath)}`,
-            increment: Math.max(1, Math.floor(100 / files.length))
-          });
-
-          try {
-            const doc = await vscode.workspace.openTextDocument(file);
-            if (doc.getText().length > maxCharsPerFile) {
-              skippedCount += 1;
-              indexLines.push(`- SKIPPED (too large): \`${toWorkspaceRelativePath(file.fsPath)}\``);
-              continue;
-            }
-
-            const narrations = await narrationEngine.narrateDocument(doc, mode);
-            const rendered = renderNarrationDocument(doc, mode, narrations);
-            const relativePath = toWorkspaceRelativePath(file.fsPath);
-            const normalizedRelative = relativePath.split(path.sep).map(sanitizePathSegment).join(path.sep);
-            const targetPath = path.join(runDir, `${normalizedRelative}.narrate.${mode}.md`);
-
-            await fs.mkdir(path.dirname(targetPath), { recursive: true });
-            await fs.writeFile(targetPath, rendered, "utf8");
-
-            exportedCount += 1;
-            indexLines.push(`- EXPORTED: \`${relativePath}\` -> \`${path.relative(runDir, targetPath)}\``);
-          } catch {
-            skippedCount += 1;
-            indexLines.push(`- SKIPPED (read/export error): \`${toWorkspaceRelativePath(file.fsPath)}\``);
-          }
+  await vscode.window.withProgress(
+    {
+      title: "Narrate: Exporting workspace narration",
+      location: vscode.ProgressLocation.Notification,
+      cancellable: false
+    },
+    async (progress) => {
+      for (let idx = 0; idx < files.length; idx += 1) {
+        const file = files[idx];
+        reportWorkspaceExportProgress(progress, idx, files.length, file.fsPath);
+        const outcome = await exportSingleWorkspaceFile(
+          file,
+          maxCharsPerFile,
+          mode,
+          runDir,
+          narrationEngine,
+          indexLines
+        );
+        if (outcome === "exported") {
+          exportedCount += 1;
+        } else {
+          skippedCount += 1;
         }
       }
-    );
+    }
+  );
 
-    indexLines.unshift(
-      `Summary: exported=${exportedCount}, skipped=${skippedCount}`,
-      ""
-    );
-    const indexPath = path.join(runDir, "index.md");
-    await fs.writeFile(indexPath, indexLines.join("\n"), "utf8");
-    const indexDoc = await vscode.workspace.openTextDocument(indexPath);
-    await vscode.window.showTextDocument(indexDoc, { preview: false });
+  return { exportedCount, skippedCount };
+}
 
-    vscode.window.showInformationMessage(
-      `Narrate: workspace export complete. exported=${exportedCount}, skipped=${skippedCount}`
-    );
+function reportWorkspaceExportProgress(
+  progress: vscode.Progress<{ message?: string; increment?: number }>,
+  index: number,
+  total: number,
+  filePath: string
+): void {
+  progress.report({
+    message: `${index + 1}/${total} ${path.basename(filePath)}`,
+    increment: Math.max(1, Math.floor(100 / total))
   });
+}
+
+async function exportSingleWorkspaceFile(
+  file: vscode.Uri,
+  maxCharsPerFile: number,
+  mode: "dev" | "edu",
+  runDir: string,
+  narrationEngine: NarrationEngine,
+  indexLines: string[]
+): Promise<"exported" | "skipped"> {
+  try {
+    const doc = await vscode.workspace.openTextDocument(file);
+    if (doc.getText().length > maxCharsPerFile) {
+      indexLines.push(`- SKIPPED (too large): \`${toWorkspaceRelativePath(file.fsPath)}\``);
+      return "skipped";
+    }
+
+    const narrations = await narrationEngine.narrateDocument(doc, mode);
+    const rendered = renderNarrationDocument(doc, mode, narrations, "section", {
+      snippetMode: "withSource",
+      eduDetailLevel: "standard"
+    });
+    const targetPath = buildWorkspaceExportTargetPath(runDir, file.fsPath, mode);
+    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+    await fs.writeFile(targetPath, rendered, "utf8");
+
+    const relativePath = toWorkspaceRelativePath(file.fsPath);
+    indexLines.push(`- EXPORTED: \`${relativePath}\` -> \`${path.relative(runDir, targetPath)}\``);
+    return "exported";
+  } catch {
+    indexLines.push(`- SKIPPED (read/export error): \`${toWorkspaceRelativePath(file.fsPath)}\``);
+    return "skipped";
+  }
+}
+
+function buildWorkspaceExportTargetPath(
+  runDir: string,
+  sourcePath: string,
+  mode: "dev" | "edu"
+): string {
+  const relativePath = toWorkspaceRelativePath(sourcePath);
+  const normalizedRelative = relativePath.split(path.sep).map(sanitizePathSegment).join(path.sep);
+  return path.join(runDir, `${normalizedRelative}.narrate.${mode}.md`);
+}
+
+async function openWorkspaceExportIndex(
+  runDir: string,
+  indexLines: string[],
+  stats: WorkspaceExportStats
+): Promise<void> {
+  indexLines.unshift(`Summary: exported=${stats.exportedCount}, skipped=${stats.skippedCount}`, "");
+  const indexPath = path.join(runDir, "index.md");
+  await fs.writeFile(indexPath, indexLines.join("\n"), "utf8");
+  const indexDoc = await vscode.workspace.openTextDocument(indexPath);
+  await vscode.window.showTextDocument(indexDoc, { preview: false });
+
+  vscode.window.showInformationMessage(
+    `Narrate: workspace export complete. exported=${stats.exportedCount}, skipped=${stats.skippedCount}`
+  );
 }

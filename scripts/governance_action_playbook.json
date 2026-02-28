@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "actions": [
+    {
+      "key": "default-handler",
+      "description": "Write governance decision to local execution log and local agent queue.",
+      "commands": {
+        "approve": "& '.\\scripts\\governance_action_handler.ps1' -Mode approve",
+        "needs_change": "& '.\\scripts\\governance_action_handler.ps1' -Mode needs_change",
+        "reject": "& '.\\scripts\\governance_action_handler.ps1' -Mode reject"
+      }
+    },
+    {
+      "key": "prod-check-on-approve",
+      "description": "Run PG production checks on approve, queue local agent notes for other outcomes.",
+      "commands": {
+        "approve": "& '.\\pg.ps1' prod",
+        "needs_change": "& '.\\scripts\\governance_action_handler.ps1' -Mode needs_change",
+        "reject": "& '.\\scripts\\governance_action_handler.ps1' -Mode reject"
+      }
+    },
+    {
+      "key": "enforce-prepush-on-approve",
+      "description": "Run pre-push enforcement trigger on approve, queue notes for other outcomes.",
+      "commands": {
+        "approve": "& '.\\pg.ps1' enforce-trigger -Phase pre-push",
+        "needs_change": "& '.\\scripts\\governance_action_handler.ps1' -Mode needs_change",
+        "reject": "& '.\\scripts\\governance_action_handler.ps1' -Mode reject"
+      }
+    }
+  ]
+}

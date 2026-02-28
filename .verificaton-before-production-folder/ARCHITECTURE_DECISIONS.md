@@ -262,3 +262,29 @@ LATER: Enterprise Features
 ├── Team dashboards
 └── Custom rule creation
 ```
+
+---
+
+## SCALABILITY GUIDE PLACEMENT DECISION (2026-02-26)
+
+The scalability decision framework is now placed in three layers:
+
+1. **Canonical policy doc (repo-visible):**
+   - `.verificaton-before-production-folder/SCALABILITY_ARCHITECTURE_GUIDE.md`
+   - Purpose: explicit discovery questions + anti-pattern bans + architecture selection rules.
+
+2. **Milestone-backed enforcement rollout:**
+   - `Memory-bank/project-details.md` -> **Milestone 10N**
+   - Purpose: move from reference-doc usage to enforced pre-build decision gate.
+
+3. **Server-side private policy profile (planned execution layer):**
+   - integrated with existing private policy vault approach (same model as dependency/coding policy).
+   - Purpose: AI receives rule IDs/outcomes and required questionnaire flow without exposing full private logic to users.
+
+### Runtime Rule (adopted)
+
+For any feature involving real-time updates, async jobs, service communication, or distributed state:
+
+- agent must ask scalability discovery questions first;
+- agent must present options + rejection rationale;
+- agent must request user confirmation on architecture choice before coding.

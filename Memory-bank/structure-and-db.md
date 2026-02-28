@@ -1,7 +1,7 @@
 # Structure & DB - Authoritative Snapshot
 
-LAST_UPDATED_UTC: 2026-02-23 00:34
-UPDATED_BY: codex
+LAST_UPDATED_UTC: 2026-02-28 21:16
+UPDATED_BY: copilot
 PROJECT_TYPE: frontend
 
 ## System Inventory
@@ -24,8 +24,54 @@ PROJECT_TYPE: frontend
 - Super admins/admin operators are authenticated by DB-backed RBAC (`admin_accounts` + role/permission mapping) and can monitor users, subscriptions, payments, and support queues from `/pg-global-admin/board/*`.
 - Admin APIs can optionally require Cloudflare Access JWT assertions (`cf-access-jwt-assertion`) before RBAC checks.
 - Team/enterprise users can configure governance controls (retention, vote mode, Slack toggle/add-on) through `/account/governance/settings*`.
+- Authenticated users can submit dependency manifests to `/account/policy/dependency/verify` for fail-closed dependency policy evaluation with rule-ID output.
+- Authenticated users can submit source files to `/account/policy/coding/verify` for fail-closed coding-standards policy evaluation with profile-aware rule-ID output.
+- Authenticated users can submit source/spec files to `/account/policy/api-contract/verify` for API contract mismatch evaluation (OpenAPI-first with backend inference fallback, blocker/warning rule output).
+- Authenticated users can submit scanner metadata + cloud architecture context to `/account/policy/mcp/cloud-score` for deterministic production cloud-readiness scoring (`pass|blocked`, score/grade, findings with rule IDs).
+- Authenticated users can submit observability adapter metadata to `/account/policy/observability/check` for deterministic self-hosted adapter readiness findings (`otlp|sentry|signoz`, PG-hosted default, optional enterprise BYOC profile).
+- Architecture policy boundary is enforced:
+  - local runtime performs deterministic checks and presents findings,
+  - server keeps private policy internals/weights,
+  - MCP cloud scoring remains metadata/evidence driven (not full source upload by default),
+  - managed observability hosting remains optional enterprise overlay.
 - Team/enterprise users can submit EOD reports, create mastermind debate threads, vote, and finalize decisions from `/account/governance/*`.
 - Finalized decisions are published to a local-first sync queue (`/account/governance/sync/pull`, `/account/governance/sync/ack`) for extension/agent consumption.
+- Local worker runtime (`pg governance-worker`) consumes pending decision events, resolves command mapping through allowlisted playbook bindings (`thread_id -> action_key`) or explicit overrides, executes local commands, and acknowledges execution outcome (`applied|conflict|skipped`) with audit note.
+- Extension runtime now includes background governance auto-sync that runs `pg governance-worker -Once` on a configurable interval, plus a manual `Narrate: Governance Sync Now` command path.
+- Extension post-write runtime now triggers `pg enforce-trigger -Phase post-write` on debounced file-save events.
+- Extension `Narrate: PG Push` now runs `pg enforce-trigger -Phase pre-push` preflight before executing git push.
+- Extension `Narrate: PG Push` now also evaluates Trust Score pre-push gate based on `narrate.trustScore.pgPushGateMode`:
+  - `off`: no trust gate check
+  - `relaxed`: warning confirmation allows continue
+  - `strict`: blocks push when trust is red/blocking or report is unavailable/disabled.
+- Extension `Narrate: PG Push` now also evaluates commit-message quality based on `narrate.commitQuality.pgPushGateMode`:
+  - `off`: no commit-quality checks
+  - `relaxed`: warns on low-quality message and allows manual continue
+  - `strict`: blocks push until commit message meets policy (conventional format/generic-rejection/min-length).
+- Extension `Narrate: PG Push` now also evaluates dead-code pre-push gate based on `narrate.deadCodeScan.pgPushGateMode`:
+  - `off`: no dead-code gate check
+  - `relaxed`: warns when high-confidence unused findings exist and allows manual continue
+  - `strict`: blocks push until high-confidence dead-code findings are resolved.
+- Dead-code gate prompt now includes one-click `Apply Safe Fixes + Recheck` option (imports-only autofix path) before continue/block decisions.
+- Current repo workspace profile (`.vscode/settings.json`) defaults dead-code PG push gate to `strict`.
+- Local `pg prod` baseline command now hard-fails on dependency and coding policy blockers by calling both `/account/policy/dependency/verify` and `/account/policy/coding/verify` before production continuation.
+- `pg prod` now supports rollout profiles:
+  - `legacy`: dependency + coding only
+  - `standard` (default): dependency + coding + API contract + DB index maintenance
+  - `strict`: standard + Playwright smoke
+- Added PG lifecycle commands:
+  - `pg login` (auth bootstrap + entitlement snapshot sync)
+  - `pg update` (token-backed entitlement/profile refresh)
+  - `pg doctor` (PATH/auth/toolchain/dev-profile diagnostics)
+- Lifecycle state now persists at `Memory-bank/_generated/pg-cli-state.json` (gitignored) and syncs local dev profile keys (`pg_cli_*`) including recommended prod profile.
+- `pg prod` now auto-uses lifecycle `recommended_prod_profile` when `-ProdProfile` is omitted (explicit `-ProdProfile` still overrides).
+- `pg prod` profile checks map to:
+  - API contract gate -> `/account/policy/api-contract/verify` via `scripts/api_contract_verify.ps1`
+  - DB index maintenance gate -> `scripts/db_index_maintenance_check.ps1`
+  - Playwright smoke gate -> `scripts/playwright_smoke_check.ps1`
+- DB maintenance findings can now be converted into an executable SQL remediation checklist with:
+  - `pg db-index-fix-plan` (or alias `pg db-index-remediate`)
+  - output report: `Memory-bank/_generated/db-index-fix-plan-latest.md`.
 - Slack slash commands and interactive callbacks can submit governance actions through `/integrations/slack/commands` and `/integrations/slack/actions` with signature and replay protection.
 - Webhook verifies signature then grants entitlement and updates affiliate conversion state.
 - Backend issues signed entitlement JWTs and enforces plan/device/quota/rules.
@@ -100,7 +146,169 @@ PROJECT_TYPE: frontend
   - card now includes explicit workflow and "Your access" context to reduce vote vs finalize confusion.
 - Slack card context now exposes effective scope/team and concrete membership role labels (`owner`, `manager`, `member`) so role-to-permission mapping is visible during review.
 - Slack `summary` response now includes team role per team key (`TEAM_KEY (role)`) to validate permission expectations without opening the web portal.
+- Decision-ack route now dispatches Slack notification (when Slack add-on is active) after local worker ack is recorded, improving visibility that local execution completed.
 - Slack `summary` command now uses read-only user lookup (no user write/update) so routine checks avoid heavy persistence writes.
 - Prisma runtime persist now uses non-interactive sequential writes (no Prisma interactive transaction callback) to avoid `Transaction API error: Transaction not found` under the current remote Postgres connection path.
+- Local 10F validation run confirms:
+  - signed slash command `/integrations/slack/commands` help path returns expected command list.
+  - signed action callback `/integrations/slack/actions` applies vote/decision updates using payload user email fallback.
+  - finalized decision event is consumed by local worker and acknowledged as `applied`.
+- One-shot Slack transport closure command is wired:
+  - `.\pg.ps1 slack-check` now runs local/public health checks, governance create/vote/decide cycle, worker apply, and ack verification with PASS/FAIL output.
+  - report path: `Memory-bank/_generated/slack-transport-check-latest.md`.
+  - worker cursor-drift recovery is now built into ack verification (auto-reset to event sequence window and retry worker once when ack remains `pending`).
+- One-shot Narrate flow closure command is wired:
+  - `.\pg.ps1 narrate-check` now validates command wiring, runtime registration markers, core source presence, and extension compile.
+  - report path: `Memory-bank/_generated/narrate-flow-check-latest.md`.
+- One-shot combined closure command is wired:
+  - `.\pg.ps1 closure-check` runs both `slack-check` and `narrate-check`, then writes a consolidated report.
+  - `closure-check` now supports `strict` vs `local-core` mode:
+    - `strict`: all checks including public transport must pass.
+    - `local-core`: requires local governance execution chain and Narrate checks; treats tunnel/public failures as non-blocking for milestone progression.
+  - report path: `Memory-bank/_generated/milestone-closure-check-latest.md`.
+- Dependency verification baseline is now active via `server/src/dependencyVerification.ts`:
+  - deny-list checks
+  - native-alternative checks
+  - npm official registry lookup (fail-closed when verification cannot be completed)
+  - compatibility checks (`next/react/node`, `@nestjs/*` major alignment, `prisma` vs `@prisma/client` exact version sync).
+- Coding standards verification baseline is now active via modular evaluator files:
+  - `server/src/codingStandardsVerification.ts` (orchestration + structural/controller/function checks)
+  - `server/src/codingStandardsQueryOptimization.ts` (query/index optimization checks)
+  - `server/src/codingStandardsLogSafety.ts` (log-injection/log-forgery prevention checks for unsafe direct logging calls)
+  - profile-aware component LOC target/hard limits
+  - controller anti-pattern checks (branching, try/catch, direct data-access references)
+  - input-validation blocker checks for controller/route files when request input is handled without schema validation signal (Zod or equivalent)
+  - database query optimization checks:
+    - `SELECT *` blocker,
+    - N+1 loop+query blocker,
+    - deep `OFFSET` blocker (keyset pagination expectation),
+    - non-SARGable `WHERE` warning,
+    - suspicious `HAVING` usage warning,
+    - Prisma foreign-key-like `*Id` field index blocker
+  - function body/parameter limit checks with blocker/warning rule IDs.
+- DB maintenance diagnostics baseline is now available via `scripts/db_index_maintenance_check.ps1`:
+  - invalid index blocker check,
+  - `pg_stat_statements` extension presence blocker check,
+  - sequential scan pressure warnings,
+  - unused non-primary, non-unique index warnings,
+  - VACUUM/ANALYZE lag warnings.
+- `db-index-check` terminal output now includes copy/paste remediation flow and troubleshooting hints for common operator mistakes (global `pg.ps1` resolution, wrong working directory, PowerShell continuation mode, and SQL-vs-PowerShell confusion).
+- Extension Help Center command runbook now includes agent-first `pg self-check` examples (warn-as-you-go and strict-final) so students/operators can copy exact verification commands directly from the UI.
+- Extension licensing runtime is now split between:
+  - `extension/src/licensing/featureGates.ts` (orchestration + entitlement/provider checks)
+  - `extension/src/licensing/featureGateActions.ts` (interactive sign-in/trial/redeem/checkout/device/project-quota flows)
+  to keep policy scanner file-size limits compliant without behavior changes.
+- Server runtime/blocker reduction split now includes:
+  - `server/src/serverRuntimeSetup.ts` for bootstrap plugin/parser/security-header setup,
+  - `server/src/adminRbacBootstrap.ts` for admin RBAC baseline seeding logic,
+  - `server/src/subscriptionGrant.ts` for subscription/entitlement grant state mutations,
+  reducing hard function-body blockers in `server/src/index.ts` while preserving behavior.
+- Account/admin summary helper extraction now also includes:
+  - `server/src/accountSummarySupport.ts` for catalog-plan payload shaping, account-summary composition helpers, and admin board summary aggregation used by `server/src/index.ts`.
+- Additional route/orchestration extraction now includes:
+  - `server/src/accountSummaryOrchestration.ts` for account-summary response composition and admin snapshot resolution with injected service dependencies.
+  - `server/src/authEmailVerifySupport.ts` for `/auth/email/verify` payload/challenge/user/session helper flow and response shaping.
+- Policy scanner route extraction now also includes:
+  - `server/src/policyRoutes.ts` for centralized `/account/policy/*` route registration (dependency/coding/api-contract/prompt/cloud-score/observability) with shared auth/log dependency injection.
+- Governance route extraction now also includes:
+  - `server/src/governanceRoutes.ts` as a thin aggregator delegating governance route registration.
+  - `server/src/governanceRoutes.shared.ts` for shared dependency/type contracts.
+  - `server/src/governanceSettingsRoutes.ts` for governance settings/EOD/create-thread endpoints.
+  - `server/src/governanceMastermindRoutes.ts` for mastermind list/detail/entry/vote/decide endpoints.
+  - `server/src/governanceSyncRoutes.ts` for governance sync pull/ack endpoints.
+  - `server/src/governanceAdminBoardRoutes.ts` for admin governance add-on and board endpoints.
+- Latest blocker-burn-down pass reduced `server/src/index.ts` from `6924` to `5769` lines in scanner output (`5338` physical lines); hard coding blocker remains `COD-LIMIT-001` pending continued route/module decomposition.
+- DB maintenance remediation planner baseline is now available via `scripts/db_index_fix_plan.ps1`:
+  - generates SQL checklist to enable `pg_stat_statements`,
+  - emits per-index candidate guard/drop/rollback SQL for zero-scan non-primary indexes.
+- Generated fix plan now includes explicit "run SQL in PostgreSQL" guidance plus Prisma-based terminal execution examples (`npx prisma db execute --stdin`).
+- DB query/index remediation batch (2026-02-27) was applied:
+  - Prisma schema added missing FK-like indexes for `subscriptions`, `refund_requests`, `offline_payment_refs`, `redeem_codes`, `affiliate_codes`, `affiliate_conversions`, `oauth_states`, and `teams`.
+  - `server/src/prismaStore.ts` removed `SELECT *` usage in bootstrap reads by switching to metadata-driven explicit projection.
+  - validation result: `pg db-check` / `pg db-fix` now report `pg_stat_statements: enabled` and `unused index candidates: 0`.
+- As-you-go verification orchestrator is now available via `scripts/self_check.ps1`:
+  - command surface: `pg self-check` (alias `pg as-you-go-check`),
+  - runs post-write enforcement + DB maintenance check (+ optional Playwright smoke),
+  - auto-generates DB remediation plan when DB findings are present.
+- API contract verification baseline is now active via `server/src/apiContractVerification.ts`:
+  - OpenAPI-first parsing (JSON + YAML) with local `$ref` schema resolution support.
+  - backend route inference fallback when OpenAPI contracts are unavailable.
+  - frontend API-call extraction including axios wrapper clients (`axios.create` + `.request({...})`).
+  - mismatch rules with blocker/warning output and unmatched-call warnings for production gating signals.
+- MCP cloud scoring bridge baseline is now active via `server/src/mcpCloudScoring.ts` and `scripts/mcp_cloud_score_verify.ps1`:
+  - local scanner set (dependency/coding/api-contract optional) feeds metadata-only payload to `/account/policy/mcp/cloud-score`.
+  - scoring model emits deterministic `status/score/grade` with architecture/provider/cost findings and rule IDs.
+  - supports workload sensitivity profile (`standard|regulated`) and control-evidence flags (network, secrets, IAM, monitoring, DR, WAF/rate-limit, IMDSv2, SSH/DB exposure, secret scanning, tunnel/CloudTrail alerts, multi-AZ signal).
+- Observability adapter bridge baseline is now active via `server/src/observabilityHealth.ts` and `scripts/observability_check.ps1`:
+  - evaluates self-hosted observability adapter readiness through `/account/policy/observability/check`.
+  - adapter scaffold supports `none|otlp|sentry|signoz` with deterministic blocker/warning findings.
+  - deployment ownership profile supports `pg-hosted` (default), `customer-hosted`, and `hybrid` for enterprise BYOC/on-prem paths.
+  - adapter strategy is SDK/protocol integration (OpenTelemetry/Sentry-compatible ingestion), while policy scoring logic remains server-private.
+- External architecture source docs are now aligned into planning boundaries in `.verificaton-before-production-folder/FEATURE_ADDITIONS.md` (local vs server-private vs MCP vs optional managed enterprise layers).
+- `scripts/pg_prod.ps1` now orchestrates production baseline checks:
+  - resolves auth token (`-AccessToken` -> `PG_ACCESS_TOKEN` -> governance state file)
+  - checks API health
+  - runs strict dependency verification and strict coding standards verification, exiting non-zero on policy blockers.
+  - runs optional gates based on `-ProdProfile` defaults (`legacy|standard|strict`) with explicit `-Enable*` overrides.
 - Extension command surface now includes local `PG Push` / `PG Git Push` workflow for guarded git add/commit/push execution from VS Code.
+- Extension now ships a dedicated help sidebar container (`Narrate Help`) with a command-focused webview (`narrate.commandHelpView`) for quickstart + troubleshooting guidance.
+- Extension command surface now includes `Narrate: Run Command Diagnostics` for one-click local operational checks and fix hints, with automatic markdown+JSON artifact output to `Memory-bank/_generated/command-diagnostics-latest.(md|json)` plus timestamped snapshots and quick open/copy path actions.
+- Extension command surface now includes `Narrate: Generate Codebase Tour` for guided architecture onboarding output (entrypoints/routes/dependencies/coupling hotspots + onboarding path).
+- Extension command surface now includes `Narrate: Run Dead Code Scan` for confidence-tiered dead-code candidate reporting (high confidence from TS unused diagnostics plus medium/low import-graph orphan signals; report-only, no auto-delete).
+- Extension command surface now includes `Narrate: Create Dead Code Cleanup Branch` for safe branch-first cleanup workflow (create/switch branch, run scan, open report).
+- Extension command surface now includes `Narrate: Apply Safe Dead Code Fixes` for safe automated cleanup pass (organize imports for high-confidence dead-code files, then before/after rescan report).
+- Extension command surface now includes `Narrate: Run Environment Doctor` for local env-reference scanning and `.env`/`.env.example` drift reporting (missing, unused, exposed, and type-mismatch hints).
+- Extension command surface now includes `Narrate: Environment Doctor Quick Fix (.env.example)` for one-click placeholder append of missing env example keys.
+- Extension command surface now includes `Narrate: Run API Contract Validator` for OpenAPI-first contract checks (JSON + YAML, with local `#/components/schemas/*` ref resolution) plus backend inference fallback across frontend/backend request-response usage with rule-ID mismatch reporting.
+- Frontend API extraction depth now includes axios wrapper patterns:
+  - `axios.create({ baseURL })` client receivers (`client.get/post/...`),
+  - `client.request({ method, url, data })` request config calls.
+- Extension command surface now includes simplified OpenAPI UX commands:
+  - `Narrate: OpenAPI Check` (short alias for validator run)
+  - `Narrate: OpenAPI Fix Handoff Prompt` (copies mismatch-fix prompt for Codex/LLM patching workflow).
+- Extension runtime now includes deterministic Trust Score policy baseline:
+  - auto on-save/active-file checks (or manual mode via setting),
+  - coding-standard rule checks: absolute `500` LOC hard cap, component target/hard limits, controller anti-pattern blockers (branching/try-catch/data-access), missing input-validation blocker (Zod/equivalent signal), function size target/hard thresholds, plus diagnostics/security hygiene findings,
+  - score + grade status signal in status bar (`green/yellow/red` with `A+..F`),
+  - report command `Narrate: Show Trust Score Report`,
+  - dedicated sidebar panel `narrate.trustScoreView` with quick actions (`refresh`, `toggle`, `report`) and clickable finding navigation.
+- Trust recovery/setup UX now includes:
+  - command `Narrate: Restart TypeScript + Refresh Trust Score` (save-all + TS server restart + trust refresh),
+  - diagnostics/trust/push popups that offer one-click TS recovery when stale TS errors remain in Problems,
+  - command `Narrate: Setup Validation Library` with direct latest-install path for Zod (recommended) and alternative library selection.
+- Extension activation/runtime wiring now uses `extension/src/activation/statusBars.ts` for status-bar factory/refresh logic so `extension/src/extension.ts` stays under hard function/file policy limits.
+- Trust command surface now also includes workspace aggregate evaluation:
+  - command `Narrate: Run Trust Score Workspace Scan` generates summary report across workspace source files (average score, worst files, blocker rule distribution, blocked files list).
+- Reading-view runtime now supports explicit view/pane state:
+  - view mode: `exact` (default, one rendered line per source line) or `section`.
+  - pane mode: `sideBySide` (default) or `fullPage`.
+  - status/toolbar controls are exposed for mode/view/pane switching and refresh.
+- Exact reading rows now use `LNN | source -> narration` formatting for clearer one-to-one mapping and easier visual scanning in side-by-side mode.
+- Section renderer now uses explicit `Source L<N>` labels to remove line-reference ambiguity.
+- Command diagnostics and governance/enforcement script runners now resolve repo root via `pg.ps1` discovery (walk-up + workspace fallback), so extension-host sessions opened at `.../extension` no longer fail with `'.\\pg.ps1' not recognized`.
+- EDU narration now re-processes cached lines through beginner-focused normalization (20-30 word target + simple examples), so old terse cache entries no longer bypass clearer educational output.
+- EDU narration now rewrites code-echo phrasing more aggressively and enforces deeper beginner wording (non-blank target 20-30 words with explicit `Example:` guidance).
+- EDU narration now biases to plain beginner language (less framework jargon), enforces clearer what/why phrasing, and keeps explicit beginner examples even when truncating near the 30-word cap.
+- EDU detail depth now supports three levels in exact view rendering:
+  - `standard` (concise),
+  - `beginner` (20-30 words with simple why/example),
+  - `fullBeginner` (deeper beginner explanation + analogy).
+- Exact reading rows now support snippet visibility toggle:
+  - `withSource`: `LNN | source -> narration`
+  - `narrationOnly`: `LNN | narration`
+- Narrate Help sidebar view is explicitly registered as a webview contribution to avoid the "no data provider registered" view error.
+- Scalability architecture guidance is now captured as a formal verification artifact at:
+  - `.verificaton-before-production-folder/SCALABILITY_ARCHITECTURE_GUIDE.md`
+  - intended enforcement rollout is tracked as Milestone 10N (ask-before-build discovery gate for real-time/async/comms features).
+- Local dev profile storage (`.narrate/dev-profile.local.json`) is development-only, gitignored, and not a production credential source.
+- Log safety hardening baseline now includes centralized sanitization in both runtimes:
+  - server logger wrappers sanitize control characters/newlines and structured metadata before emitting logs.
+  - extension output logger sanitizes user-influenced strings before writing to OutputChannel.
+- All server factory modules now use "thin factory" pattern for COD-FUNC-001 compliance:
+  - inner functions moved to module level with `deps: DepsType` first param; factory body ≤40 lines returns object with arrow delegations.
+  - pure functions (no deps) passed directly without wrapper.
+  - sub-factory composition in `slackIntegration.ts` uses local arrow wrappers for cross-module injection and additional function params for entry-point functions.
+  - 11 factories transformed: subscriptionHelpers, oauthHelpers, governanceSettingsHelpers, adminAuthHelpers, sessionAuthHelpers, governanceHelpers, slackMastermindState, slackBlockBuilders, slackActionHandlers, slackCommandHandlers, slackIntegration.
+  - scanner does NOT flag non-exported module-level functions for COD-FUNC-001 (e.g. `registerAllRoutes` in index.ts).
 - SQLite cache remains planned for Milestone 8; extension currently uses JSON cache backend.
+

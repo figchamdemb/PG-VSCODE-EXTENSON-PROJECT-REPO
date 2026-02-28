@@ -1,0 +1,11 @@
+
+> narrate-licensing-server@0.1.0 start
+> node dist/index.js
+
+{"level":30,"time":1771887184988,"pid":56508,"hostname":"CHAM-DEMBA","database_target":"91.98.162.101:5433/narate-enterprise?schema=narate_enterprise","msg":"Database target resolved"}
+{"level":30,"time":1771887185006,"pid":56508,"hostname":"CHAM-DEMBA","store_backend":"json","msg":"Store initialized"}
+{"level":40,"time":1771887185015,"pid":56508,"hostname":"CHAM-DEMBA","error":"\nInvalid `prisma.adminPermission.upsert()` invocation in\nC:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server\\dist\\index.js:5480:50\n\n  5477 ];\n  5478 const permissionIdByKey = new Map();\n  5479 for (const permission of permissionDefinitions) {\n→ 5480     const row = await prisma.adminPermission.upsert(\nCan't reach database server at `91.98.162.101:5433`\n\nPlease make sure your database server is running at `91.98.162.101:5433`.","msg":"Admin RBAC bootstrap failed"}
+{"level":30,"time":1771887185061,"pid":56508,"hostname":"CHAM-DEMBA","msg":"Server listening at http://0.0.0.0:8877"}
+{"level":30,"time":1771887185061,"pid":56508,"hostname":"CHAM-DEMBA","msg":"Narrate licensing server started on http://0.0.0.0:8877"}
+{"level":30,"time":1771887190908,"pid":56508,"hostname":"CHAM-DEMBA","reqId":"req-1","req":{"method":"POST","url":"/account/policy/dependency/verify","hostname":"127.0.0.1:8877","remoteAddress":"127.0.0.1","remotePort":49619},"msg":"incoming request"}
+{"level":30,"time":1771887190915,"pid":56508,"hostname":"CHAM-DEMBA","reqId":"req-1","res":{"statusCode":401},"responseTime":5.8987999856472015,"msg":"request completed"}

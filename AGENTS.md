@@ -31,6 +31,17 @@ If code changed:
 
 If these steps are not complete, the task is incomplete.
 
+## Mandatory During Protocol (as-you-go, do not defer all checks to the user)
+- After each substantial change batch, run:
+  - `.\pg.ps1 self-check -WarnOnly -EnableDbIndexMaintenanceCheck`
+- For web/UI-impacting tasks, also run:
+  - `.\pg.ps1 self-check -WarnOnly -EnableDbIndexMaintenanceCheck -EnablePlaywrightSmokeCheck`
+- Before declaring a task complete, run strict final self-check (no warn mode):
+  - `.\pg.ps1 self-check -EnableDbIndexMaintenanceCheck`
+- Agent behavior requirement:
+  - run these checks proactively from terminal and resolve issues directly when possible.
+  - only ask user for manual input when credentials/platform restarts are truly required.
+
 ## Enforcement
 - Local hook: `.githooks/pre-commit` runs `scripts/memory_bank_guard.py`.
 - Mode is `warn` or `strict` (current default: `warn`).

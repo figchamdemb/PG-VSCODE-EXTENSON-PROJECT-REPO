@@ -1,12 +1,13 @@
 {
   "profile": "frontend",
-  "generated_at_utc": "2026-02-23 04:10",
+  "generated_at_utc": "2026-02-28 18:56",
   "repo_root": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION",
   "top_level_entries": [
     ".clinerules",
     ".githooks",
     ".github",
     ".gitignore",
+    ".narrate",
     ".verificaton-before-production-folder",
     "AGENTS.md",
     "ANTIGRAVITY.md",

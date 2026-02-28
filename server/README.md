@@ -88,6 +88,19 @@ Defaults:
 - `SLACK_ALLOWED_TEAM_IDS=T12345,T67890`
 - `SLACK_ALLOWED_EMAILS=reviewer@company.com,lead@company.com`
 - `SLACK_REQUEST_MAX_AGE_SECONDS=300`
+- `OBSERVABILITY_DEPLOYMENT_PROFILE=pg-hosted` (`pg-hosted|customer-hosted|hybrid`)
+- `OBSERVABILITY_OTLP_ENABLED=false`
+- `OBSERVABILITY_OTLP_ENDPOINT=https://otel.yourdomain.com/v1/traces`
+- `OBSERVABILITY_OTLP_TOKEN=...` (optional token evidence)
+- `OBSERVABILITY_OTLP_HOSTED_BY=pg` (`pg|customer|unknown`)
+- `OBSERVABILITY_SENTRY_ENABLED=false`
+- `OBSERVABILITY_SENTRY_ENDPOINT=https://sentry.yourdomain.com` (or DSN via `SENTRY_DSN`)
+- `OBSERVABILITY_SENTRY_TOKEN=...` (optional token evidence)
+- `OBSERVABILITY_SENTRY_HOSTED_BY=pg` (`pg|customer|unknown`)
+- `OBSERVABILITY_SIGNOZ_ENABLED=false`
+- `OBSERVABILITY_SIGNOZ_ENDPOINT=https://signoz.yourdomain.com`
+- `OBSERVABILITY_SIGNOZ_TOKEN=...` (optional token evidence)
+- `OBSERVABILITY_SIGNOZ_HOSTED_BY=pg` (`pg|customer|unknown`)
 
 Environment loading:
 - `server/src/index.ts` loads `.env` automatically via `dotenv/config`, so OAuth and Stripe keys in `server/.env` are applied on server startup.
@@ -236,10 +249,16 @@ Ownership model:
   - `GET /account/governance/mastermind/thread/:thread_id`
   - `POST /account/governance/mastermind/entry`
   - `POST /account/governance/mastermind/vote`
-- `POST /account/governance/mastermind/decide`
-- `GET /account/governance/sync/pull`
-- `POST /account/governance/sync/ack`
-- `POST /account/governance/slack/test`
+  - `POST /account/governance/mastermind/decide`
+  - `GET /account/governance/sync/pull`
+  - `POST /account/governance/sync/ack`
+  - `POST /account/governance/slack/test`
+  - `POST /account/policy/dependency/verify`
+  - `POST /account/policy/coding/verify`
+  - `POST /account/policy/api-contract/verify`
+  - `POST /account/policy/prompt/guard`
+  - `POST /account/policy/mcp/cloud-score`
+  - `POST /account/policy/observability/check`
 - Slack integration:
   - `GET /integrations/slack/health`
   - `POST /integrations/slack/commands`
