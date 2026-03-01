@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Narrate — Command Help</title>
+  <style>
+    :root { --bg: #1e1e2e; --fg: #cdd6f4; --muted: #a6adc8; --border: #45475a; --surface: #313244; --accent: #89b4fa; --red: #f38ba8; --green: #a6e3a1; --yellow: #f9e2af; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background: var(--bg); color: var(--fg); margin: 0; padding: 0; line-height: 1.55; }
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 1.35rem; font-weight: 600; }
+    header p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+    main { max-width: 960px; margin: 0 auto; padding: 24px 20px 60px; }
+    .note { border-left: 3px solid var(--accent); padding: 10px 14px; background: var(--surface); border-radius: 4px; margin-bottom: 20px; font-size: 0.92rem; }
+    .filter-bar { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+    .filter-bar input { flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--fg); font-size: 0.92rem; }
+    .filter-bar input::placeholder { color: var(--muted); }
+    .filter-bar input:focus { outline: none; border-color: var(--accent); }
+    .tab-bar { display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 18px; flex-wrap: wrap; }
+    .tab-bar button { padding: 8px 16px; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 0.88rem; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: color 0.15s, border-color 0.15s; }
+    .tab-bar button:hover { color: var(--fg); }
+    .tab-bar button.active { color: var(--accent); border-bottom-color: var(--accent); }
+    section { margin-bottom: 28px; }
+    h2 { font-size: 1.1rem; margin: 0 0 10px; color: var(--accent); }
+    h3 { font-size: 1rem; margin: 16px 0 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-bottom: 12px; }
+    th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: var(--surface); color: var(--muted); font-weight: 600; white-space: nowrap; }
+    td code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; background: var(--surface); padding: 2px 5px; border-radius: 3px; font-size: 0.84rem; word-break: break-word; }
+    tr.hidden { display: none; }
+    .small { font-size: 0.85rem; color: var(--muted); margin-top: 24px; }
+    footer { text-align: center; padding: 18px; font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--border); }
+    @media (max-width: 640px) {
+      main { padding: 14px 10px 40px; }
+      table { font-size: 0.82rem; }
+      th, td { padding: 6px 7px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Narrate — Command Help Center</h1>
+    <p>Full command reference, troubleshooting, and diagnostics guide.</p>
+  </header>
+  <main>
+    <div class="note">
+      Decision flow only: the <code>/pg</code> Slack channel is for <strong>thread / vote / decide</strong> governance actions, not general chat.
+      Use real IDs and quoted values — do not paste placeholder values like <code>&lt;THREAD_ID&gt;</code>.
+    </div>
+
+    <div class="filter-bar">
+      <input id="search" type="text" placeholder="Filter commands… (e.g. push, trust, dead code)" autocomplete="off" />
+    </div>
+
+    <div class="tab-bar" id="tabs">
+      <button class="active" data-tab="all">All</button>
+      <button data-tab="quickstart">PG Quickstart</button>
+      <button data-tab="governance">Governance</button>
+      <button data-tab="narration">Narration UI</button>
+      <button data-tab="slack">Slack</button>
+      <button data-tab="diagnostics">Diagnostics</button>
+      <button data-tab="troubleshooting">Troubleshooting</button>
+    </div>
+
+    <!-- PG Quickstart -->
+    <section data-section="quickstart">
+      <h2>PG Quickstart</h2>
+      <table>
+        <thead><tr><th style="width:46%">Command</th><th>Expected Result</th></tr></thead>
+        <tbody id="tbl-quickstart">
+          <tr><td><code>.\pg.ps1 start -Yes</code></td><td>Session bootstrap complete + health checks run.</td></tr>
+          <tr><td><code>.\pg.ps1 dev-profile -DevProfileAction init</code></td><td>Creates local dev-only profile (gitignored).</td></tr>
+          <tr><td><code>.\pg.ps1 dev-profile -DevProfileAction check</code></td><td>Shows missing fields and local-only policy state.</td></tr>
+          <tr><td><code>.\pg.ps1 status</code></td><td>Displays Memory-bank session status.</td></tr>
+          <tr><td><code>.\pg.ps1 login -Email "you@example.com"</code></td><td>Authenticates CLI state and syncs entitlement profile.</td></tr>
+          <tr><td><code>.\pg.ps1 update</code></td><td>Refreshes entitlement snapshot without re-running OTP flow.</td></tr>
+          <tr><td><code>.\pg.ps1 doctor</code></td><td>Runs PG CLI diagnostics (PATH, token, backend health, tools, dev-profile).</td></tr>
+          <tr><td><code>.\pg.ps1 narrate-check</code></td><td>Runs Narrate flow PASS/FAIL check and writes markdown report.</td></tr>
+          <tr><td><code>.\pg.ps1 self-check -WarnOnly -EnableDbIndexMaintenanceCheck</code></td><td>Agent-first as-you-go verification: post-write enforcement + DB diagnostics.</td></tr>
+          <tr><td><code>.\pg.ps1 self-check -EnableDbIndexMaintenanceCheck</code></td><td>Strict final self-check before task completion (no warn mode).</td></tr>
+          <tr><td><code>.\pg.ps1 prod</code></td><td>Production baseline with standard rollout: dependency + coding + API contract + DB index.</td></tr>
+          <tr><td><code>.\pg.ps1 prod -ProdProfile strict</code></td><td>Strict rollout: standard checks plus Playwright smoke verification.</td></tr>
+          <tr><td><code>.\pg.ps1 mcp-cloud-score -WorkloadSensitivity regulated</code></td><td>Runs scanner set, submits metadata to MCP cloud scorer, returns readiness score.</td></tr>
+          <tr><td><code>.\pg.ps1 observability-check</code></td><td>Checks self-hosted observability adapter readiness.</td></tr>
+          <tr><td><code>.\pg.ps1 db-index-check</code></td><td>Runs DB index maintenance diagnostics.</td></tr>
+          <tr><td><code>.\pg.ps1 db-index-fix-plan -DbMaxRows 5</code></td><td>Generates copy/paste SQL plan for index maintenance.</td></tr>
+          <tr><td><code>Narrate: Generate Codebase Tour</code></td><td>Scans workspace and opens onboarding architecture map.</td></tr>
+          <tr><td><code>Narrate: Run Dead Code Scan</code></td><td>Generates confidence-tiered dead-code report.</td></tr>
+          <tr><td><code>Narrate: Apply Safe Dead Code Fixes</code></td><td>Applies organize-imports + prefix fixes on high-confidence files.</td></tr>
+          <tr><td><code>Narrate: Run Environment Doctor</code></td><td>Scans env usage vs .env/.env.example, opens report.</td></tr>
+          <tr><td><code>Narrate: Run API Contract Validator</code></td><td>Runs OpenAPI-first contract checks, reports mismatches.</td></tr>
+          <tr><td><code>Narrate: OpenAPI Fix Handoff Prompt</code></td><td>Copies mismatch-fix prompt to clipboard for LLM patching.</td></tr>
+          <tr><td><code>Narrate: Show Trust Score Report</code></td><td>Opens latest deterministic trust report.</td></tr>
+          <tr><td><code>Narrate: PG Push (Git Add/Commit/Push)</code></td><td>Runs enforcement + trust/dead-code/commit-quality gates before push.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Governance -->
+    <section data-section="governance">
+      <h2>Decision Sync (Local Worker)</h2>
+      <table>
+        <thead><tr><th style="width:46%">Command</th><th>Expected Result</th></tr></thead>
+        <tbody id="tbl-governance">
+          <tr><td><code>.\pg.ps1 governance-login -ApiBase "http://127.0.0.1:8787" -Email "you@example.com"</code></td><td>Writes local worker token/state.</td></tr>
+          <tr><td><code>.\pg.ps1 governance-bind -ThreadId "UUID" -ActionKey default-handler</code></td><td>Maps thread decision to local action handler.</td></tr>
+          <tr><td><code>.\pg.ps1 governance-worker -Once</code></td><td>Pulls pending decisions, executes local action, sends ack.</td></tr>
+          <tr><td><code>.\pg.ps1 governance-bind -List</code></td><td>Shows action keys and active bindings.</td></tr>
+          <tr><td><code>.\pg.ps1 governance-digest</code></td><td>Fetches scoped reviewer digest with thread KPIs.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Narration UI -->
+    <section data-section="narration">
+      <h2>Narrate Reading UI Toggles</h2>
+      <table>
+        <thead><tr><th style="width:46%">Command</th><th>Expected Result</th></tr></thead>
+        <tbody id="tbl-narration">
+          <tr><td><code>Narrate: Switch Reading View Mode (Exact/Section)</code></td><td>Toggles between strict 1:1 lines and grouped section summaries.</td></tr>
+          <tr><td><code>Narrate: Switch Reading Pane Mode (Split/Full)</code></td><td>Moves narration output beside code or into current full tab.</td></tr>
+          <tr><td><code>Narrate: Toggle Source Snippet (Code/Meaning)</code></td><td>In exact mode, choose code+meaning or meaning-only lines.</td></tr>
+          <tr><td><code>Narrate: Toggle EDU Detail Level</code></td><td>Cycles explanation depth: concise → beginner → full beginner.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Slack -->
+    <section data-section="slack">
+      <h2>Slack Decision Commands</h2>
+      <table>
+        <thead><tr><th style="width:46%">Command</th><th>Expected Result</th></tr></thead>
+        <tbody id="tbl-slack">
+          <tr><td><code>/pg thread Live check :: Question? :: opt1|opt2|opt3</code></td><td>Creates decision thread, returns Thread ID + option keys.</td></tr>
+          <tr><td><code>/pg vote UUID opt1</code></td><td>Records vote for selected option key.</td></tr>
+          <tr><td><code>/pg decide UUID approve opt1 final-go</code></td><td>Finalizes decision (owner/manager role required).</td></tr>
+          <tr><td><code>/pg summary</code></td><td>Shows account + team roles + module access.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Diagnostics -->
+    <section data-section="diagnostics">
+      <h2>One-Click Diagnostics</h2>
+      <p>Run <code>Narrate: Run Command Diagnostics</code> from Command Palette to check:</p>
+      <table>
+        <thead><tr><th>Check</th><th>What It Tests</th></tr></thead>
+        <tbody id="tbl-diagnostics">
+          <tr><td>Backend health</td><td>GET /health — confirms server is running.</td></tr>
+          <tr><td>Slack health</td><td>GET /integrations/slack/health — Slack wiring OK.</td></tr>
+          <tr><td>Dev-profile</td><td>Local dev-profile readiness (missing fields).</td></tr>
+          <tr><td>Governance worker</td><td>One-shot pull/apply path — worker token OK.</td></tr>
+          <tr><td>Narrate flow</td><td>Core narrate flow PASS/FAIL baseline check.</td></tr>
+          <tr><td>Extension compile</td><td>TypeScript compile — detects build errors.</td></tr>
+          <tr><td>Trust Score snapshot</td><td>Current trust grade from active editor file.</td></tr>
+          <tr><td>DB index maintenance</td><td>Runs db-index-check for blocker/warning findings.</td></tr>
+        </tbody>
+      </table>
+      <p>Reports saved to <code>Memory-bank/_generated/command-diagnostics-latest.md</code> + <code>.json</code> with timestamped snapshots.</p>
+      <p>After run, use toast quick actions: <strong>Open Latest Report</strong>, <strong>Open Diagnostics Folder</strong>, or <strong>Copy Latest Path</strong>.</p>
+    </section>
+
+    <!-- Troubleshooting -->
+    <section data-section="troubleshooting">
+      <h2>Troubleshooting</h2>
+      <table>
+        <thead><tr><th style="width:28%">Symptom</th><th style="width:30%">Likely Cause</th><th>What To Do</th></tr></thead>
+        <tbody id="tbl-troubleshooting">
+          <tr><td>ParserError: '&lt;' operator is reserved</td><td>Pasted placeholder like &lt;THREAD_ID&gt; literally.</td><td>Use the real UUID in quotes.</td></tr>
+          <tr><td>Cannot validate argument 'db-index-check'</td><td>PATH resolved global pg CLI, not repo script.</td><td>Use <code>.\pg.ps1 db-index-check</code> with local prefix.</td></tr>
+          <tr><td>The term '.\pg.ps1' is not recognized</td><td>Terminal is not in repo root directory.</td><td><code>cd</code> to project root, then retry.</td></tr>
+          <tr><td>PG Self Check reports blockers</td><td>Post-write policy found gating findings.</td><td>Fix blockers using rule IDs, rerun strict self-check.</td></tr>
+          <tr><td>SHOW: The term 'SHOW' is not recognized</td><td>SQL typed directly into PowerShell.</td><td>Run SQL in psql/pgAdmin, not shell.</td></tr>
+          <tr><td>Terminal stuck on '>>'</td><td>PowerShell multiline continuation mode.</td><td>Press Ctrl+C, rerun full command on one line.</td></tr>
+          <tr><td>No connection could be made (127.0.0.1:8787)</td><td>Backend is not running.</td><td><code>cd server && npm run start</code></td></tr>
+          <tr><td>invalid bearer token</td><td>Missing/expired token in worker state.</td><td>Run governance-login again.</td></tr>
+          <tr><td>No access token available</td><td>PG CLI lifecycle state missing/expired.</td><td><code>.\pg.ps1 login</code> then retry.</td></tr>
+          <tr><td>Slack thread not found</td><td>Thread ID or option key is stale.</td><td>Create fresh /pg thread, copy exact ID.</td></tr>
+          <tr><td>Operation timed out (3 seconds)</td><td>Slack didn't receive fast ack.</td><td>Check /health and tunnel, then retry.</td></tr>
+          <tr><td>/pg dispatch_failed</td><td>Slack couldn't process response in time.</td><td>Check /health + /integrations/slack/health.</td></tr>
+          <tr><td>/pg not triggering from composer</td><td>Slash command not first token.</td><td>Start message with <code>/pg ...</code> exactly.</td></tr>
+          <tr><td>TS errors stay after compile passes</td><td>TS language service is stale.</td><td>Run <code>Narrate: Restart TypeScript + Refresh Trust Score</code>.</td></tr>
+          <tr><td>PG Push blocks commit message</td><td>Generic or non-conventional message.</td><td>Use <code>type(scope): summary</code> format.</td></tr>
+          <tr><td>PG Push blocked by Dead Code Gate</td><td>High-confidence unused code detected.</td><td>Use "Apply Safe Fixes + Recheck" in gate prompt.</td></tr>
+          <tr><td>No new governance events</td><td>Nothing pending (not an error).</td><td>Create/finalize a thread, rerun worker.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <p class="small">Security: local dev profile is for dev/test only and stays gitignored. Production secrets remain in .env or vault.</p>
+  </main>
+  <footer>Narrate &copy; 2026 &mdash; Command Help Center</footer>
+
+  <script>
+    (function() {
+      var tabs = document.querySelectorAll('#tabs button');
+      var sections = document.querySelectorAll('main > section');
+      var searchInput = document.getElementById('search');
+
+      tabs.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          tabs.forEach(function(b){ b.classList.remove('active'); });
+          btn.classList.add('active');
+          var tab = btn.getAttribute('data-tab');
+          sections.forEach(function(s) {
+            s.style.display = (tab === 'all' || s.getAttribute('data-section') === tab) ? '' : 'none';
+          });
+          applyFilter();
+        });
+      });
+
+      searchInput.addEventListener('input', applyFilter);
+
+      function applyFilter() {
+        var q = searchInput.value.toLowerCase().trim();
+        sections.forEach(function(s) {
+          if (s.style.display === 'none') return;
+          var rows = s.querySelectorAll('tbody tr');
+          rows.forEach(function(row) {
+            var text = row.textContent.toLowerCase();
+            row.classList.toggle('hidden', q.length > 0 && text.indexOf(q) === -1);
+          });
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

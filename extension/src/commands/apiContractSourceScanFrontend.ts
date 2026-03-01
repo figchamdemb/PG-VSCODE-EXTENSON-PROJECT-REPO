@@ -15,6 +15,7 @@ import {
   isScriptFile,
   LOOKAHEAD_LINE_COUNT
 } from "./apiContractSourceScanModel";
+import { extractTypedClientCalls } from "./apiContractTypedClientScan";
 
 export function extractFrontendCalls(files: FileSnapshot[]): FrontendCall[] {
   const calls: FrontendCall[] = [];
@@ -25,7 +26,22 @@ export function extractFrontendCalls(files: FileSnapshot[]): FrontendCall[] {
     const axiosContext = extractAxiosReceiverContext(file.text);
     calls.push(...extractCallsFromLines(file, axiosContext));
   }
-  return calls;
+  calls.push(...extractTypedClientCalls(files));
+  return dedupeFrontendCalls(calls);
+}
+
+function dedupeFrontendCalls(calls: FrontendCall[]): FrontendCall[] {
+  const seen = new Set<string>();
+  const unique: FrontendCall[] = [];
+  for (const call of calls) {
+    const key = `${call.method} ${call.path} ${call.file}:${call.line}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    unique.push(call);
+  }
+  return unique;
 }
 
 function extractCallsFromLines(

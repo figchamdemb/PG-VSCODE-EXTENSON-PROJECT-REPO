@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import * as vscode from "vscode";
 
 export type CommitFileChange = {
@@ -13,15 +15,30 @@ type CommitQualityResult = {
   reasons: string[];
 };
 
+export type CommitQualityGateOutcome = {
+  message: string;
+  mode: CommitQualityGateMode;
+  qualityPassed: boolean;
+  overridden: boolean;
+};
+
+type RepoCommitConventions = {
+  types?: string[];
+  scopes?: string[];
+  additionalGenericRejectWords?: string[];
+  ticketPrefix?: string;
+};
+
 export async function promptForCommitMessageWithQualityGate(
   changes: CommitFileChange[]
-): Promise<string | undefined> {
+): Promise<CommitQualityGateOutcome | undefined> {
   const config = vscode.workspace.getConfiguration("narrate");
   const gateMode = config.get<CommitQualityGateMode>(
     "commitQuality.pgPushGateMode",
     "relaxed"
   );
-  const suggestions = buildCommitMessageSuggestions(changes);
+  const conventions = loadRepoCommitConventions();
+  const suggestions = buildCommitMessageSuggestions(changes, conventions);
   const defaultMessage = suggestions[0] ?? "chore(repo): update project files";
 
   while (true) {
@@ -40,20 +57,40 @@ export async function promptForCommitMessageWithQualityGate(
       return undefined;
     }
 
-    const quality = evaluateCommitMessageQuality(commitMessage);
+    const quality = evaluateCommitMessageQuality(commitMessage, conventions);
     if (gateMode === "off" || quality.valid) {
-      return commitMessage.trim();
+      return {
+        message: applyTicketPrefix(commitMessage.trim(), conventions),
+        mode: gateMode,
+        qualityPassed: quality.valid,
+        overridden: false
+      };
     }
 
     const nextAction = await pickCommitQualityAction(gateMode, quality.reasons, suggestions);
     if (nextAction === "useSuggestion1" && suggestions[0]) {
-      return suggestions[0];
+      return {
+        message: applyTicketPrefix(suggestions[0], conventions),
+        mode: gateMode,
+        qualityPassed: true,
+        overridden: false
+      };
     }
     if (nextAction === "useSuggestion2" && suggestions[1]) {
-      return suggestions[1];
+      return {
+        message: applyTicketPrefix(suggestions[1], conventions),
+        mode: gateMode,
+        qualityPassed: true,
+        overridden: false
+      };
     }
     if (nextAction === "useAnyway" && gateMode === "relaxed") {
-      return commitMessage.trim();
+      return {
+        message: applyTicketPrefix(commitMessage.trim(), conventions),
+        mode: gateMode,
+        qualityPassed: false,
+        overridden: true
+      };
     }
     if (nextAction === "cancel") {
       return undefined;
@@ -136,8 +173,11 @@ export function parseCommitFileChanges(statusOutput: string): CommitFileChange[]
   return changes;
 }
 
-function buildCommitMessageSuggestions(changes: CommitFileChange[]): string[] {
-  const scope = inferCommitScope(changes);
+function buildCommitMessageSuggestions(
+  changes: CommitFileChange[],
+  conventions: RepoCommitConventions
+): string[] {
+  const scope = inferCommitScope(changes, conventions.scopes);
   const docsOnly = changes.every((change) => isDocumentationPath(change.path));
   const testsOnly = changes.every((change) => isTestPath(change.path));
   const addedCount = changes.filter((change) => change.indexStatus === "A").length;
@@ -164,7 +204,10 @@ function buildCommitMessageSuggestions(changes: CommitFileChange[]): string[] {
   ];
 }
 
-function inferCommitScope(changes: CommitFileChange[]): string {
+function inferCommitScope(
+  changes: CommitFileChange[],
+  conventionScopes?: string[]
+): string {
   const frequency = new Map<string, number>();
   for (const change of changes) {
     const segments = normalizePath(change.path).split("/");
@@ -180,7 +223,17 @@ function inferCommitScope(changes: CommitFileChange[]): string {
     }
     return left[0].localeCompare(right[0]);
   });
-  return sanitizeScope(sorted[0]?.[0] ?? "repo");
+  const inferred = sanitizeScope(sorted[0]?.[0] ?? "repo");
+  if (conventionScopes?.length) {
+    const sortedKeys = sorted.map(([seg]) => sanitizeScope(seg));
+    const match = conventionScopes.find(
+      (s) => s === inferred || sortedKeys.includes(s)
+    );
+    if (match) {
+      return match;
+    }
+  }
+  return inferred;
 }
 
 function inferCommitSummary(changes: CommitFileChange[], type: string): string {
@@ -209,7 +262,10 @@ function inferCommitSummary(changes: CommitFileChange[], type: string): string {
   return "improve implementation reliability and clarity";
 }
 
-function evaluateCommitMessageQuality(message: string): CommitQualityResult {
+function evaluateCommitMessageQuality(
+  message: string,
+  conventions: RepoCommitConventions
+): CommitQualityResult {
   const trimmed = message.trim();
   const reasons: string[] = [];
   const config = vscode.workspace.getConfiguration("narrate");
@@ -226,12 +282,17 @@ function evaluateCommitMessageQuality(message: string): CommitQualityResult {
     true
   );
 
-  if (rejectGeneric && isGenericCommitMessage(trimmed)) {
+  if (rejectGeneric && isGenericCommitMessage(trimmed, conventions.additionalGenericRejectWords)) {
     reasons.push("Generic commit messages are blocked (for example: fix, update, wip).");
   }
   if (requireConventional) {
-    const conventionalPattern =
-      /^(feat|fix|refactor|docs|test|chore|perf|build|ci)(\([a-z0-9._/-]+\))?!?:\s+.+$/u;
+    const validTypes = conventions.types?.length
+      ? conventions.types.join("|")
+      : "feat|fix|refactor|docs|test|chore|perf|build|ci";
+    const conventionalPattern = new RegExp(
+      `^(${validTypes})(\\([a-z0-9._/-]+\\))?!?:\\s+.+$`,
+      "u"
+    );
     if (!conventionalPattern.test(trimmed)) {
       reasons.push("Use conventional commit format: type(scope): summary.");
     }
@@ -248,31 +309,19 @@ function evaluateCommitMessageQuality(message: string): CommitQualityResult {
   return { valid: reasons.length === 0, reasons };
 }
 
-function isGenericCommitMessage(value: string): boolean {
-  const normalized = value
-    .toLowerCase()
-    .replace(/[^a-z0-9\s:-]/gu, "")
-    .trim();
-  const genericValues = new Set([
-    "fix",
-    "update",
-    "wip",
-    "stuff",
-    "temp",
-    "asdf",
-    "test",
-    "commit",
-    "changes",
-    "misc",
-    "small fix"
-  ]);
-  if (genericValues.has(normalized)) {
-    return true;
+const GENERIC_COMMIT_WORDS = new Set([
+  "fix", "update", "wip", "stuff", "temp", "asdf",
+  "test", "commit", "changes", "misc", "small fix"
+]);
+
+function isGenericCommitMessage(value: string, additionalWords?: string[]): boolean {
+  const normalized = value.toLowerCase().replace(/[^a-z0-9\s:-]/gu, "").trim();
+  const genericValues = new Set(GENERIC_COMMIT_WORDS);
+  if (additionalWords) {
+    for (const word of additionalWords) genericValues.add(word.toLowerCase());
   }
-  return (
-    normalized.split(/\s+/u).length <= 2 &&
-    genericValues.has(normalized.split(":").pop() ?? "")
-  );
+  if (genericValues.has(normalized)) return true;
+  return normalized.split(/\s+/u).length <= 2 && genericValues.has(normalized.split(":").pop() ?? "");
 }
 
 function extractCommitSummary(message: string): string {
@@ -310,4 +359,63 @@ function isTestPath(pathValue: string): boolean {
 
 function normalizePath(value: string): string {
   return value.replaceAll("\\", "/");
+}
+
+function loadRepoCommitConventions(): RepoCommitConventions {
+  const workspace = vscode.workspace.workspaceFolders?.[0];
+  if (!workspace) {
+    return {};
+  }
+  const conventionsPath = path.join(
+    workspace.uri.fsPath,
+    ".narrate",
+    "commit-conventions.json"
+  );
+  try {
+    if (!fs.existsSync(conventionsPath)) {
+      return {};
+    }
+    const raw = fs.readFileSync(conventionsPath, "utf-8");
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return validateRepoConventions(parsed);
+  } catch {
+    return {};
+  }
+}
+
+function validateRepoConventions(raw: Record<string, unknown>): RepoCommitConventions {
+  const result: RepoCommitConventions = {};
+  if (Array.isArray(raw["types"]) && raw["types"].every((v) => typeof v === "string")) {
+    result.types = raw["types"] as string[];
+  }
+  if (Array.isArray(raw["scopes"]) && raw["scopes"].every((v) => typeof v === "string")) {
+    result.scopes = raw["scopes"] as string[];
+  }
+  if (
+    Array.isArray(raw["additionalGenericRejectWords"]) &&
+    raw["additionalGenericRejectWords"].every((v) => typeof v === "string")
+  ) {
+    result.additionalGenericRejectWords = raw["additionalGenericRejectWords"] as string[];
+  }
+  if (typeof raw["ticketPrefix"] === "string") {
+    result.ticketPrefix = raw["ticketPrefix"];
+  }
+  return result;
+}
+
+function applyTicketPrefix(message: string, conventions: RepoCommitConventions): string {
+  if (!conventions.ticketPrefix) {
+    return message;
+  }
+  const prefix = conventions.ticketPrefix.trim();
+  if (!prefix || message.includes(prefix)) {
+    return message;
+  }
+  const colonIndex = message.indexOf(":");
+  if (colonIndex < 0) {
+    return `${prefix} ${message}`;
+  }
+  const beforeColon = message.slice(0, colonIndex + 1);
+  const afterColon = message.slice(colonIndex + 1).trimStart();
+  return `${beforeColon} ${prefix} ${afterColon}`;
 }

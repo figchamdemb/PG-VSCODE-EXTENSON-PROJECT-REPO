@@ -5,56 +5,20 @@ import {
   getStatusBackgroundColor,
   getStatusTextColor
 } from "./trustScoreAnalysis";
+import { fetchServerPolicyFindings } from "./serverPolicyBridge";
 import { Logger } from "../utils/logger";
+import {
+  narrateConfig,
+  mergeServerFindings,
+  buildReportTooltip,
+  maybeOfferValidationSetup,
+  maybeOfferDiagnosticsHint,
+  isDocumentAnalyzable
+} from "./trustScoreHelpers";
+import { ANALYZABLE_LANGUAGES } from "./trustScoreTypes";
+import type { TrustReport } from "./trustScoreTypes";
 
-export type TrustSeverity = "blocker" | "warning";
-
-export type ComponentType =
-  | "controller"
-  | "service"
-  | "repository"
-  | "component"
-  | "hook"
-  | "screen"
-  | "page"
-  | "test"
-  | "unknown";
-
-export type TrustFinding = {
-  ruleId: string;
-  severity: TrustSeverity;
-  message: string;
-  file: string;
-  line?: number;
-  componentType?: ComponentType;
-};
-
-export type TrustReport = {
-  score: number;
-  status: "green" | "yellow" | "red";
-  grade: string;
-  blockers: number;
-  warnings: number;
-  findings: TrustFinding[];
-  file: string;
-  lineCount: number;
-  componentType: ComponentType;
-  updatedAtUtc: string;
-};
-
-const ANALYZABLE_LANGUAGES = new Set([
-  "typescript",
-  "typescriptreact",
-  "javascript",
-  "javascriptreact",
-  "python",
-  "java",
-  "go",
-  "rust",
-  "csharp",
-  "php",
-  "ruby"
-]);
+export type { TrustSeverity, ComponentType, TrustFinding, TrustReport } from "./trustScoreTypes";
 
 export class TrustScoreService implements vscode.Disposable {
   private readonly statusBar: vscode.StatusBarItem;
@@ -86,16 +50,11 @@ export class TrustScoreService implements vscode.Disposable {
     return this.latestReport;
   }
 
-  isTrustScoreEnabled(): boolean {
-    return this.isEnabled();
-  }
-
-  isAutoRefreshEnabled(): boolean {
-    return this.shouldAutoRefresh();
-  }
+  isTrustScoreEnabled(): boolean { return narrateConfig("trustScore.enabled", true); }
+  isAutoRefreshEnabled(): boolean { return narrateConfig("trustScore.autoRefreshOnSave", true); }
 
   async toggleEnabled(): Promise<boolean> {
-    const nextEnabled = !this.isEnabled();
+    const nextEnabled = !narrateConfig("trustScore.enabled", true);
     const target = vscode.workspace.workspaceFolders?.length
       ? vscode.ConfigurationTarget.Workspace
       : vscode.ConfigurationTarget.Global;
@@ -117,20 +76,10 @@ export class TrustScoreService implements vscode.Disposable {
   }
 
   async refreshActiveEditor(force = false): Promise<void> {
-    if (!this.isEnabled()) {
-      this.renderIdleState();
-      return;
-    }
-    if (!force && !this.shouldAutoRefresh()) {
-      this.renderManualModeState();
-      return;
-    }
-
+    if (!narrateConfig("trustScore.enabled", true)) { this.renderIdleState(); return; }
+    if (!force && !narrateConfig("trustScore.autoRefreshOnSave", true)) { this.renderManualModeState(); return; }
     const active = vscode.window.activeTextEditor?.document;
-    if (!active || !this.isAnalyzable(active)) {
-      this.renderIdleState();
-      return;
-    }
+    if (!active || !isDocumentAnalyzable(active, ANALYZABLE_LANGUAGES)) { this.renderIdleState(); return; }
     await this.evaluateDocument(active);
   }
 
@@ -139,13 +88,7 @@ export class TrustScoreService implements vscode.Disposable {
   }
 
   async onDidSaveTextDocument(document: vscode.TextDocument): Promise<void> {
-    if (
-      !this.isEnabled() ||
-      !this.shouldAutoRefresh() ||
-      !this.isAnalyzable(document)
-    ) {
-      return;
-    }
+    if (!narrateConfig("trustScore.enabled", true) || !narrateConfig("trustScore.autoRefreshOnSave", true) || !isDocumentAnalyzable(document, ANALYZABLE_LANGUAGES)) return;
     await this.evaluateDocument(document);
   }
 
@@ -164,216 +107,77 @@ export class TrustScoreService implements vscode.Disposable {
   }
 
   computeReportForDocument(document: vscode.TextDocument): TrustReport | undefined {
-    if (!this.isAnalyzable(document)) {
-      return undefined;
-    }
-    return computeTrustReport(document);
+    return isDocumentAnalyzable(document, ANALYZABLE_LANGUAGES) ? computeTrustReport(document) : undefined;
   }
 
-  async handleConfigurationChanged(
-    event: vscode.ConfigurationChangeEvent
-  ): Promise<void> {
-    if (
-      !event.affectsConfiguration("narrate.trustScore.enabled") &&
-      !event.affectsConfiguration("narrate.trustScore.showStatusBar") &&
-      !event.affectsConfiguration("narrate.trustScore.autoRefreshOnSave") &&
-      !event.affectsConfiguration("narrate.trustScore.validationLibraryPolicy") &&
-      !event.affectsConfiguration("narrate.trustScore.autoSuggestValidationInstall") &&
-      !event.affectsConfiguration("narrate.trustScore.showDiagnosticsRecoveryHint")
-    ) {
-      return;
-    }
+  async handleConfigurationChanged(event: vscode.ConfigurationChangeEvent): Promise<void> {
+    const keys = ["enabled", "showStatusBar", "autoRefreshOnSave", "validationLibraryPolicy",
+      "autoSuggestValidationInstall", "showDiagnosticsRecoveryHint", "serverPolicyEnabled"];
+    if (!keys.some((k) => event.affectsConfiguration(`narrate.trustScore.${k}`))) return;
     await this.refreshActiveEditor(false);
   }
 
-  private isEnabled(): boolean {
-    return vscode.workspace
-      .getConfiguration("narrate")
-      .get<boolean>("trustScore.enabled", true);
-  }
-
-  private shouldShowStatusBar(): boolean {
-    return vscode.workspace
-      .getConfiguration("narrate")
-      .get<boolean>("trustScore.showStatusBar", true);
-  }
-
-  private shouldAutoRefresh(): boolean {
-    return vscode.workspace
-      .getConfiguration("narrate")
-      .get<boolean>("trustScore.autoRefreshOnSave", true);
-  }
-
-  private shouldAutoSuggestValidationInstall(): boolean {
-    return vscode.workspace
-      .getConfiguration("narrate")
-      .get<boolean>("trustScore.autoSuggestValidationInstall", true);
-  }
-
-  private shouldShowDiagnosticsRecoveryHint(): boolean {
-    return vscode.workspace
-      .getConfiguration("narrate")
-      .get<boolean>("trustScore.showDiagnosticsRecoveryHint", true);
-  }
-
   private renderIdleState(): void {
-    if (!this.shouldShowStatusBar()) {
-      this.statusBar.hide();
-      this.reportUpdatedEmitter.fire(this.latestReport);
-      return;
-    }
-
-    if (!this.isEnabled()) {
-      this.statusBar.text = "$(circle-slash) Trust Off";
-      this.statusBar.tooltip = "Narrate Trust Score is disabled. Toggle to enable.";
-      this.statusBar.command = "narrate.toggleTrustScore";
-      this.statusBar.color = undefined;
+    if (!narrateConfig("trustScore.showStatusBar", true)) { this.statusBar.hide(); this.reportUpdatedEmitter.fire(this.latestReport); return; }
+    if (!narrateConfig("trustScore.enabled", true)) {
+      this.applyStatusBarState("$(circle-slash) Trust Off", "Narrate Trust Score is disabled. Toggle to enable.", "narrate.toggleTrustScore");
       this.statusBar.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
-      this.statusBar.show();
       this.reportUpdatedEmitter.fire(undefined);
       return;
     }
-
-    if (!this.shouldAutoRefresh()) {
-      this.renderManualModeState();
-      return;
-    }
-
-    this.statusBar.text = "$(shield) Trust --";
-    this.statusBar.tooltip = "Save a source file to calculate Narrate Trust Score.";
-    this.statusBar.command = "narrate.showTrustScoreReport";
-    this.statusBar.color = undefined;
-    this.statusBar.backgroundColor = undefined;
-    this.statusBar.show();
+    if (!narrateConfig("trustScore.autoRefreshOnSave", true)) { this.renderManualModeState(); return; }
+    this.applyStatusBarState("$(shield) Trust --", "Save a source file to calculate Narrate Trust Score.", "narrate.showTrustScoreReport");
     this.reportUpdatedEmitter.fire(this.latestReport);
   }
 
-  private renderManualModeState(): void {
-    if (!this.shouldShowStatusBar()) {
-      this.statusBar.hide();
-      this.reportUpdatedEmitter.fire(this.latestReport);
-      return;
-    }
-
-    this.statusBar.text = "$(sync-ignored) Trust Manual";
-    this.statusBar.tooltip =
-      "Auto Trust Score refresh is off. Click to run manual refresh.";
-    this.statusBar.command = "narrate.refreshTrustScore";
+  private applyStatusBarState(text: string, tooltip: string, command: string): void {
+    this.statusBar.text = text;
+    this.statusBar.tooltip = tooltip;
+    this.statusBar.command = command;
     this.statusBar.color = undefined;
     this.statusBar.backgroundColor = undefined;
     this.statusBar.show();
+  }
+
+  private renderManualModeState(): void {
+    if (!narrateConfig("trustScore.showStatusBar", true)) { this.statusBar.hide(); this.reportUpdatedEmitter.fire(this.latestReport); return; }
+    this.applyStatusBarState("$(sync-ignored) Trust Manual", "Auto Trust Score refresh is off. Click to run manual refresh.", "narrate.refreshTrustScore");
     this.reportUpdatedEmitter.fire(this.latestReport);
   }
 
   private async evaluateDocument(document: vscode.TextDocument): Promise<void> {
     try {
       const report = computeTrustReport(document);
+      const serverFindings = await fetchServerPolicyFindings(report.file, document.getText(), report.lineCount, this.logger);
+      if (serverFindings.length > 0) mergeServerFindings(report, serverFindings);
       this.latestReport = report;
       this.renderReport(report);
-      await this.maybeOfferValidationLibrarySetup(report);
-      await this.maybeOfferDiagnosticsRecoveryHint(report);
-      this.logger.info(
-        `Trust Score updated: ${report.score}/100 (${report.blockers} blockers, ${report.warnings} warnings) for ${report.file}`
-      );
+      const throttleOk = this.shouldThrottle("lastValidationSuggestionAt");
+      await maybeOfferValidationSetup(report, narrateConfig("trustScore.autoSuggestValidationInstall", true) && throttleOk);
+      const diagThrottleOk = this.shouldThrottle("lastDiagnosticsRecoveryHintAt");
+      await maybeOfferDiagnosticsHint(report, narrateConfig("trustScore.showDiagnosticsRecoveryHint", true) && diagThrottleOk);
+      this.logger.info(`Trust Score updated: ${report.score}/100 (${report.blockers} blockers, ${report.warnings} warnings, server:${serverFindings.length}) for ${report.file}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Trust Score evaluation failed: ${message}`);
+      this.logger.warn(`Trust Score evaluation failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  private async maybeOfferValidationLibrarySetup(report: TrustReport): Promise<void> {
-    if (!this.shouldAutoSuggestValidationInstall()) {
-      return;
-    }
-    const hasValidationGap = report.findings.some(
-      (finding) =>
-        finding.ruleId === "TRUST-CSTD-VAL-001" ||
-        finding.ruleId === "TRUST-CSTD-VAL-002"
-    );
-    if (!hasValidationGap) {
-      return;
-    }
+  private shouldThrottle(field: "lastValidationSuggestionAt" | "lastDiagnosticsRecoveryHintAt"): boolean {
     const now = Date.now();
-    if (now - this.lastValidationSuggestionAt < 2 * 60 * 1000) {
-      return;
-    }
-    this.lastValidationSuggestionAt = now;
-    const action = await vscode.window.showWarningMessage(
-      "Narrate Trust: validation setup is missing. Install a validation library (Zod recommended).",
-      "Install Zod Now",
-      "Choose Library",
-      "Later"
-    );
-    if (action === "Install Zod Now") {
-      await vscode.commands.executeCommand("narrate.setupValidationLibrary", "zod");
-      return;
-    }
-    if (action === "Choose Library") {
-      await vscode.commands.executeCommand("narrate.setupValidationLibrary");
-    }
-  }
-
-  private async maybeOfferDiagnosticsRecoveryHint(report: TrustReport): Promise<void> {
-    if (!this.shouldShowDiagnosticsRecoveryHint()) {
-      return;
-    }
-    const hasTypeScriptBlocker = report.findings.some(
-      (finding) => finding.ruleId === "TRUST-TS-001"
-    );
-    if (!hasTypeScriptBlocker) {
-      return;
-    }
-    const now = Date.now();
-    if (now - this.lastDiagnosticsRecoveryHintAt < 2 * 60 * 1000) {
-      return;
-    }
-    this.lastDiagnosticsRecoveryHintAt = now;
-    const action = await vscode.window.showInformationMessage(
-      "Narrate Trust: TypeScript diagnostics are active. If compile already passed, restart TS server and refresh trust.",
-      "Run Auto Fix",
-      "Dismiss"
-    );
-    if (action !== "Run Auto Fix") {
-      return;
-    }
-    await vscode.commands.executeCommand("narrate.restartTypeScriptAndRefreshTrust");
+    if (now - this[field] < 2 * 60 * 1000) return false;
+    this[field] = now;
+    return true;
   }
 
   private renderReport(report: TrustReport): void {
-    if (!this.shouldShowStatusBar()) {
-      this.statusBar.hide();
-      this.reportUpdatedEmitter.fire(report);
-      return;
-    }
-
-    const icon =
-      report.status === "green"
-        ? "$(pass-filled)"
-        : report.status === "yellow"
-          ? "$(warning)"
-          : "$(error)";
-
+    if (!narrateConfig("trustScore.showStatusBar", true)) { this.statusBar.hide(); this.reportUpdatedEmitter.fire(report); return; }
+    const icon = report.status === "green" ? "$(pass-filled)" : report.status === "yellow" ? "$(warning)" : "$(error)";
     this.statusBar.text = `${icon} Trust ${report.score}/100 ${report.grade}`;
-    this.statusBar.tooltip =
-      `Narrate Trust Score (${report.status.toUpperCase()})\n` +
-      `Grade: ${report.grade}\n` +
-      `Blockers: ${report.blockers}\nWarnings: ${report.warnings}\n` +
-      `Auto mode: ${this.shouldAutoRefresh() ? "on-save" : "manual"}\n` +
-      "Click to open trust findings report.";
+    this.statusBar.tooltip = buildReportTooltip(report, narrateConfig("trustScore.autoRefreshOnSave", true));
     this.statusBar.command = "narrate.showTrustScoreReport";
     this.statusBar.color = getStatusTextColor(report.status);
     this.statusBar.backgroundColor = getStatusBackgroundColor(report.status);
     this.statusBar.show();
     this.reportUpdatedEmitter.fire(report);
-  }
-
-  private isAnalyzable(document: vscode.TextDocument): boolean {
-    if (document.uri.scheme !== "file") {
-      return false;
-    }
-    if (document.getText().length > 1_500_000) {
-      return false;
-    }
-    return ANALYZABLE_LANGUAGES.has(document.languageId);
   }
 }

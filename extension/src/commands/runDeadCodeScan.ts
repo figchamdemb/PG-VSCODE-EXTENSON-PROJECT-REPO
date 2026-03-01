@@ -1,6 +1,9 @@
 import * as path from "path";
 import * as vscode from "vscode";
+import { buildDeadCodeReportMarkdown } from "./deadCodeReport";
 import { Logger } from "../utils/logger";
+
+export { buildDeadCodeReportMarkdown };
 
 type CandidateConfidence = "high" | "medium" | "low";
 
@@ -80,52 +83,34 @@ export function registerRunDeadCodeScanCommand(logger: Logger): vscode.Disposabl
   return vscode.commands.registerCommand("narrate.runDeadCodeScan", async () => {
     const workspace = vscode.workspace.workspaceFolders?.[0];
     if (!workspace) {
-      void vscode.window.showWarningMessage(
-        "Narrate: open a workspace folder before running dead-code scan."
-      );
+      void vscode.window.showWarningMessage("Narrate: open a workspace folder before running dead-code scan.");
       return;
     }
-
     const settings = getDeadCodeScanSettings();
-
     const result = await vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: "Narrate: Running dead-code scan",
-        cancellable: false
-      },
+      { location: vscode.ProgressLocation.Notification, title: "Narrate: Running dead-code scan", cancellable: false },
       async (progress) => {
         progress.report({ message: "Collecting source files..." });
         return runDeadCodeScanForWorkspace(workspace, settings, progress);
       }
     );
-
-    const report = buildDeadCodeReportMarkdown(workspace.uri.fsPath, result);
-    const reportDocument = await vscode.workspace.openTextDocument({
-      language: "markdown",
-      content: report
-    });
-    await vscode.window.showTextDocument(reportDocument, { preview: false });
-
-    const candidateCount =
-      result.highConfidenceUnused.length +
-      result.mediumConfidenceOrphans.length +
-      result.lowConfidenceOrphans.length;
-    if (candidateCount === 0) {
-      logger.info("Dead-code scan completed with no candidates.");
-      void vscode.window.showInformationMessage(
-        "Narrate Dead Code Scan: no candidates found."
-      );
-      return;
-    }
-
-    logger.warn(
-      `Dead-code scan found ${candidateCount} candidate(s): high=${result.highConfidenceUnused.length}, medium=${result.mediumConfidenceOrphans.length}, low=${result.lowConfidenceOrphans.length}`
-    );
-    void vscode.window.showWarningMessage(
-      `Narrate Dead Code Scan: ${candidateCount} candidate(s) found (high ${result.highConfidenceUnused.length}, medium ${result.mediumConfidenceOrphans.length}, low ${result.lowConfidenceOrphans.length}).`
-    );
+    await showDeadCodeReport(result, logger);
   });
+}
+
+async function showDeadCodeReport(result: DeadCodeScanResult, logger: Logger): Promise<void> {
+  const report = buildDeadCodeReportMarkdown(".", result);
+  const doc = await vscode.workspace.openTextDocument({ language: "markdown", content: report });
+  await vscode.window.showTextDocument(doc, { preview: false });
+
+  const count = result.highConfidenceUnused.length + result.mediumConfidenceOrphans.length + result.lowConfidenceOrphans.length;
+  if (count === 0) {
+    logger.info("Dead-code scan completed with no candidates.");
+    void vscode.window.showInformationMessage("Narrate Dead Code Scan: no candidates found.");
+    return;
+  }
+  logger.warn(`Dead-code scan found ${count} candidate(s): high=${result.highConfidenceUnused.length}, medium=${result.mediumConfidenceOrphans.length}, low=${result.lowConfidenceOrphans.length}`);
+  void vscode.window.showWarningMessage(`Narrate Dead Code Scan: ${count} candidate(s) found (high ${result.highConfidenceUnused.length}, medium ${result.mediumConfidenceOrphans.length}, low ${result.lowConfidenceOrphans.length}).`);
 }
 
 export function getDeadCodeScanSettings(): DeadCodeScanSettings {
@@ -151,89 +136,69 @@ export async function runDeadCodeScanForWorkspace(
   settings: DeadCodeScanSettings,
   progress?: vscode.Progress<{ message?: string; increment?: number }>
 ): Promise<DeadCodeScanResult> {
-  const includeGlob = settings.includeGlob;
-  const excludeGlob = settings.excludeGlob;
-  const maxFiles = settings.maxFiles;
   const fileUris = await vscode.workspace.findFiles(
-    new vscode.RelativePattern(workspace, includeGlob),
-    new vscode.RelativePattern(workspace, excludeGlob),
-    maxFiles
+    new vscode.RelativePattern(workspace, settings.includeGlob),
+    new vscode.RelativePattern(workspace, settings.excludeGlob),
+    settings.maxFiles
   );
-
-  const snapshots: FileSnapshot[] = [];
-  const byCanonicalPath = new Map<string, FileSnapshot>();
-  for (let index = 0; index < fileUris.length; index += 1) {
-    const uri = fileUris[index];
-    progress?.report({
-      message: `Indexing ${index + 1}/${fileUris.length} ${vscode.workspace.asRelativePath(uri, false)}`,
-      increment: fileUris.length === 0 ? 0 : ((index + 1) / fileUris.length) * 55
-    });
-    try {
-      const document = await vscode.workspace.openTextDocument(uri);
-      const relativePath = toSlashPath(vscode.workspace.asRelativePath(uri, false));
-      const snapshot: FileSnapshot = {
-        uri,
-        relativePath,
-        canonicalPath: toCanonicalPath(uri.fsPath),
-        text: document.getText(),
-        hasExportSignal: hasExportSignal(document.getText())
-      };
-      snapshots.push(snapshot);
-      byCanonicalPath.set(snapshot.canonicalPath, snapshot);
-    } catch {
-      // Skip unreadable files while continuing the scan.
-    }
-  }
-
+  const { snapshots, byCanonicalPath } = await buildFileSnapshots(fileUris, progress);
   progress?.report({ message: "Collecting TypeScript unused diagnostics...", increment: 15 });
   const highConfidenceUnused = collectUnusedDiagnostics(snapshots);
-
   progress?.report({ message: "Analyzing local import graph for orphan files...", increment: 20 });
-  const { mediumConfidenceOrphans, lowConfidenceOrphans } = collectOrphanCandidates(
-    snapshots,
-    byCanonicalPath
-  );
-
+  const { mediumConfidenceOrphans, lowConfidenceOrphans } = collectOrphanCandidates(snapshots, byCanonicalPath);
   return {
-    generatedAtUtc: new Date().toISOString(),
-    filesDiscovered: fileUris.length,
-    filesScanned: snapshots.length,
-    highConfidenceUnused,
-    mediumConfidenceOrphans,
-    lowConfidenceOrphans
+    generatedAtUtc: new Date().toISOString(), filesDiscovered: fileUris.length,
+    filesScanned: snapshots.length, highConfidenceUnused, mediumConfidenceOrphans, lowConfidenceOrphans
+  };
+}
+
+async function buildFileSnapshots(
+  fileUris: vscode.Uri[], progress?: vscode.Progress<{ message?: string; increment?: number }>
+): Promise<{ snapshots: FileSnapshot[]; byCanonicalPath: Map<string, FileSnapshot> }> {
+  const snapshots: FileSnapshot[] = [];
+  const byCanonicalPath = new Map<string, FileSnapshot>();
+  for (let i = 0; i < fileUris.length; i++) {
+    const uri = fileUris[i];
+    progress?.report({
+      message: `Indexing ${i + 1}/${fileUris.length} ${vscode.workspace.asRelativePath(uri, false)}`,
+      increment: fileUris.length === 0 ? 0 : ((i + 1) / fileUris.length) * 55
+    });
+    try {
+      const snap = await buildSingleSnapshot(uri);
+      snapshots.push(snap);
+      byCanonicalPath.set(snap.canonicalPath, snap);
+    } catch { /* skip unreadable files */ }
+  }
+  return { snapshots, byCanonicalPath };
+}
+
+async function buildSingleSnapshot(uri: vscode.Uri): Promise<FileSnapshot> {
+  const doc = await vscode.workspace.openTextDocument(uri);
+  const text = doc.getText();
+  return {
+    uri, relativePath: toSlashPath(vscode.workspace.asRelativePath(uri, false)),
+    canonicalPath: toCanonicalPath(uri.fsPath), text,
+    hasExportSignal: hasExportSignal(text)
   };
 }
 
 function collectUnusedDiagnostics(snapshots: FileSnapshot[]): UnusedSymbolCandidate[] {
   const candidates: UnusedSymbolCandidate[] = [];
-  for (const snapshot of snapshots) {
-    const diagnostics = vscode.languages.getDiagnostics(snapshot.uri);
-    for (const diagnostic of diagnostics) {
-      if (!isUnusedDiagnostic(diagnostic)) {
-        continue;
-      }
+  for (const snap of snapshots) {
+    for (const d of vscode.languages.getDiagnostics(snap.uri)) {
+      if (!isUnusedDiagnostic(d)) continue;
       candidates.push({
-        file: snapshot.relativePath,
-        line: diagnostic.range.start.line + 1,
-        code:
-          typeof diagnostic.code === "object"
-            ? diagnostic.code.value
-            : diagnostic.code ?? "unknown",
-        message: flattenDiagnosticMessage(diagnostic.message),
-        confidence: "high"
+        file: snap.relativePath, line: d.range.start.line + 1,
+        code: typeof d.code === "object" ? d.code.value : d.code ?? "unknown",
+        message: flattenDiagnosticMessage(d.message), confidence: "high"
       });
     }
   }
+  return candidates.sort(compareUnusedCandidates);
+}
 
-  return candidates.sort((left, right) => {
-    if (left.file !== right.file) {
-      return left.file.localeCompare(right.file);
-    }
-    if (left.line !== right.line) {
-      return left.line - right.line;
-    }
-    return String(left.code).localeCompare(String(right.code));
-  });
+function compareUnusedCandidates(a: UnusedSymbolCandidate, b: UnusedSymbolCandidate): number {
+  return a.file.localeCompare(b.file) || a.line - b.line || String(a.code).localeCompare(String(b.code));
 }
 
 function isUnusedDiagnostic(diagnostic: vscode.Diagnostic): boolean {
@@ -256,64 +221,46 @@ function flattenDiagnosticMessage(message: string): string {
 }
 
 function collectOrphanCandidates(
-  snapshots: FileSnapshot[],
-  byCanonicalPath: Map<string, FileSnapshot>
-): {
-  mediumConfidenceOrphans: OrphanFileCandidate[];
-  lowConfidenceOrphans: OrphanFileCandidate[];
-} {
-  const inboundCounts = new Map<string, number>();
-  for (const snapshot of snapshots) {
-    inboundCounts.set(snapshot.canonicalPath, 0);
+  snapshots: FileSnapshot[], byCanonicalPath: Map<string, FileSnapshot>
+): { mediumConfidenceOrphans: OrphanFileCandidate[]; lowConfidenceOrphans: OrphanFileCandidate[] } {
+  const inboundCounts = buildInboundCounts(snapshots, byCanonicalPath);
+  const medium: OrphanFileCandidate[] = [];
+  const low: OrphanFileCandidate[] = [];
+  for (const snap of snapshots) {
+    if ((inboundCounts.get(snap.canonicalPath) ?? 0) > 0) continue;
+    if (isLikelyEntrypointFile(snap.relativePath)) continue;
+    classifyOrphan(snap, medium, low);
   }
+  const cmp = (a: OrphanFileCandidate, b: OrphanFileCandidate) => a.file.localeCompare(b.file);
+  return { mediumConfidenceOrphans: medium.sort(cmp), lowConfidenceOrphans: low.sort(cmp) };
+}
 
-  for (const snapshot of snapshots) {
-    for (const specifier of extractLocalSpecifiers(snapshot.text)) {
-      const target = resolveLocalImportTarget(snapshot.uri.fsPath, specifier, byCanonicalPath);
-      if (!target) {
-        continue;
-      }
-      inboundCounts.set(target.canonicalPath, (inboundCounts.get(target.canonicalPath) ?? 0) + 1);
+function buildInboundCounts(
+  snapshots: FileSnapshot[], byCanonicalPath: Map<string, FileSnapshot>
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const snap of snapshots) counts.set(snap.canonicalPath, 0);
+  for (const snap of snapshots) {
+    for (const specifier of extractLocalSpecifiers(snap.text)) {
+      const target = resolveLocalImportTarget(snap.uri.fsPath, specifier, byCanonicalPath);
+      if (target) counts.set(target.canonicalPath, (counts.get(target.canonicalPath) ?? 0) + 1);
     }
   }
+  return counts;
+}
 
-  const mediumConfidenceOrphans: OrphanFileCandidate[] = [];
-  const lowConfidenceOrphans: OrphanFileCandidate[] = [];
-  for (const snapshot of snapshots) {
-    const inboundCount = inboundCounts.get(snapshot.canonicalPath) ?? 0;
-    if (inboundCount > 0) {
-      continue;
-    }
-    if (isLikelyEntrypointFile(snapshot.relativePath)) {
-      continue;
-    }
-
-    const isLikelyTest = isLikelyTestOrStoryFile(snapshot.relativePath);
-    if (snapshot.hasExportSignal && !isLikelyTest) {
-      mediumConfidenceOrphans.push({
-        file: snapshot.relativePath,
-        reason: "No local imports found for an exported module.",
-        confidence: "medium"
-      });
-      continue;
-    }
-
-    lowConfidenceOrphans.push({
-      file: snapshot.relativePath,
-      reason: isLikelyTest
-        ? "No local imports found; likely test/story artifact."
-        : "No local imports found; may be an entry invoked dynamically.",
-      confidence: "low"
-    });
+function classifyOrphan(
+  snap: FileSnapshot, medium: OrphanFileCandidate[], low: OrphanFileCandidate[]
+): void {
+  const isTest = isLikelyTestOrStoryFile(snap.relativePath);
+  if (snap.hasExportSignal && !isTest) {
+    medium.push({ file: snap.relativePath, reason: "No local imports found for an exported module.", confidence: "medium" });
+    return;
   }
-
-  const sorter = (left: OrphanFileCandidate, right: OrphanFileCandidate): number =>
-    left.file.localeCompare(right.file);
-
-  return {
-    mediumConfidenceOrphans: mediumConfidenceOrphans.sort(sorter),
-    lowConfidenceOrphans: lowConfidenceOrphans.sort(sorter)
-  };
+  low.push({
+    file: snap.relativePath, confidence: "low",
+    reason: isTest ? "No local imports found; likely test/story artifact." : "No local imports found; may be an entry invoked dynamically."
+  });
 }
 
 function extractLocalSpecifiers(sourceText: string): string[] {
@@ -364,112 +311,27 @@ function hasExportSignal(sourceText: string): boolean {
   return /\bmodule\.exports\b|\bexports\.[A-Za-z_]/u.test(sourceText);
 }
 
+const ENTRYPOINT_PATTERNS: Array<{ regex: RegExp; target: string }> = [
+  { regex: /(^|\/)(index|main|app|server|extension)\.(ts|tsx|js|jsx|mts|cts|mjs|cjs)$/u, target: "direct" },
+  { regex: /\/app\/.*\/(page|layout|route)\.(ts|tsx|js|jsx)$/u, target: "nextjs" },
+  { regex: /\/pages\/.*\.(ts|tsx|js|jsx)$/u, target: "pages" },
+  { regex: /\/api\/.*\.(ts|tsx|js|jsx)$/u, target: "api" },
+  { regex: /(^|\/)(vite|webpack|rollup|next|nuxt|astro|jest|vitest|playwright|babel|eslint|prettier|tsup|esbuild|tailwind|postcss)\.config\./u, target: "config" },
+  { regex: /\.(module|controller|service|component|directive|guard|pipe|interceptor|filter|gateway|resolver)\.(ts|js)$/u, target: "framework" },
+  { regex: /(^|\/)(middleware|worker|sw|service-worker|setup|teardown|global-setup|global-teardown)\.(ts|tsx|js|jsx|mts)$/u, target: "infra" },
+  { regex: /(^|\/)bin\//u, target: "bin" },
+  { regex: /\+(page|layout|error|server)\.(ts|js|svelte)$/u, target: "sveltekit" },
+  { regex: /\/(prisma|migrations|seeds?)\//u, target: "prisma" },
+];
+
 function isLikelyEntrypointFile(relativePath: string): boolean {
   const normalized = relativePath.toLowerCase();
-  if (
-    /(^|\/)(index|main|app|server|extension)\.(ts|tsx|js|jsx|mts|cts|mjs|cjs)$/u.test(
-      normalized
-    )
-  ) {
-    return true;
-  }
-  if (/\/app\/.*\/(page|layout|route)\.(ts|tsx|js|jsx)$/u.test(normalized)) {
-    return true;
-  }
-  if (/\/pages\/.*\.(ts|tsx|js|jsx)$/u.test(normalized)) {
-    return true;
-  }
-  if (/\/api\/.*\.(ts|tsx|js|jsx)$/u.test(normalized)) {
-    return true;
-  }
-  return /(^|\/)(vite|webpack|rollup|next|nuxt|astro|jest|vitest|playwright|babel|eslint|prettier|tsup|esbuild|tailwind|postcss)\.config\./u.test(
-    normalized
-  );
+  return ENTRYPOINT_PATTERNS.some((p) => p.regex.test(normalized));
 }
 
 function isLikelyTestOrStoryFile(relativePath: string): boolean {
   const normalized = relativePath.toLowerCase();
   return /(\.test\.|\.spec\.|\.stories\.|__tests__|\/tests?\/)/u.test(normalized);
-}
-
-export function buildDeadCodeReportMarkdown(
-  workspaceRoot: string,
-  result: DeadCodeScanResult
-): string {
-  const lines: string[] = [];
-  lines.push("# Narrate Dead Code Scan");
-  lines.push("");
-  lines.push(`UTC: ${result.generatedAtUtc}`);
-  lines.push("");
-  lines.push(`Workspace: ${workspaceRoot}`);
-  lines.push("");
-  lines.push("## Confidence Guide");
-  lines.push("");
-  lines.push("- `High`: TypeScript reports explicit unused declarations/imports.");
-  lines.push("- `Medium`: exported file has no inbound local imports in workspace import graph.");
-  lines.push("- `Low`: no inbound local imports, but file may be called dynamically.");
-  lines.push("- This scan is report-only and does not auto-delete code.");
-  lines.push("");
-  lines.push("## Summary");
-  lines.push("");
-  lines.push(`- Files discovered: ${result.filesDiscovered}`);
-  lines.push(`- Files scanned: ${result.filesScanned}`);
-  lines.push(`- High-confidence candidates: ${result.highConfidenceUnused.length}`);
-  lines.push(`- Medium-confidence orphan files: ${result.mediumConfidenceOrphans.length}`);
-  lines.push(`- Low-confidence orphan files: ${result.lowConfidenceOrphans.length}`);
-
-  lines.push("");
-  lines.push("## High Confidence (TypeScript Unused Diagnostics)");
-  lines.push("");
-  if (result.highConfidenceUnused.length === 0) {
-    lines.push("- none");
-  } else {
-    for (const candidate of result.highConfidenceUnused) {
-      lines.push(
-        `- \`${candidate.file}:${candidate.line}\` [TS${candidate.code}] ${candidate.message}`
-      );
-    }
-  }
-
-  lines.push("");
-  lines.push("## Medium Confidence (Likely Orphan Modules)");
-  lines.push("");
-  if (result.mediumConfidenceOrphans.length === 0) {
-    lines.push("- none");
-  } else {
-    for (const candidate of result.mediumConfidenceOrphans) {
-      lines.push(`- \`${candidate.file}\` - ${candidate.reason}`);
-    }
-  }
-
-  lines.push("");
-  lines.push("## Low Confidence (Manual Review Required)");
-  lines.push("");
-  if (result.lowConfidenceOrphans.length === 0) {
-    lines.push("- none");
-  } else {
-    for (const candidate of result.lowConfidenceOrphans) {
-      lines.push(`- \`${candidate.file}\` - ${candidate.reason}`);
-    }
-  }
-
-  lines.push("");
-  lines.push("## Safe Cleanup Workflow");
-  lines.push("");
-  lines.push("- Use report candidates as review targets; do not bulk delete blindly.");
-  lines.push(
-    "- Optional guided flow: run `Narrate: Create Dead Code Cleanup Branch` before making cleanup edits."
-  );
-  lines.push(
-    "- Optional safe autofix: run `Narrate: Apply Safe Dead Code Fixes` (organize imports on high-confidence files only)."
-  );
-  lines.push("- For import cleanup, run VS Code `Source Action: Organize Imports`.");
-  lines.push(
-    "- For stale diagnostics, run `Narrate: Restart TypeScript + Refresh Trust Score` then re-run this scan."
-  );
-  lines.push("- Re-run compile/tests after each cleanup batch before PG Push.");
-
-  return lines.join("\n");
 }
 
 function toCanonicalPath(filePath: string): string {

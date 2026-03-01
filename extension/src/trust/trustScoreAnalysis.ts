@@ -20,7 +20,7 @@ import type {
   TrustFinding,
   TrustReport,
   TrustSeverity
-} from "./trustScoreService";
+} from "./trustScoreTypes";
 
 export { buildTrustReportMarkdown, getStatusBackgroundColor, getStatusTextColor };
 
@@ -63,41 +63,32 @@ export function computeTrustReport(document: vscode.TextDocument): TrustReport {
   const content = document.getText();
   const lineCount = countLines(content);
   const componentType = detectComponentType(relativeFile);
-  const findings: TrustFinding[] = [];
-
-  findings.push(...scanForAbsoluteFileLimit(relativeFile, lineCount, componentType));
-  findings.push(...scanForComponentLimits(relativeFile, lineCount, componentType));
-  findings.push(...scanForValidationLibraryRequirement(relativeFile, componentType));
-
-  if (componentType === "controller") {
-    findings.push(...scanControllerStructure(document, relativeFile));
-  }
-
-  findings.push(...scanForMissingInputValidation(document, relativeFile, componentType));
-  findings.push(...scanForHardcodedSecrets(document, relativeFile, componentType));
-  findings.push(...scanForEmptyCatch(document, relativeFile, componentType));
-  findings.push(...scanForConsoleUsage(document, relativeFile, componentType));
-  findings.push(...scanForFunctionLimits(document, relativeFile, componentType));
-  findings.push(...scanTypeDiagnostics(document, relativeFile, componentType));
-
-  const blockers = findings.filter((finding) => finding.severity === "blocker").length;
-  const warnings = findings.filter((finding) => finding.severity === "warning").length;
+  const findings = collectAllFindings(document, relativeFile, lineCount, componentType);
+  const blockers = findings.filter((f) => f.severity === "blocker").length;
+  const warnings = findings.filter((f) => f.severity === "warning").length;
   const score = Math.max(0, 100 - blockers * 15 - warnings * 4);
-  const status = resolveStatus(score, blockers);
-  const grade = resolveGrade(score);
-
   return {
-    score,
-    status,
-    grade,
-    blockers,
-    warnings,
-    findings: findings.sort(sortFindings),
-    file: relativeFile,
-    lineCount,
-    componentType,
-    updatedAtUtc: new Date().toISOString()
+    score, status: resolveStatus(score, blockers), grade: resolveGrade(score),
+    blockers, warnings, findings: findings.sort(sortFindings),
+    file: relativeFile, lineCount, componentType, updatedAtUtc: new Date().toISOString()
   };
+}
+
+function collectAllFindings(
+  document: vscode.TextDocument, file: string, lineCount: number, ct: ComponentType
+): TrustFinding[] {
+  return [
+    ...scanForAbsoluteFileLimit(file, lineCount, ct),
+    ...scanForComponentLimits(file, lineCount, ct),
+    ...scanForValidationLibraryRequirement(file, ct),
+    ...(ct === "controller" ? scanControllerStructure(document, file) : []),
+    ...scanForMissingInputValidation(document, file, ct),
+    ...scanForHardcodedSecrets(document, file, ct),
+    ...scanForEmptyCatch(document, file, ct),
+    ...scanForConsoleUsage(document, file, ct),
+    ...scanForFunctionLimits(document, file, ct),
+    ...scanTypeDiagnostics(document, file, ct)
+  ];
 }
 
 function scanForAbsoluteFileLimit(

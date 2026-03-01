@@ -14,6 +14,23 @@ export interface ProviderPolicy {
   denylist: string[];
 }
 
+export interface GovernanceEntitlement {
+  eod_reports: boolean;
+  mastermind: boolean;
+  reviewer_digest: boolean;
+  decision_sync: boolean;
+  slack_integration: boolean;
+}
+
+export interface ExtensionFeatureEntitlement {
+  trust_score: boolean;
+  dead_code_scan: boolean;
+  commit_quality_gate: boolean;
+  codebase_tour: boolean;
+  api_contract_validator: boolean;
+  environment_doctor: boolean;
+}
+
 export interface EntitlementClaims {
   sub: string;
   install_id: string;
@@ -26,6 +43,12 @@ export interface EntitlementClaims {
   refund_window_ends_at: string | null;
   token_max_ttl_hours: number;
   provider_policy: ProviderPolicy;
+  /** Governance feature flags (v2 — optional for backward compat). */
+  governance?: GovernanceEntitlement;
+  /** Available policy domains for the user's plan (v2). */
+  policy_domains?: string[];
+  /** Extension feature gates per plan (v2). */
+  extension_features?: ExtensionFeatureEntitlement;
   exp: number;
   iat: number;
 }

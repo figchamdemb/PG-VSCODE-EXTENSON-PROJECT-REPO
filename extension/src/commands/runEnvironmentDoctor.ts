@@ -38,50 +38,35 @@ const ENV_REFERENCE_PATTERNS: RegExp[] = [
   /\bimport\.meta\.env\[(["'`])([A-Za-z_][A-Za-z0-9_]*)\1\]/g
 ];
 
-export function registerRunEnvironmentDoctorCommand(
-  logger: Logger
-): vscode.Disposable {
-  const runDoctorCommand = vscode.commands.registerCommand(
-    "narrate.runEnvironmentDoctor",
-    async () => {
-      const workspaceFolder = getWorkspaceFolder();
-      if (!workspaceFolder) {
-        return;
-      }
-
-      const result = await runDoctorWithProgress(workspaceFolder.uri);
-      await openEnvironmentDoctorReport(workspaceFolder.uri, result);
-      await showEnvironmentDoctorSummary(logger, workspaceFolder.uri, result);
-    }
-  );
-
-  const quickFixCommand = vscode.commands.registerCommand(
-    "narrate.environmentDoctorQuickFixExample",
-    async () => {
-      const workspaceFolder = getWorkspaceFolder();
-      if (!workspaceFolder) {
-        return;
-      }
-
-      const result = await runDoctorWithProgress(workspaceFolder.uri);
-      if (result.missingInEnvExample.length === 0) {
-        void vscode.window.showInformationMessage(
-          "Narrate Environment Doctor: .env.example already includes all referenced keys."
-        );
-        return;
-      }
-
-      await applyEnvExampleQuickFix(workspaceFolder.uri, result.missingInEnvExample);
-      logger.info(
-        `Environment Doctor quick fix: wrote ${result.missingInEnvExample.length} key(s) to .env.example`
-      );
-    }
-  );
-
+export function registerRunEnvironmentDoctorCommand(logger: Logger): vscode.Disposable {
   return vscode.Disposable.from(
-    runDoctorCommand,
-    quickFixCommand
+    registerDoctorMainCommand(logger),
+    registerDoctorQuickFixCommand(logger)
   );
+}
+
+function registerDoctorMainCommand(logger: Logger): vscode.Disposable {
+  return vscode.commands.registerCommand("narrate.runEnvironmentDoctor", async () => {
+    const folder = getWorkspaceFolder();
+    if (!folder) return;
+    const result = await runDoctorWithProgress(folder.uri);
+    await openEnvironmentDoctorReport(folder.uri, result);
+    await showEnvironmentDoctorSummary(logger, folder.uri, result);
+  });
+}
+
+function registerDoctorQuickFixCommand(logger: Logger): vscode.Disposable {
+  return vscode.commands.registerCommand("narrate.environmentDoctorQuickFixExample", async () => {
+    const folder = getWorkspaceFolder();
+    if (!folder) return;
+    const result = await runDoctorWithProgress(folder.uri);
+    if (result.missingInEnvExample.length === 0) {
+      void vscode.window.showInformationMessage("Narrate Environment Doctor: .env.example already includes all referenced keys.");
+      return;
+    }
+    await applyEnvExampleQuickFix(folder.uri, result.missingInEnvExample);
+    logger.info(`Environment Doctor quick fix: wrote ${result.missingInEnvExample.length} key(s) to .env.example`);
+  });
 }
 
 function getWorkspaceFolder(): vscode.WorkspaceFolder | undefined {
@@ -109,24 +94,15 @@ async function runDoctorWithProgress(
 }
 
 async function showEnvironmentDoctorSummary(
-  logger: Logger,
-  workspaceUri: vscode.Uri,
-  result: EnvironmentDoctorResult
+  logger: Logger, workspaceUri: vscode.Uri, result: EnvironmentDoctorResult
 ): Promise<void> {
-  const issueCount =
-    result.missingInEnv.length +
-    result.missingInEnvExample.length +
-    result.exposedPublicSecrets.length +
-    result.typeMismatches.length;
-
+  const issueCount = result.missingInEnv.length + result.missingInEnvExample.length
+    + result.exposedPublicSecrets.length + result.typeMismatches.length;
   if (issueCount === 0) {
-    void vscode.window.showInformationMessage(
-      "Narrate Environment Doctor: no issues found."
-    );
+    void vscode.window.showInformationMessage("Narrate Environment Doctor: no issues found.");
     logger.info("Environment Doctor completed: clean.");
     return;
   }
-
   if (result.missingInEnvExample.length > 0) {
     const picked = await vscode.window.showWarningMessage(
       `Narrate Environment Doctor: found ${issueCount} issue(s). Missing .env.example keys: ${result.missingInEnvExample.length}.`,
@@ -138,10 +114,7 @@ async function showEnvironmentDoctorSummary(
       return;
     }
   }
-
-  void vscode.window.showWarningMessage(
-    `Narrate Environment Doctor: found ${issueCount} issue(s).`
-  );
+  void vscode.window.showWarningMessage(`Narrate Environment Doctor: found ${issueCount} issue(s).`);
   logger.warn(`Environment Doctor completed: ${issueCount} issue(s).`);
 }
 
@@ -151,44 +124,33 @@ async function runEnvironmentDoctor(
 ): Promise<EnvironmentDoctorResult> {
   progress.report({ message: "Scanning workspace files for env usage..." });
   const { references, scannedFiles } = await collectReferences(workspaceUri);
-
   progress.report({ message: "Reading .env and .env.example..." });
-  const envPath = vscode.Uri.joinPath(workspaceUri, ".env");
-  const envExamplePath = vscode.Uri.joinPath(workspaceUri, ".env.example");
+  const envMap = await readAndParseEnvFile(workspaceUri, ".env");
+  const envExampleMap = await readAndParseEnvFile(workspaceUri, ".env.example");
+  return buildDoctorResult(references, scannedFiles, envMap, envExampleMap, workspaceUri);
+}
 
-  const envContent = await readOptionalText(envPath);
-  const envExampleContent = await readOptionalText(envExamplePath);
+async function readAndParseEnvFile(workspaceUri: vscode.Uri, name: string) {
+  const content = await readOptionalText(vscode.Uri.joinPath(workspaceUri, name));
+  return { content, map: parseEnvFile(content ?? "") };
+}
 
-  const envMap = parseEnvFile(envContent ?? "");
-  const envExampleMap = parseEnvFile(envExampleContent ?? "");
-
-  const missingInEnv = references.filter((reference) => !envMap.has(reference.key));
-  const missingInEnvExample = references.filter(
-    (reference) => !envExampleMap.has(reference.key)
-  );
-
-  const referenceKeys = new Set(references.map((reference) => reference.key));
-  const unusedInEnv = Array.from(envMap.keys())
-    .filter((key) => !referenceKeys.has(key))
-    .sort((left, right) => left.localeCompare(right));
-
-  const exposedPublicSecrets = references.filter(
-    (reference) =>
-      isPublicEnvKey(reference.key) && looksSensitiveEnvName(reference.key)
-  );
-
-  const typeMismatches = detectTypeMismatches(envMap);
-
+function buildDoctorResult(
+  references: EnvReference[], scannedFiles: number,
+  env: { content: string | null; map: Map<string, string> },
+  envExample: { content: string | null; map: Map<string, string> },
+  _workspaceUri: vscode.Uri
+): EnvironmentDoctorResult {
+  const referenceKeys = new Set(references.map((r) => r.key));
   return {
-    scannedFiles,
-    references,
-    envFilePresent: envContent !== null,
-    envExampleFilePresent: envExampleContent !== null,
-    missingInEnv,
-    missingInEnvExample,
-    unusedInEnv,
-    exposedPublicSecrets,
-    typeMismatches
+    scannedFiles, references,
+    envFilePresent: env.content !== null,
+    envExampleFilePresent: envExample.content !== null,
+    missingInEnv: references.filter((r) => !env.map.has(r.key)),
+    missingInEnvExample: references.filter((r) => !envExample.map.has(r.key)),
+    unusedInEnv: Array.from(env.map.keys()).filter((k) => !referenceKeys.has(k)).sort((a, b) => a.localeCompare(b)),
+    exposedPublicSecrets: references.filter((r) => isPublicEnvKey(r.key) && looksSensitiveEnvName(r.key)),
+    typeMismatches: detectTypeMismatches(env.map)
   };
 }
 
@@ -197,39 +159,29 @@ async function collectReferences(
 ): Promise<{ references: EnvReference[]; scannedFiles: number }> {
   const fileUris = await vscode.workspace.findFiles(
     new vscode.RelativePattern(workspaceUri, SOURCE_INCLUDE_GLOB),
-    new vscode.RelativePattern(workspaceUri, SOURCE_EXCLUDE_GLOB),
-    1200
+    new vscode.RelativePattern(workspaceUri, SOURCE_EXCLUDE_GLOB), 1200
   );
-
   const firstReferenceByKey = new Map<string, EnvReference>();
   for (const fileUri of fileUris) {
-    const textDocument = await vscode.workspace.openTextDocument(fileUri);
-    const lines = textDocument.getText().split(/\r?\n/u);
-    for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
-      const line = lines[lineIndex];
-      if (!line.includes("env")) {
-        continue;
-      }
-      for (const match of findEnvMatches(line)) {
-        if (firstReferenceByKey.has(match)) {
-          continue;
-        }
-        firstReferenceByKey.set(match, {
-          key: match,
-          file: vscode.workspace.asRelativePath(fileUri, false),
-          line: lineIndex + 1
-        });
-      }
+    await extractEnvRefsFromFile(fileUri, firstReferenceByKey);
+  }
+  const references = Array.from(firstReferenceByKey.values())
+    .sort((a, b) => a.key.localeCompare(b.key));
+  return { references, scannedFiles: fileUris.length };
+}
+
+async function extractEnvRefsFromFile(
+  fileUri: vscode.Uri, refMap: Map<string, EnvReference>
+): Promise<void> {
+  const doc = await vscode.workspace.openTextDocument(fileUri);
+  const lines = doc.getText().split(/\r?\n/u);
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].includes("env")) continue;
+    for (const match of findEnvMatches(lines[i])) {
+      if (refMap.has(match)) continue;
+      refMap.set(match, { key: match, file: vscode.workspace.asRelativePath(fileUri, false), line: i + 1 });
     }
   }
-
-  const references = Array.from(firstReferenceByKey.values()).sort((left, right) =>
-    left.key.localeCompare(right.key)
-  );
-  return {
-    references,
-    scannedFiles: fileUris.length
-  };
 }
 
 function findEnvMatches(line: string): string[] {
@@ -332,19 +284,11 @@ function looksSensitiveEnvName(key: string): boolean {
   return /_KEY$/iu.test(key) && !/PUBLIC_KEY$/iu.test(key);
 }
 
-async function openEnvironmentDoctorReport(
-  workspaceUri: vscode.Uri,
-  result: EnvironmentDoctorResult
-): Promise<void> {
-  const title = "# Environment Doctor";
-  const now = `UTC: ${new Date().toISOString()}`;
-  const root = `Workspace: ${workspaceUri.fsPath}`;
-  const summary = [
-    "",
-    "## Summary",
-    "",
-    `- Files scanned: ${result.scannedFiles}`,
-    `- Env references found: ${result.references.length}`,
+function buildReportHeader(workspaceUri: vscode.Uri, result: EnvironmentDoctorResult): string {
+  return [
+    "# Environment Doctor", "", `UTC: ${new Date().toISOString()}`, "",
+    `Workspace: ${workspaceUri.fsPath}`, "", "## Summary", "",
+    `- Files scanned: ${result.scannedFiles}`, `- Env references found: ${result.references.length}`,
     `- .env present: ${result.envFilePresent ? "yes" : "no"}`,
     `- .env.example present: ${result.envExampleFilePresent ? "yes" : "no"}`,
     `- Missing in .env: ${result.missingInEnv.length}`,
@@ -353,28 +297,22 @@ async function openEnvironmentDoctorReport(
     `- Exposed public-secret keys: ${result.exposedPublicSecrets.length}`,
     `- Type mismatches: ${result.typeMismatches.length}`
   ].join("\n");
+}
 
-  const sections: string[] = [];
-  sections.push(renderReferenceSection("Missing in .env", result.missingInEnv));
-  sections.push(
-    renderReferenceSection("Missing in .env.example", result.missingInEnvExample)
-  );
-  sections.push(renderKeyListSection("Unused keys in .env", result.unusedInEnv));
-  sections.push(
-    renderReferenceSection(
-      "Potentially exposed public secret keys",
-      result.exposedPublicSecrets
-    )
-  );
-  sections.push(renderTypeMismatchSection(result.typeMismatches));
-  sections.push(renderEnvExampleSuggestion(result.missingInEnvExample));
-
-  const content = [title, "", now, "", root, summary, ...sections].join("\n\n");
-
-  const document = await vscode.workspace.openTextDocument({
-    content,
-    language: "markdown"
-  });
+async function openEnvironmentDoctorReport(
+  workspaceUri: vscode.Uri, result: EnvironmentDoctorResult
+): Promise<void> {
+  const header = buildReportHeader(workspaceUri, result);
+  const sections = [
+    renderReferenceSection("Missing in .env", result.missingInEnv),
+    renderReferenceSection("Missing in .env.example", result.missingInEnvExample),
+    renderKeyListSection("Unused keys in .env", result.unusedInEnv),
+    renderReferenceSection("Potentially exposed public secret keys", result.exposedPublicSecrets),
+    renderTypeMismatchSection(result.typeMismatches),
+    renderEnvExampleSuggestion(result.missingInEnvExample)
+  ];
+  const content = [header, ...sections].join("\n\n");
+  const document = await vscode.workspace.openTextDocument({ content, language: "markdown" });
   await vscode.window.showTextDocument(document, { preview: false });
 }
 
@@ -422,7 +360,7 @@ function renderEnvExampleSuggestion(missingInExample: EnvReference[]): string {
   }
 
   const lines = missingInExample
-    .map((reference) => `${reference.key}=__REQUIRED__`)
+    .map((reference) => `${reference.key}=${inferPlaceholder(reference.key)}`)
     .join("\n");
 
   return `## Suggested .env.example Additions\n\n\`\`\`env\n${lines}\n\`\`\``;
@@ -432,37 +370,41 @@ function normalizeSlashes(relativePath: string): string {
   return relativePath.split(path.sep).join("/");
 }
 
+function inferPlaceholder(key: string): string {
+  const k = key.toUpperCase();
+  if (k === "NODE_ENV") return "development";
+  if (k === "PORT" || k.endsWith("_PORT")) return "3000";
+  if (k === "HOST" || k.endsWith("_HOST")) return "localhost";
+  if (/(DATABASE_URL|DB_URL|POSTGRES)/u.test(k)) return "postgresql://user:pass@localhost:5432/dbname";
+  if (/(REDIS_URL|CACHE_URL)/u.test(k)) return "redis://localhost:6379";
+  if (/URL|URI|ENDPOINT/u.test(k)) return "https://example.com";
+  if (/(SECRET|TOKEN|PASSWORD|PRIVATE_KEY|API_KEY)/u.test(k)) return "change-me-secret";
+  if (/(ENABLED|DISABLED|DEBUG|VERBOSE|SECURE)/u.test(k)) return "false";
+  if (/(TIMEOUT|TTL|MS|INTERVAL)/u.test(k)) return "30000";
+  if (/(RETRIES|LIMIT|MAX|MIN|COUNT)/u.test(k)) return "10";
+  if (/(EMAIL|MAIL_FROM)/u.test(k)) return "noreply@example.com";
+  if (/(REGION|ZONE)/u.test(k)) return "us-east-1";
+  if (/(LOG_LEVEL)/u.test(k)) return "info";
+  return "__REQUIRED__";
+}
+
 async function applyEnvExampleQuickFix(
-  workspaceUri: vscode.Uri,
-  missingInExample: EnvReference[]
+  workspaceUri: vscode.Uri, missingInExample: EnvReference[]
 ): Promise<void> {
   const envExampleUri = vscode.Uri.joinPath(workspaceUri, ".env.example");
   const existingContent = (await readOptionalText(envExampleUri)) ?? "";
   const parsed = parseEnvFile(existingContent);
-
-  const keysToAdd = Array.from(
-    new Set(missingInExample.map((reference) => reference.key))
-  )
-    .filter((key) => !parsed.has(key))
-    .sort((left, right) => left.localeCompare(right));
-
+  const keysToAdd = Array.from(new Set(missingInExample.map((r) => r.key)))
+    .filter((k) => !parsed.has(k)).sort((a, b) => a.localeCompare(b));
   if (keysToAdd.length === 0) {
-    void vscode.window.showInformationMessage(
-      "Narrate Environment Doctor: no new keys to add to .env.example."
-    );
+    void vscode.window.showInformationMessage("Narrate Environment Doctor: no new keys to add to .env.example.");
     return;
   }
-
-  const additions = keysToAdd.map((key) => `${key}=__REQUIRED__`).join("\n");
-  const normalizedExisting = existingContent.replace(/\s+$/u, "");
-  const separator = normalizedExisting.length > 0 ? "\n\n" : "";
-  const nextContent = `${normalizedExisting}${separator}${additions}\n`;
-
+  const additions = keysToAdd.map((k) => `${k}=${inferPlaceholder(k)}`).join("\n");
+  const normalized = existingContent.replace(/\s+$/u, "");
+  const nextContent = `${normalized}${normalized.length > 0 ? "\n\n" : ""}${additions}\n`;
   await vscode.workspace.fs.writeFile(envExampleUri, Buffer.from(nextContent, "utf8"));
-
   const document = await vscode.workspace.openTextDocument(envExampleUri);
   await vscode.window.showTextDocument(document, { preview: false });
-  void vscode.window.showInformationMessage(
-    `Narrate Environment Doctor: added ${keysToAdd.length} key(s) to .env.example.`
-  );
+  void vscode.window.showInformationMessage(`Narrate Environment Doctor: added ${keysToAdd.length} key(s) to .env.example.`);
 }

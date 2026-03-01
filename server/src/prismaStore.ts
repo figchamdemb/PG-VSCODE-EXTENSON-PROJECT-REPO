@@ -187,6 +187,16 @@ export class PrismaStateStore implements StateStore {
 
   constructor(private readonly prisma: PrismaClient) {}
 
+  async checkReady(): Promise<boolean> {
+    if (!this.state) return false;
+    try {
+      await this.prisma.$queryRaw`SELECT 1`;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async initialize(): Promise<void> {
     await this.ensureTables();
     await this.loadTableColumnTypes();

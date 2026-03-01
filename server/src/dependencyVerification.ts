@@ -3,6 +3,7 @@ import type {
   DependencyVerificationResult,
   DependencyVerificationViolation
 } from "./dependencyVerificationContracts";
+import type { DependencyThresholds } from "./policyVaultTypes";
 import {
   findDependency,
   findDenyEntry,
@@ -34,7 +35,8 @@ const STALE_WARNING_MONTHS = 12;
 const STALE_BLOCK_MONTHS = 24;
 
 export async function evaluateDependencyVerification(
-  requestBody: DependencyVerificationRequest
+  requestBody: DependencyVerificationRequest,
+  thresholds?: DependencyThresholds | null
 ): Promise<DependencyVerificationResult> {
   const blockers: DependencyVerificationViolation[] = [];
   const warnings: DependencyVerificationViolation[] = [];
@@ -189,7 +191,7 @@ export async function evaluateDependencyVerification(
     }
 
     const ageInMonths = getPublishedAgeInMonths(lookup.latestPublishedAt);
-    if (ageInMonths !== null && ageInMonths > STALE_BLOCK_MONTHS) {
+    if (ageInMonths !== null && ageInMonths > (thresholds?.stale_block_months ?? STALE_BLOCK_MONTHS)) {
       if (isTypeDefinitionPackage(normalizedName)) {
         pushViolation(warnings, {
           rule_id: "DEP-MAINT-003",
@@ -209,7 +211,7 @@ export async function evaluateDependencyVerification(
       });
       continue;
     }
-    if (ageInMonths !== null && ageInMonths > STALE_WARNING_MONTHS) {
+    if (ageInMonths !== null && ageInMonths > (thresholds?.stale_warning_months ?? STALE_WARNING_MONTHS)) {
       pushViolation(warnings, {
         rule_id: "DEP-MAINT-002",
         severity: "warning",
@@ -244,13 +246,15 @@ export async function evaluateDependencyVerification(
   };
 }
 
-function runCompatibilityChecks(input: {
+type CompatibilityCheckInput = {
   dependencies: NormalizedDependency[];
   nodeRuntime: ParsedSemver | null;
   framework: string;
   blockers: DependencyVerificationViolation[];
   warnings: DependencyVerificationViolation[];
-}): void {
+};
+
+function runCompatibilityChecks(input: CompatibilityCheckInput): void {
   const nextDep = findDependency(input.dependencies, "next");
   const reactDep = findDependency(input.dependencies, "react");
   const prismaCli = findDependency(input.dependencies, "prisma");

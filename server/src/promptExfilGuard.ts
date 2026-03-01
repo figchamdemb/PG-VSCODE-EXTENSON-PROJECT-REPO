@@ -1,4 +1,5 @@
 type GuardSeverity = "warning" | "blocker";
+import type { PromptGuardThresholds } from "./policyVaultTypes";
 
 type GuardRule = {
   id: string;
@@ -79,7 +80,7 @@ export interface PromptGuardResult {
   flags: PromptGuardFlag[];
 }
 
-export function evaluatePromptGuard(requestBody: PromptGuardRequest): PromptGuardResult {
+export function evaluatePromptGuard(requestBody: PromptGuardRequest, thresholds?: PromptGuardThresholds | null): PromptGuardResult {
   const prompt = normalizePrompt(requestBody.prompt);
   const source = normalizeSource(requestBody.source);
   if (!prompt) {
@@ -88,7 +89,7 @@ export function evaluatePromptGuard(requestBody: PromptGuardRequest): PromptGuar
 
   const flags = collectRuleFlags(prompt);
   const riskScore = computeRiskScore(flags);
-  return buildGuardResult(source, flags, riskScore);
+  return buildGuardResult({ source, flags, riskScore, blockerThreshold: thresholds?.blocker_score_threshold });
 }
 
 function normalizePrompt(prompt: string | undefined): string {
@@ -159,19 +160,19 @@ function computeRiskScore(flags: PromptGuardFlag[]): number {
   return flags.reduce((total, flag) => total + flag.score, 0);
 }
 
-function buildGuardResult(source: string, flags: PromptGuardFlag[], riskScore: number): PromptGuardResult {
-  const status = resolveStatus(riskScore, flags);
+function buildGuardResult(opts: { source: string; flags: PromptGuardFlag[]; riskScore: number; blockerThreshold?: number }): PromptGuardResult {
+  const status = resolveStatus(opts.riskScore, opts.flags, opts.blockerThreshold);
   return {
     ok: status !== "blocked",
     evaluator_version: "prompt-guard-v1",
     status,
-    risk_score: riskScore,
+    risk_score: opts.riskScore,
     summary: {
-      source,
-      matched_rules: flags.length,
+      source: opts.source,
+      matched_rules: opts.flags.length,
       evaluated_at: new Date().toISOString()
     },
-    flags
+    flags: opts.flags
   };
 }
 
@@ -196,11 +197,11 @@ function computeNoisyCharacterRatio(prompt: string): number {
   return noisy / total;
 }
 
-function resolveStatus(riskScore: number, flags: PromptGuardFlag[]): "allow" | "warn" | "blocked" {
+function resolveStatus(riskScore: number, flags: PromptGuardFlag[], blockerThreshold?: number): "allow" | "warn" | "blocked" {
   if (riskScore >= 100) {
     return "blocked";
   }
-  if (flags.some((flag) => flag.severity === "blocker" && flag.score >= 85)) {
+  if (flags.some((flag) => flag.severity === "blocker" && flag.score >= (blockerThreshold ?? 85))) {
     return "blocked";
   }
   if (riskScore >= 50 || flags.length > 0) {

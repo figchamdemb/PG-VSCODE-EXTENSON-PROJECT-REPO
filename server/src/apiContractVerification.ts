@@ -5,6 +5,7 @@ import {
   ApiContractRuleId,
   ContractSourceMode
 } from "./apiContract/types";
+import type { ApiContractThresholds } from "./policyVaultTypes";
 
 type VerificationSeverity = "blocker" | "warning";
 
@@ -73,11 +74,12 @@ export interface ApiContractVerificationResult {
 const DEFAULT_MAX_FILES = 1200;
 
 export function evaluateApiContractVerification(
-  requestBody: ApiContractVerificationRequest
+  requestBody: ApiContractVerificationRequest,
+  thresholds?: ApiContractThresholds | null
 ): ApiContractVerificationResult {
   const blockers: ApiContractVerificationIssue[] = [];
   const warnings: ApiContractVerificationIssue[] = [];
-  const maxFiles = normalizeMaxFiles(requestBody.options?.max_files);
+  const maxFiles = normalizeMaxFiles(requestBody.options?.max_files, thresholds?.max_files ?? DEFAULT_MAX_FILES);
   const files = Array.isArray(requestBody.files) ? requestBody.files : [];
 
   if (files.length === 0) {
@@ -208,13 +210,13 @@ function normalizePath(input: string | undefined): string {
   return (input ?? "").trim().replace(/\\/g, "/");
 }
 
-function normalizeMaxFiles(value: number | undefined): number {
+function normalizeMaxFiles(value: number | undefined, fallback: number = DEFAULT_MAX_FILES): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    return DEFAULT_MAX_FILES;
+    return fallback;
   }
   const normalized = Math.floor(value);
   if (normalized < 1) {
-    return DEFAULT_MAX_FILES;
+    return fallback;
   }
   return normalized;
 }

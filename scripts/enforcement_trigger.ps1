@@ -15,6 +15,7 @@ param(
     [switch]$EnableDbIndexMaintenanceCheck,
     [string]$DatabaseUrl = "",
     [switch]$WarnOnly,
+    [switch]$Json,
     [string]$StateFile = ""
 )
 
@@ -227,23 +228,112 @@ if ($EnableDbIndexMaintenanceCheck.IsPresent) {
     Write-Host "- DB index maintenance verification skipped. Use -EnableDbIndexMaintenanceCheck to enforce."
 }
 
+# ── Report enforcement event to audit trail ──
+
+function Send-EnforcementAuditEvent(
+    [string]$AuditApiBase,
+    [string]$AuditToken,
+    [string]$AuditPhase,
+    [string]$AuditStatus,
+    [int]$BlockerCount,
+    [int]$WarningCount,
+    [string[]]$ChecksRun,
+    [string]$FindingsSummary
+) {
+    try {
+        $payload = @{
+            phase = $AuditPhase
+            status = $AuditStatus
+            risk_score = if ($AuditStatus -eq "blocked") { 100 } elseif ($AuditStatus -eq "warn") { 50 } else { 0 }
+            blocker_count = $BlockerCount
+            warning_count = $WarningCount
+            checks_run = $ChecksRun
+            findings_summary = $FindingsSummary
+            source = "cli"
+        } | ConvertTo-Json -Depth 5 -Compress
+        $headers = @{
+            "Authorization" = "Bearer $AuditToken"
+            "Content-Type" = "application/json"
+        }
+        Invoke-RestMethod -Uri "$AuditApiBase/account/policy/enforcement/event" `
+            -Method Post -Body $payload -Headers $headers `
+            -TimeoutSec 10 -ErrorAction SilentlyContinue | Out-Null
+        Write-Host "- audit event reported"
+    } catch {
+        Write-Host "- audit event report skipped (server unreachable)"
+    }
+}
+
+$checksRun = @()
+if ($runDependency) { $checksRun += "dependency" }
+$checksRun += "coding"
+if ($EnableDbIndexMaintenanceCheck.IsPresent) { $checksRun += "db-index" }
+
+$checkResults = [ordered]@{}
+if ($runDependency) {
+    $checkResults["dependency"] = if ($depExit -eq 0) { "pass" } elseif ($depExit -eq 2) { "blocked" } else { "error" }
+} else {
+    $checkResults["dependency"] = "skipped"
+}
+$checkResults["coding"] = if ($codingExit -eq 0) { "pass" } elseif ($codingExit -eq 2) { "blocked" } else { "error" }
+if ($EnableDbIndexMaintenanceCheck.IsPresent) {
+    $checkResults["db-index"] = if ($dbExit -eq 0) { "pass" } elseif ($dbExit -eq 2) { "blocked" } else { "error" }
+} else {
+    $checkResults["db-index"] = "skipped"
+}
+
+$blockerCount = 0
+$warningCount = 0
+if ($depExit -eq 2) { $blockerCount++ }
+if ($codingExit -eq 2) { $blockerCount++ } elseif ($codingExit -ne 0) { $warningCount++ }
+if ($EnableDbIndexMaintenanceCheck.IsPresent -and $dbExit -eq 2) { $blockerCount++ }
+
+$auditStatus = if ($hasBlockers) { "blocked" } elseif ($hasRuntimeError) { "error" } elseif ($warningCount -gt 0) { "warn" } else { "pass" }
+$findingsSummary = "Phase=$Phase blockers=$blockerCount warnings=$warningCount checks=($($checksRun -join ','))"
+
+Send-EnforcementAuditEvent `
+    -AuditApiBase $ApiBase -AuditToken $token `
+    -AuditPhase $Phase -AuditStatus $auditStatus `
+    -BlockerCount $blockerCount -WarningCount $warningCount `
+    -ChecksRun $checksRun -FindingsSummary $findingsSummary
+
+function Write-JsonResult([string]$resultStatus, [int]$exitCode) {
+    if (-not $Json.IsPresent) { return }
+    $result = [ordered]@{
+        phase = $Phase
+        status = $resultStatus
+        blocker_count = $blockerCount
+        warning_count = $warningCount
+        checks_run = $checksRun
+        check_results = $checkResults
+        warn_only = [bool]$WarnOnly.IsPresent
+    }
+    $line = ConvertTo-Json -InputObject $result -Depth 5 -Compress
+    Write-Host "PG_ENFORCEMENT_JSON:$line"
+}
+
 if ($hasRuntimeError) {
     if ($WarnOnly.IsPresent) {
         Write-Warning "Enforcement trigger encountered runtime errors but is continuing in warn mode."
+        Write-JsonResult -resultStatus "error" -exitCode 0
         exit 0
     }
     Write-Host "Enforcement trigger failed due to runtime errors."
+    Write-JsonResult -resultStatus "error" -exitCode 1
     exit 1
 }
 
 if ($hasBlockers) {
     if ($WarnOnly.IsPresent) {
         Write-Warning "Enforcement trigger found policy blockers but is continuing in warn mode."
+        Write-JsonResult -resultStatus "blocked" -exitCode 0
         exit 0
     }
     Write-Host "Enforcement trigger blocked by policy violations."
+    Write-JsonResult -resultStatus "blocked" -exitCode 2
     exit 2
 }
 
 Write-Host "Enforcement trigger passed."
+Write-JsonResult -resultStatus "pass" -exitCode 0
 exit 0

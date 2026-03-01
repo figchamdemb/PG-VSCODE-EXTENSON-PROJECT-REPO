@@ -5,6 +5,7 @@ import { StoreState } from "./types";
 
 export interface StateStore {
   initialize(): Promise<void>;
+  checkReady(): Promise<boolean>;
   snapshot(): StoreState;
   update(mutator: (state: StoreState) => void): Promise<void>;
 }
@@ -14,6 +15,10 @@ export class JsonStore implements StateStore {
   private writeChain: Promise<void> = Promise.resolve();
 
   constructor(private readonly storePath: string) {}
+
+  async checkReady(): Promise<boolean> {
+    return this.state !== undefined;
+  }
 
   async initialize(): Promise<void> {
     await fs.mkdir(path.dirname(this.storePath), { recursive: true });
@@ -76,7 +81,10 @@ const DEFAULT_ARRAY_COLLECTIONS: Omit<StoreState, "keys" | "updated_at"> = {
   mastermind_votes: [],
   mastermind_outcomes: [],
   governance_decision_events: [],
-  governance_decision_acks: []
+  governance_decision_acks: [],
+  policy_tenant_overlays: [],
+  enforcement_audit_log: [],
+  reviewer_automation_policies: []
 };
 
 const ARRAY_STATE_KEYS = Object.keys(DEFAULT_ARRAY_COLLECTIONS) as Array<

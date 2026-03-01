@@ -8,6 +8,7 @@ import { randomUUID } from "crypto";
 import jwt from "jsonwebtoken";
 import { addHours, addYears, normalizeHostList } from "./serverUtils";
 import { PLAN_RULES } from "./rules";
+import { ENTITLEMENT_MATRIX } from "./entitlementMatrix";
 import { hasActiveTeamSeat } from "./teamHelpers";
 import {
   PlanTier,
@@ -17,6 +18,8 @@ import {
   StoreState,
   SubscriptionRecord
 } from "./types";
+
+import type { PolicyDomain } from "./policyVaultTypes";
 
 /* ── EntitlementClaimPayload type (re-exported for callers) ── */
 
@@ -41,6 +44,22 @@ export interface EntitlementClaimPayload {
     byo_allowed: boolean;
     allowlist: string[];
     denylist: string[];
+  };
+  governance: {
+    eod_reports: boolean;
+    mastermind: boolean;
+    reviewer_digest: boolean;
+    decision_sync: boolean;
+    slack_integration: boolean;
+  };
+  policy_domains: PolicyDomain[];
+  extension_features: {
+    trust_score: boolean;
+    dead_code_scan: boolean;
+    commit_quality_gate: boolean;
+    codebase_tour: boolean;
+    api_contract_validator: boolean;
+    environment_doctor: boolean;
   };
   iat: number;
   exp: number;
@@ -121,10 +140,11 @@ export function buildEntitlementClaims(
   const planState = resolveEffectivePlan(state, userId, now);
   const plan = planState.plan;
   const modules = resolveModules(state, userId, plan, now);
+  const matrix = ENTITLEMENT_MATRIX[plan];
   const features = {
-    edu_view: plan !== "free",
-    export: PLAN_RULES[plan].can_export,
-    change_report: PLAN_RULES[plan].can_change_report,
+    edu_view: matrix.can_edu_view,
+    export: matrix.can_export,
+    change_report: matrix.can_change_report,
     memorybank: modules.includes("memorybank") || modules.includes("bundle")
   };
 
@@ -144,6 +164,22 @@ export function buildEntitlementClaims(
     refund_window_ends_at: planState.subscription?.refund_window_ends_at ?? null,
     token_max_ttl_hours: tokenTtlHours,
     provider_policy: resolveProviderPolicy(state, userId, planState.subscription?.team_id ?? null),
+    governance: {
+      eod_reports: matrix.governance_eod_reports,
+      mastermind: matrix.governance_mastermind,
+      reviewer_digest: matrix.governance_reviewer_digest,
+      decision_sync: matrix.governance_decision_sync,
+      slack_integration: matrix.governance_slack_integration
+    },
+    policy_domains: matrix.policy_domains,
+    extension_features: {
+      trust_score: matrix.ext_trust_score,
+      dead_code_scan: matrix.ext_dead_code_scan,
+      commit_quality_gate: matrix.ext_commit_quality_gate,
+      codebase_tour: matrix.ext_codebase_tour,
+      api_contract_validator: matrix.ext_api_contract_validator,
+      environment_doctor: matrix.ext_environment_doctor
+    },
     iat: Math.floor(now.getTime() / 1000),
     exp
   };

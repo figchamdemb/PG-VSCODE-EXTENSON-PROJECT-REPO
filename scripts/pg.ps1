@@ -1,6 +1,6 @@
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("install", "start", "end", "status", "login", "update", "doctor", "governance-login", "governance-worker", "governance-bind", "slack-check", "narrate-check", "closure-check", "dependency-verify", "coding-verify", "api-contract-verify", "mcp-cloud-score", "cloud-score", "observability-check", "obs-check", "db-index-check", "db-check", "db-index-fix-plan", "db-fix", "db-index-remediate", "self-check", "as-you-go-check", "playwright-smoke-check", "ui-smoke-check", "enforce-trigger", "prod", "dev-profile", "help")]
+    [ValidateSet("install", "start", "end", "status", "login", "update", "doctor", "governance-login", "governance-worker", "governance-bind", "governance-digest", "reviewer-policy", "reviewer-check", "slack-check", "narrate-check", "closure-check", "dependency-verify", "coding-verify", "api-contract-verify", "mcp-cloud-score", "cloud-score", "observability-check", "obs-check", "scalability-check", "scale-check", "db-index-check", "db-check", "db-index-fix-plan", "db-fix", "db-index-remediate", "self-check", "as-you-go-check", "playwright-smoke-check", "ui-smoke-check", "enforce-trigger", "prod", "dev-profile", "prod-checklist", "production-checklist", "tech-debt", "tech-debt-model", "init", "project-setup", "help")]
     [string]$Command = "help",
 
     [ValidateRange(1, 1000)]
@@ -176,6 +176,8 @@ function Show-Help {
     Write-Host "  .\pg.ps1 governance-worker -Once"
     Write-Host "  .\pg.ps1 governance-bind -ThreadId ""6c920350-9b8c-4067-a0f0-92c8a9b9b42a"" -ActionKey default-handler"
     Write-Host "  .\pg.ps1 governance-bind -List"
+    Write-Host "  .\pg.ps1 governance-digest -ApiBase http://127.0.0.1:8787 -TeamKey my-team"
+    Write-Host "  .\pg.ps1 governance-digest -ApiBase http://127.0.0.1:8787 -Json"
     Write-Host "  .\pg.ps1 slack-check -ApiBase http://127.0.0.1:8787 -PublicBaseUrl https://pg-ext.addresly.com"
     Write-Host "  .\pg.ps1 narrate-check"
     Write-Host "  .\pg.ps1 narrate-check -SkipCompile"
@@ -427,6 +429,45 @@ switch ($Command) {
             List = $List.IsPresent
         }
         & (Join-Path $scriptDir "governance_bind_action.ps1") @args
+        exit $LASTEXITCODE
+    }
+    "governance-digest" {
+        $resolvedApiBase = if ($ApiBase) { $ApiBase } else { "http://127.0.0.1:8787" }
+        $args = @{
+            ApiBase  = $resolvedApiBase
+            Json     = $Json.IsPresent
+        }
+        if ($StateFile) { $args["StateFile"] = $StateFile }
+        if ($TeamKey)   { $args["TeamKey"]   = $TeamKey   }
+        if ($AccessToken) { $args["AccessToken"] = $AccessToken }
+        & (Join-Path $scriptDir "governance_digest.ps1") @args
+        exit $LASTEXITCODE
+    }
+    "reviewer-policy" {
+        $resolvedApiBase = if ($ApiBase) { $ApiBase } else { "http://127.0.0.1:8787" }
+        $args = @{
+            Action = "status"
+            ApiBase = $resolvedApiBase
+            AccessToken = $AccessToken
+            Json = $Json.IsPresent
+        }
+        if ($StateFile) { $args["StateFile"] = $StateFile }
+        if ($TeamKey)   { $args["TeamKey"]   = $TeamKey   }
+        if ($ThreadId)  { $args["ThreadId"]  = $ThreadId  }
+        & (Join-Path $scriptDir "reviewer_automation.ps1") @args
+        exit $LASTEXITCODE
+    }
+    "reviewer-check" {
+        $resolvedApiBase = if ($ApiBase) { $ApiBase } else { "http://127.0.0.1:8787" }
+        $args = @{
+            Action = "sla"
+            ApiBase = $resolvedApiBase
+            AccessToken = $AccessToken
+            Json = $Json.IsPresent
+        }
+        if ($StateFile) { $args["StateFile"] = $StateFile }
+        if ($TeamKey)   { $args["TeamKey"]   = $TeamKey   }
+        & (Join-Path $scriptDir "reviewer_automation.ps1") @args
         exit $LASTEXITCODE
     }
     "slack-check" {
@@ -686,6 +727,28 @@ switch ($Command) {
         & (Join-Path $scriptDir "db_index_maintenance_check.ps1") @args
         exit $LASTEXITCODE
     }
+    "scalability-check" {
+        $resolvedApiBase = if ($ApiBase) { $ApiBase } else { "http://127.0.0.1:8787" }
+        $args = @{
+            ApiBase = $resolvedApiBase
+            AccessToken = $AccessToken
+            StateFile = $StateFile
+            Json = $Json.IsPresent
+        }
+        & (Join-Path $scriptDir "scalability_check.ps1") @args
+        exit $LASTEXITCODE
+    }
+    "scale-check" {
+        $resolvedApiBase = if ($ApiBase) { $ApiBase } else { "http://127.0.0.1:8787" }
+        $args = @{
+            ApiBase = $resolvedApiBase
+            AccessToken = $AccessToken
+            StateFile = $StateFile
+            Json = $Json.IsPresent
+        }
+        & (Join-Path $scriptDir "scalability_check.ps1") @args
+        exit $LASTEXITCODE
+    }
     "db-index-fix-plan" {
         $args = @{
             DatabaseUrl = $DatabaseUrl
@@ -853,6 +916,37 @@ switch ($Command) {
         if ($DevProfileAction -eq "check" -and $result -and ($result.ok -eq $false)) {
             exit 2
         }
+        exit $LASTEXITCODE
+    }
+    { $_ -in "prod-checklist", "production-checklist" } {
+        $args = @{}
+        if ($Json.IsPresent) { $args["Json"] = $true }
+        if ($ApiBase) { $args["ApiBase"] = $ApiBase }
+        if ($AccessToken) { $args["AccessToken"] = $AccessToken }
+        & (Join-Path $scriptDir "production_checklist.ps1") @args
+        exit $LASTEXITCODE
+    }
+    "tech-debt" {
+        $args = @{}
+        if ($Json.IsPresent) { $args["Json"] = $true }
+        if ($ApiBase) { $args["ApiBase"] = $ApiBase }
+        if ($AccessToken) { $args["AccessToken"] = $AccessToken }
+        & (Join-Path $scriptDir "tech_debt_check.ps1") @args
+        exit $LASTEXITCODE
+    }
+    "tech-debt-model" {
+        $args = @{ ModelOnly = $true }
+        if ($Json.IsPresent) { $args["Json"] = $true }
+        if ($ApiBase) { $args["ApiBase"] = $ApiBase }
+        if ($AccessToken) { $args["AccessToken"] = $AccessToken }
+        & (Join-Path $scriptDir "tech_debt_check.ps1") @args
+        exit $LASTEXITCODE
+    }
+    { $_ -in "init", "project-setup" } {
+        $args = @{}
+        if ($Json.IsPresent) { $args["Json"] = $true }
+        if ($Force.IsPresent) { $args["Force"] = $true }
+        & (Join-Path $scriptDir "project_setup.ps1") @args
         exit $LASTEXITCODE
     }
     default {

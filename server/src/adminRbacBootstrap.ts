@@ -14,6 +14,19 @@ export interface AdminPermissionKeys {
   AFFILIATE_MANAGE: string;
 }
 
+export const ADMIN_PERMISSION_KEYS: AdminPermissionKeys = {
+  BOARD_READ: "board.read",
+  BOARD_SUPPORT_WRITE: "board.support.write",
+  BOARD_SUBSCRIPTION_WRITE: "board.subscription.write",
+  BOARD_SESSION_REVOKE: "board.session.revoke",
+  REFUND_APPROVE: "refund.approve",
+  SUBSCRIPTION_GRANT: "subscription.grant",
+  TEAM_MANAGE: "team.manage",
+  PROVIDER_POLICY_MANAGE: "provider_policy.manage",
+  OFFLINE_PAYMENT_REVIEW: "offline.review",
+  AFFILIATE_MANAGE: "affiliate.manage"
+} as const;
+
 interface EnsureAdminRbacBaselineOptions {
   prisma: PrismaClient;
   permissionKeys: AdminPermissionKeys;

@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PG Governance Dashboard</title>
+  <meta name="description" content="PG Narrate governance KPI dashboard — reviewer digest, activity, and decision analytics." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#111113" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#111113;--surface:#1a1a1e;--card:#222226;--border:#333;--text:#e4e4e7;--muted:#888;--accent:#7c5cfc;--accent-dim:#5a3fbd;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--blue:#3b82f6;--radius:10px}
+    body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh}
+    a{color:var(--accent);text-decoration:none}
+    .hidden{display:none!important}
+    /* ── Auth gate ─────────────────────────────────────────────── */
+    #authGate{max-width:380px;margin:15vh auto;padding:2rem;background:var(--surface);border-radius:var(--radius);text-align:center}
+    #authGate h2{margin-bottom:.8rem;font-size:1.3rem}
+    #authGate input{width:100%;padding:.65rem;margin:.5rem 0;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:.95rem}
+    #authGate button{width:100%;padding:.65rem;margin-top:.6rem;border:none;border-radius:6px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;font-size:.95rem}
+    #authGate button:hover{background:var(--accent-dim)}
+    #authGate .auth-msg{font-size:.85rem;color:var(--muted);margin-top:.4rem}
+    /* ── Layout ────────────────────────────────────────────────── */
+    .topbar{display:flex;justify-content:space-between;align-items:center;padding:.8rem 1.2rem;border-bottom:1px solid var(--border);background:var(--surface)}
+    .brand{font-weight:700;font-size:1.1rem;display:flex;align-items:center;gap:.5rem}
+    .brand-mark{background:var(--accent);color:#fff;padding:2px 8px;border-radius:4px;font-size:.9rem}
+    .topbar-actions{display:flex;gap:.6rem}
+    .topbar-actions a,.topbar-actions button{padding:5px 12px;font-size:.82rem;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text);cursor:pointer}
+    .topbar-actions button:hover,.topbar-actions a:hover{background:var(--card)}
+    .main{padding:1rem 1.2rem;max-width:960px;margin:0 auto}
+    /* ── Period picker ─────────────────────────────────────────── */
+    .period-bar{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;margin-bottom:1rem}
+    .period-bar label{font-size:.82rem;color:var(--muted)}
+    .period-bar select,.period-bar input{padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:.85rem}
+    .period-bar button{padding:5px 14px;border:none;border-radius:6px;background:var(--accent);color:#fff;font-size:.85rem;cursor:pointer}
+    /* ── KPI grid ──────────────────────────────────────────────── */
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.7rem;margin-bottom:1.2rem}
+    .kpi{background:var(--card);border-radius:var(--radius);padding:.8rem;text-align:center}
+    .kpi .val{font-size:1.5rem;font-weight:700}
+    .kpi .lbl{font-size:.75rem;color:var(--muted);margin-top:.2rem}
+    .kpi.accent .val{color:var(--accent)}
+    .kpi.green .val{color:var(--green)}
+    .kpi.yellow .val{color:var(--yellow)}
+    .kpi.red .val{color:var(--red)}
+    /* ── Tables ────────────────────────────────────────────────── */
+    .section-title{font-size:1rem;font-weight:600;margin:1rem 0 .5rem}
+    table{width:100%;border-collapse:collapse;font-size:.85rem}
+    th{text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-weight:500}
+    td{padding:.4rem .6rem;border-bottom:1px solid var(--border)}
+    tr:hover td{background:rgba(124,92,252,.04)}
+    .badge{display:inline-block;padding:1px 8px;border-radius:4px;font-size:.75rem;font-weight:600}
+    .badge-open{background:#3b82f620;color:var(--blue)}
+    .badge-decided{background:#22c55e20;color:var(--green)}
+    .badge-closed{background:#88888830;color:var(--muted)}
+    .badge-approve{background:#22c55e20;color:var(--green)}
+    .badge-reject{background:#ef444420;color:var(--red)}
+    .badge-needs_change{background:#eab30820;color:var(--yellow)}
+    /* ── Contributors / Blocked ────────────────────────────────── */
+    .card-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.6rem;margin-bottom:1rem}
+    .card-item{background:var(--card);border-radius:var(--radius);padding:.7rem}
+    .card-item .name{font-weight:600;font-size:.9rem}
+    .card-item .meta{font-size:.75rem;color:var(--muted);margin-top:.2rem}
+    /* ── Tabs ──────────────────────────────────────────────────── */
+    .tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1rem}
+    .tab-bar button{background:transparent;border:none;color:var(--muted);padding:.5rem 1rem;font-size:.9rem;cursor:pointer;border-bottom:2px solid transparent}
+    .tab-bar button.active{color:var(--accent);border-bottom-color:var(--accent)}
+    .tab-content{display:none}.tab-content.active{display:block}
+    /* ── Toast ─────────────────────────────────────────────────── */
+    .toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);padding:.6rem 1.2rem;border-radius:8px;font-size:.85rem;z-index:999;opacity:0;transition:opacity .3s}
+    .toast.show{opacity:1}
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.card-list{grid-template-columns:1fr}table{font-size:.8rem}}
+  </style>
+</head>
+<body>
+<!-- ── Auth Gate ──────────────────────────────────────────────── -->
+<div id="authGate">
+  <h2>Governance Dashboard</h2>
+  <p style="font-size:.85rem;color:var(--muted);margin-bottom:.8rem">Sign in to view governance KPIs</p>
+  <div id="emailStep">
+    <input id="emailInput" type="email" placeholder="Email address" autocomplete="email" />
+    <button id="emailBtn">Send Code</button>
+  </div>
+  <div id="codeStep" class="hidden">
+    <input id="codeInput" type="text" placeholder="6-digit code" maxlength="10" />
+    <button id="codeBtn">Verify</button>
+  </div>
+  <div id="authMsg" class="auth-msg"></div>
+</div>
+
+<!-- ── Dashboard (hidden until auth) ─────────────────────────── -->
+<div id="dashboardShell" class="hidden">
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">PG</span> Governance Dashboard</div>
+    <div class="topbar-actions">
+      <a href="/reviewer.html">Reviewer</a>
+      <a href="/app.html">Portal</a>
+      <button id="signOutBtn">Sign Out</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="period-bar">
+      <label>Period:</label>
+      <select id="periodSelect">
+        <option value="1d">Last 24 hours</option>
+        <option value="7d" selected>Last 7 days</option>
+        <option value="14d">Last 14 days</option>
+        <option value="30d">Last 30 days</option>
+        <option value="custom">Custom</option>
+      </select>
+      <input id="fromInput" type="date" class="hidden" />
+      <input id="toInput" type="date" class="hidden" />
+      <button id="refreshBtn">Refresh</button>
+    </div>
+
+    <div class="tab-bar">
+      <button class="active" data-tab="overview">Overview</button>
+      <button data-tab="threads">Threads</button>
+      <button data-tab="eod">EOD Reports</button>
+      <button data-tab="activity">Activity</button>
+    </div>
+
+    <!-- Overview tab -->
+    <div id="tab-overview" class="tab-content active">
+      <div id="kpiGrid" class="kpi-grid"></div>
+      <h3 class="section-title">Decisions by Type</h3>
+      <div id="decisionChart" class="kpi-grid" style="max-width:400px"></div>
+    </div>
+
+    <!-- Threads tab -->
+    <div id="tab-threads" class="tab-content">
+      <table><thead><tr><th>Title</th><th>Status</th><th>Decision</th><th>Votes</th><th>Entries</th><th>Latency</th><th>Created</th></tr></thead>
+      <tbody id="threadsBody"></tbody></table>
+    </div>
+
+    <!-- EOD Reports tab -->
+    <div id="tab-eod" class="tab-content">
+      <table><thead><tr><th>Title</th><th>Author</th><th>Blockers</th><th>Source</th><th>Created</th></tr></thead>
+      <tbody id="eodBody"></tbody></table>
+    </div>
+
+    <!-- Activity tab -->
+    <div id="tab-activity" class="tab-content">
+      <div id="activityKpis" class="kpi-grid"></div>
+      <h3 class="section-title">Top Contributors</h3>
+      <div id="contributorList" class="card-list"></div>
+      <h3 class="section-title">Blocked Threads</h3>
+      <div id="blockedList" class="card-list"></div>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+(function(){
+  const API = location.origin;
+  let TOKEN = localStorage.getItem("pg_gov_token") || "";
+
+  // ── Auth ────────────────────────────────────────────────────
+  const authGate = document.getElementById("authGate");
+  const dashShell = document.getElementById("dashboardShell");
+  const emailStep = document.getElementById("emailStep");
+  const codeStep = document.getElementById("codeStep");
+  const authMsg = document.getElementById("authMsg");
+
+  document.getElementById("emailBtn").onclick = async () => {
+    const email = document.getElementById("emailInput").value.trim();
+    if (!email) return;
+    authMsg.textContent = "Sending…";
+    try {
+      const r = await fetch(API + "/auth/request-code", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({email}) });
+      if (!r.ok) throw new Error("Failed");
+      emailStep.classList.add("hidden");
+      codeStep.classList.remove("hidden");
+      authMsg.textContent = "Check your email for the code.";
+    } catch { authMsg.textContent = "Request failed. Try again."; }
+  };
+
+  document.getElementById("codeBtn").onclick = async () => {
+    const email = document.getElementById("emailInput").value.trim();
+    const code = document.getElementById("codeInput").value.trim();
+    if (!code) return;
+    authMsg.textContent = "Verifying…";
+    try {
+      const r = await fetch(API + "/auth/verify-code", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({email, code}), credentials: "include" });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || "Failed");
+      TOKEN = data.access_token || "";
+      if (TOKEN) localStorage.setItem("pg_gov_token", TOKEN);
+      showDashboard();
+    } catch(e) { authMsg.textContent = e.message || "Verification failed."; }
+  };
+
+  document.getElementById("signOutBtn").onclick = () => { TOKEN = ""; localStorage.removeItem("pg_gov_token"); location.reload(); };
+
+  function headers() { const h = { Accept:"application/json" }; if (TOKEN) h.Authorization = "Bearer " + TOKEN; return h; }
+
+  async function apiFetch(path) {
+    const r = await fetch(API + path, { headers: headers(), credentials: "include" });
+    if (r.status === 401 || r.status === 403) { TOKEN = ""; localStorage.removeItem("pg_gov_token"); location.reload(); return null; }
+    if (!r.ok) return null;
+    return r.json();
+  }
+
+  // ── Init ────────────────────────────────────────────────────
+  async function checkAuth() {
+    if (!TOKEN) return false;
+    const d = await apiFetch("/account/governance/digest?from=2020-01-01T00:00:00Z&to=2099-01-01T00:00:00Z");
+    return d && d.ok;
+  }
+
+  async function init() {
+    if (await checkAuth()) { showDashboard(); } else { authGate.classList.remove("hidden"); }
+  }
+
+  function showDashboard() { authGate.classList.add("hidden"); dashShell.classList.remove("hidden"); loadData(); }
+
+  // ── Period ──────────────────────────────────────────────────
+  const periodSel = document.getElementById("periodSelect");
+  const fromIn = document.getElementById("fromInput");
+  const toIn = document.getElementById("toInput");
+
+  periodSel.onchange = () => {
+    const custom = periodSel.value === "custom";
+    fromIn.classList.toggle("hidden", !custom);
+    toIn.classList.toggle("hidden", !custom);
+  };
+  document.getElementById("refreshBtn").onclick = () => loadData();
+
+  function getPeriodParams() {
+    if (periodSel.value === "custom") {
+      return "from=" + encodeURIComponent(new Date(fromIn.value).toISOString()) + "&to=" + encodeURIComponent(new Date(toIn.value).toISOString());
+    }
+    const days = parseInt(periodSel.value) || 7;
+    const to = new Date().toISOString();
+    const from = new Date(Date.now() - days * 864e5).toISOString();
+    return "from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to);
+  }
+
+  // ── Tabs ────────────────────────────────────────────────────
+  document.querySelectorAll(".tab-bar button").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(".tab-bar button").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    };
+  });
+
+  // ── Load data ───────────────────────────────────────────────
+  async function loadData() {
+    const params = getPeriodParams();
+    const [digest, activity] = await Promise.all([
+      apiFetch("/account/governance/digest?" + params),
+      apiFetch("/account/governance/digest/activity?" + params)
+    ]);
+    if (digest && digest.ok) renderDigest(digest);
+    if (activity && activity.ok) renderActivity(activity);
+  }
+
+  // ── Render digest KPIs ──────────────────────────────────────
+  function renderDigest(d) {
+    const k = d.kpis;
+    document.getElementById("kpiGrid").innerHTML = [
+      kpi(k.total_threads, "Total Threads", "accent"),
+      kpi(k.open_threads, "Open", "blue"),
+      kpi(k.decided_threads, "Decided", "green"),
+      kpi(k.closed_threads, "Closed", ""),
+      kpi(k.blocked_threads, "Blocked", k.blocked_threads > 0 ? "red" : ""),
+      kpi(k.total_votes, "Votes", ""),
+      kpi(k.total_entries, "Entries", ""),
+      kpi(k.unique_participants, "Participants", "accent"),
+      kpi(k.pending_acks, "Pending Acks", k.pending_acks > 0 ? "yellow" : ""),
+      kpi(k.total_eod_reports, "EOD Reports", ""),
+      kpi(k.eod_reports_with_blockers, "EOD w/ Blockers", k.eod_reports_with_blockers > 0 ? "red" : ""),
+      kpi(formatLatency(k.avg_approval_latency_ms), "Avg Latency", "")
+    ].join("");
+
+    const dec = k.decisions_by_type || {};
+    document.getElementById("decisionChart").innerHTML = [
+      kpi(dec.approve || 0, "Approve", "green"),
+      kpi(dec.reject || 0, "Reject", "red"),
+      kpi(dec.needs_change || 0, "Needs Change", "yellow")
+    ].join("");
+
+    renderThreadsTable(d.threads || []);
+    renderEodTable(d.eod_reports || []);
+  }
+
+  function renderThreadsTable(threads) {
+    document.getElementById("threadsBody").innerHTML = threads.map(t =>
+      `<tr><td>${esc(t.title)}</td><td><span class="badge badge-${t.status}">${t.status}</span></td>` +
+      `<td>${t.decision ? `<span class="badge badge-${t.decision}">${t.decision}</span>` : "—"}</td>` +
+      `<td>${t.vote_count}</td><td>${t.entry_count}</td>` +
+      `<td>${formatLatency(t.approval_latency_ms)}</td><td>${shortDate(t.created_at)}</td></tr>`
+    ).join("") || "<tr><td colspan=7 style='color:var(--muted)'>No threads in period</td></tr>";
+  }
+
+  function renderEodTable(reports) {
+    document.getElementById("eodBody").innerHTML = reports.map(r =>
+      `<tr><td>${esc(r.title)}</td><td>${esc(r.email)}</td>` +
+      `<td>${r.blocker_count}</td><td>${r.source}</td><td>${shortDate(r.created_at)}</td></tr>`
+    ).join("") || "<tr><td colspan=5 style='color:var(--muted)'>No EOD reports in period</td></tr>";
+  }
+
+  // ── Render activity ─────────────────────────────────────────
+  function renderActivity(a) {
+    const t = a.totals || {};
+    document.getElementById("activityKpis").innerHTML = [
+      kpi(t.threads_created, "Created", "accent"),
+      kpi(t.threads_decided, "Decided", "green"),
+      kpi(t.votes_cast, "Votes", ""),
+      kpi(t.entries_submitted, "Entries", ""),
+      kpi(t.eod_reports_submitted, "EOD Reports", ""),
+      kpi(t.unique_active_users, "Active Users", "accent"),
+      kpi(formatLatency(t.avg_approval_latency_ms), "Avg Latency", "")
+    ].join("");
+
+    document.getElementById("contributorList").innerHTML = (a.top_contributors || []).map(c =>
+      `<div class="card-item"><div class="name">${esc(c.email)}</div>` +
+      `<div class="meta">${c.votes} votes · ${c.entries} entries · ${c.eod_reports} EODs</div></div>`
+    ).join("") || '<div style="color:var(--muted)">No contributors in period</div>';
+
+    document.getElementById("blockedList").innerHTML = (a.blocked_threads || []).map(b =>
+      `<div class="card-item"><div class="name">${esc(b.title)}</div>` +
+      `<div class="meta">by ${esc(b.created_by_email)} · expires ${shortDate(b.expires_at)}</div></div>`
+    ).join("") || '<div style="color:var(--muted)">No blocked threads</div>';
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────
+  function kpi(val, label, cls) { return `<div class="kpi ${cls}"><div class="val">${val ?? "—"}</div><div class="lbl">${label}</div></div>`; }
+  function esc(s) { const d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+  function shortDate(iso) { if (!iso) return "—"; return new Date(iso).toLocaleDateString(undefined, {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}); }
+  function formatLatency(ms) { if (ms == null) return "—"; const hrs = ms / 3600000; return hrs < 1 ? Math.round(ms / 60000) + "m" : hrs.toFixed(1) + "h"; }
+  function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2500); }
+
+  init();
+})();
+</script>
+</body>
+</html>

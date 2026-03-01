@@ -49,6 +49,16 @@ If these steps are not complete, the task is incomplete.
 - Screen/Page file size guard:
   - max 500 lines for `screen/page` files (warn in warn mode, fail in strict mode).
 
+## Server Policy Profile
+Plan-aware agent directives are resolved server-side via
+`GET /account/policy/agents/profile`. The profile controls:
+- Per-domain enforcement level (`warn` | `block` | `off`)
+- Auto-fix capability per domain
+- Production checklist gate requirements
+- Offline pack support flag
+Local directives in this file define **workflow** (memory-bank, checks);
+server profile defines **policy strictness** per plan tier.
+
 ## Commands
 - Start session (required before coding):
   - `.\pg.ps1 start -Yes`

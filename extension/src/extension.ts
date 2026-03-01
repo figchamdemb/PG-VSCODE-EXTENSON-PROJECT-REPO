@@ -14,6 +14,7 @@ import { registerExportNarrationFileCommand } from "./commands/exportNarrationFi
 import { registerExportNarrationWorkspaceCommand } from "./commands/exportNarrationWorkspace";
 import { registerGenerateChangeReportCommand } from "./commands/generateChangeReport";
 import { registerGenerateCodebaseTourCommand } from "./commands/generateCodebaseTour";
+import { registerCodebaseTourGraphCommand } from "./commands/codebaseTourGraph";
 import { registerGovernanceSyncNowCommand } from "./commands/governanceSyncNow";
 import { registerLicenseStatusCommand } from "./commands/licenseStatus";
 import { registerManageDevicesCommand } from "./commands/manageDevices";
@@ -23,9 +24,14 @@ import { registerRefreshLicenseCommand } from "./commands/refreshLicense";
 import { registerRedeemCodeCommand } from "./commands/redeemCode";
 import { registerRequestChangePromptCommand } from "./commands/requestChangePrompt";
 import { registerRunCommandDiagnosticsCommand } from "./commands/runCommandDiagnostics";
+import { registerRunFlowInteractionCheckCommand } from "./commands/runFlowInteractionCheck";
 import { registerRunDeadCodeScanCommand } from "./commands/runDeadCodeScan";
 import { registerRunEnvironmentDoctorCommand } from "./commands/runEnvironmentDoctor";
+import { registerEnvDoctorCodeActionProvider, addKeyToEnvExample } from "./commands/envDoctorCodeActions";
 import { registerRunApiContractValidatorCommand } from "./commands/runApiContractValidator";
+import { registerRunDbIndexCheckCommand } from "./commands/runDbIndexCheck";
+import { registerRunMcpCloudScoreCommand } from "./commands/runMcpCloudScore";
+import { registerRunObservabilityCheckCommand } from "./commands/runObservabilityCheck";
 import { registerRunTrustWorkspaceScanCommand } from "./commands/runTrustWorkspaceScan";
 import { registerRefreshReadingViewCommand } from "./commands/refreshReadingView";
 import { registerSetupValidationLibraryCommand } from "./commands/setupValidationLibrary";
@@ -302,8 +308,15 @@ function registerWorkflowCommands(
       services.featureGates
     ),
     registerGenerateCodebaseTourCommand(services.logger),
+    registerCodebaseTourGraphCommand(services.logger),
     registerPgPushCommands(services.trustScoreService),
-    registerGovernanceSyncNowCommand(services.governanceDecisionSyncWorker)
+    registerGovernanceSyncNowCommand(services.governanceDecisionSyncWorker),
+    registerRunFlowInteractionCheckCommand(
+      context,
+      services.narrationEngine,
+      services.schemeProvider,
+      services.logger
+    )
   ];
 }
 
@@ -330,9 +343,14 @@ function registerMaintenanceCommands(services: ActivationServices): vscode.Dispo
     registerRunCommandDiagnosticsCommand(services.logger),
     registerRunDeadCodeScanCommand(services.logger),
     registerRunEnvironmentDoctorCommand(services.logger),
+    registerEnvDoctorCodeActionProvider(),
+    vscode.commands.registerCommand("narrate.envDoctorAddKeyToExample", addKeyToEnvExample),
     registerRunApiContractValidatorCommand(services.featureGates, services.logger),
     registerRunTrustWorkspaceScanCommand(services.trustScoreService),
-    registerSetupValidationLibraryCommand()
+    registerSetupValidationLibraryCommand(),
+    registerRunDbIndexCheckCommand(services.logger),
+    registerRunMcpCloudScoreCommand(services.logger),
+    registerRunObservabilityCheckCommand(services.logger)
   ];
 }
 

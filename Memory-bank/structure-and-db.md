@@ -1,6 +1,6 @@
 # Structure & DB - Authoritative Snapshot
 
-LAST_UPDATED_UTC: 2026-02-28 21:16
+LAST_UPDATED_UTC: 2026-03-01 22:30
 UPDATED_BY: copilot
 PROJECT_TYPE: frontend
 
@@ -8,7 +8,7 @@ PROJECT_TYPE: frontend
 | Component | Type | Responsibility | Tech | Detail Doc |
 |---|---|---|---|---|
 | extension | frontend/tooling | VS Code Narrate commands, reading view, narration cache/LLM integration, exports, change reports, licensing UX commands, provider policy enforcement | TypeScript, VS Code API, Node runtime | `Memory-bank/code-tree/narrate-extension-tree.md` |
-| licensing backend | backend/local-service | Auth, trial, entitlement token lifecycle, device binding, project quota, refund, checkout/webhook, offline/redeem, affiliate, team seats, provider policies, customer account history/support/feedback APIs, team-admin self-service routes, super-admin board APIs, governance workflows (EOD + mastermind + decision sync queue), signed Slack command bridge, optional Cloudflare Access admin gate | Fastify, TypeScript, JSON or Prisma runtime store | `Memory-bank/code-tree/narrate-extension-tree.md` |
+| licensing backend | backend/local-service | Auth, trial, entitlement token lifecycle, device binding, project quota, refund, checkout/webhook, offline/redeem, affiliate, team seats, provider policies, customer account history/support/feedback APIs, team-admin self-service routes, super-admin board APIs, governance workflows (EOD + mastermind + decision sync queue), signed Slack command bridge, optional Cloudflare Access admin gate | Fastify 5, TypeScript, JSON or Prisma runtime store | `Memory-bank/code-tree/narrate-extension-tree.md` |
 | web onboarding pages | frontend/web | Public marketing site (`/`) plus secure portal app (`/app`) with sidebar navigation for customer billing/support, team management, and super-admin board | Static HTML/CSS/JS served by Fastify static | `Memory-bank/code-tree/narrate-extension-tree.md` |
 | memory-bank tooling | local scripts | Start/end session enforcement, summary/index generation, guard checks, Cloudflare tunnel helper automation | Python + PowerShell | `Memory-bank/code-tree/memory-bank-tooling-tree.md` |
 
@@ -35,6 +35,13 @@ PROJECT_TYPE: frontend
   - MCP cloud scoring remains metadata/evidence driven (not full source upload by default),
   - managed observability hosting remains optional enterprise overlay.
 - Team/enterprise users can submit EOD reports, create mastermind debate threads, vote, and finalize decisions from `/account/governance/*`.
+- Authenticated users can fetch scoped governance reviewer digests (`/account/governance/digest`) with per-thread KPIs (approval latency, vote/entry counts, pending acks, decisions-by-type) and weekly activity summaries (`/account/governance/digest/activity`).
+- Admin operators can fetch cross-scope governance digests (`{admin}/board/governance/digest`) and activity summaries (`{admin}/board/governance/activity`) with top-contributor rankings and blocked-thread alerts.
+- Authenticated users can list available policy packs for their plan tier via `GET /account/policy/vault/packs` (summary-only: domain, version, rule_count, description — no raw rule bodies).
+- Authenticated users can view single policy pack detail via `GET /account/policy/vault/pack/:domain` (domain-level summary with tier availability, overlay status).
+- Admin operators can resolve policy pack thresholds for debugging via `GET {admin}/board/policy/vault/resolve/:domain?plan=<tier>` (full resolved thresholds for audit).
+- Admin operators can list all pack versions via `GET {admin}/board/policy/vault/versions`.
+- Server-private policy pack registry (`policyPackRegistry.ts`) holds 6-domain default threshold configs and tenant overlay merge logic — clients never access raw weights/deny-lists.
 - Finalized decisions are published to a local-first sync queue (`/account/governance/sync/pull`, `/account/governance/sync/ack`) for extension/agent consumption.
 - Local worker runtime (`pg governance-worker`) consumes pending decision events, resolves command mapping through allowlisted playbook bindings (`thread_id -> action_key`) or explicit overrides, executes local commands, and acknowledges execution outcome (`applied|conflict|skipped`) with audit note.
 - Extension runtime now includes background governance auto-sync that runs `pg governance-worker -Once` on a configurable interval, plus a manual `Narrate: Governance Sync Now` command path.
@@ -75,6 +82,10 @@ PROJECT_TYPE: frontend
 - Slack slash commands and interactive callbacks can submit governance actions through `/integrations/slack/commands` and `/integrations/slack/actions` with signature and replay protection.
 - Webhook verifies signature then grants entitlement and updates affiliate conversion state.
 - Backend issues signed entitlement JWTs and enforces plan/device/quota/rules.
+- Entitlement matrix v2 (`server/src/entitlementMatrix.ts`) is the single source-of-truth for per-tier feature flags, governance access, policy domain gating, extension feature gates, upgrade eligibility, and no-reinstall module merge logic. Legacy `PLAN_RULES` is re-exported from the matrix for backward compat.
+- Public plan comparison API (`/api/plans/comparison`, `/api/plans/:tier`, `/api/plans/upgrades`) exposed via `server/src/planRoutes.ts` (no auth required).
+- Entitlement claims (v2) now include `governance`, `policy_domains`, and `extension_features` sections in signed JWT tokens; extension types accept them as optional fields for backward compat with pre-v2 tokens.
+- Enterprise offline encrypted rule pack system: `offlinePackTypes.ts` (types/constants), `offlinePackCrypto.ts` (AES-256-GCM encrypt/decrypt, PBKDF2 key derivation, machine fingerprint), `offlinePackRoutes.ts` (3 enterprise-only endpoints: activate, info, admin issue). Packs are machine-bound `.yrp` binary envelopes with tamper-proof expiry. Gated by enterprise entitlement via `resolveEffectivePlan`.
 - Team/user provider policies are injected into entitlement claims and enforced by extension provider calls.
 
 ## Schemas / Data Stores (Index)
@@ -311,4 +322,14 @@ PROJECT_TYPE: frontend
   - 11 factories transformed: subscriptionHelpers, oauthHelpers, governanceSettingsHelpers, adminAuthHelpers, sessionAuthHelpers, governanceHelpers, slackMastermindState, slackBlockBuilders, slackActionHandlers, slackCommandHandlers, slackIntegration.
   - scanner does NOT flag non-exported module-level functions for COD-FUNC-001 (e.g. `registerAllRoutes` in index.ts).
 - SQLite cache remains planned for Milestone 8; extension currently uses JSON cache backend.
+- Production hardening phase is now complete:
+  - Prisma migration pipeline is wired (`server/prisma/migrations/0_init/migration.sql` baseline + `prisma:migrate:deploy` npm script for production deploys; `prisma db push` remains for dev).
+  - Startup config validation (`productionReadiness.ts`) runs 14 environment checks at bootstrap; crashes in NODE_ENV=production on critical failures (insecure admin key, exposed OTP, missing Stripe/OAuth creds, non-prisma store, missing DB URL).
+  - CORS is environment-aware: locked to configured `corsOrigins` in production, wide-open `origin: true` in dev. HSTS header is set in production mode.
+  - Global rate limiting is active: 100 req/min in production, 1000 req/min in dev.
+  - CI/CD pipeline (`.github/workflows/build-deploy.yml`) runs build, migration-check (PR-only), memory-bank-guard (PR-only), and manual deploy with `prisma migrate deploy`.
+  - Health probes: GET `/health` (liveness — always 200), GET `/health/ready` (readiness — checks store connectivity, returns 503 if unavailable).
+  - `EXPOSE_DEV_OTP_CODE` defaults to `false` in production NODE_ENV.
+  - Safe logging is extracted to `server/src/safeLogging.ts` (factory pattern).
+  - `ADMIN_PERMISSION_KEYS` constant is co-located with its type in `adminRbacBootstrap.ts`.
 

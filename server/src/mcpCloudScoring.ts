@@ -1,5 +1,6 @@
 import { CONTROL_RULES } from "./mcpCloudControlRules";
 import { clampScore, resolveGrade } from "./mcpCloudScoreMath";
+import type { CloudScoreThresholds } from "./policyVaultTypes";
 
 type VerificationSeverity = "blocker" | "warning";
 type McpCloudFindingSource = "input" | "scanner" | "architecture";
@@ -93,28 +94,22 @@ export interface McpCloudScoringResult {
 const BLOCKER_PENALTY = 15;
 const WARNING_PENALTY = 4;
 
-export function evaluateMcpCloudScoring(requestBody: McpCloudScoringRequest): McpCloudScoringResult {
+export function evaluateMcpCloudScoring(requestBody: McpCloudScoringRequest, thresholds?: CloudScoreThresholds | null): McpCloudScoringResult {
   const scanners = normalizeScanners(requestBody.scanner_results);
   const sensitivity = normalizeSensitivity(requestBody.architecture?.workload_sensitivity);
   const source = normalizeSource(requestBody.runtime?.source);
   const scannerCounts = summarizeScannerCounts(scanners);
   const architectureFindings = evaluateArchitecture(requestBody.architecture, sensitivity);
-  const findings = [
-    ...buildScannerInputFindings(scanners.length),
-    ...buildScannerStatusFindings(scanners),
-    ...architectureFindings
-  ];
+  const findings = [...buildScannerInputFindings(scanners.length), ...buildScannerStatusFindings(scanners), ...architectureFindings];
   const architectureCounts = summarizeSeverityCounts(architectureFindings);
   const totals = summarizeOverallCounts(findings, scannerCounts);
-  return buildScoringResult({
-    scanners: scanners.length,
-    source,
-    sensitivity,
-    scannerCounts,
-    architectureCounts,
-    totals,
-    findings
-  });
+  const result = buildScoringResult({ scanners: scanners.length, source, sensitivity, scannerCounts, architectureCounts, totals, findings });
+  if (thresholds) {
+    const bp = thresholds.blocker_penalty ?? BLOCKER_PENALTY, wp = thresholds.warning_penalty ?? WARNING_PENALTY;
+    result.score = clampScore(100 - result.summary.blockers * bp - result.summary.warnings * wp);
+    result.grade = resolveGrade(result.score);
+  }
+  return result;
 }
 
 type BuildScoringResultInput = {
@@ -138,12 +133,9 @@ function buildScoringResult(input: BuildScoringResultInput): McpCloudScoringResu
     grade: resolveGrade(score),
     summary: {
       scanners: input.scanners,
-      scanner_blockers: input.scannerCounts.blockers,
-      scanner_warnings: input.scannerCounts.warnings,
-      architecture_blockers: input.architectureCounts.blockers,
-      architecture_warnings: input.architectureCounts.warnings,
-      blockers: input.totals.blockers,
-      warnings: input.totals.warnings,
+      scanner_blockers: input.scannerCounts.blockers, scanner_warnings: input.scannerCounts.warnings,
+      architecture_blockers: input.architectureCounts.blockers, architecture_warnings: input.architectureCounts.warnings,
+      blockers: input.totals.blockers, warnings: input.totals.warnings,
       workload_sensitivity: input.sensitivity,
       source: input.source,
       evaluated_at: new Date().toISOString()
@@ -172,26 +164,14 @@ function buildScannerStatusFindings(scanners: NormalizedScanner[]): McpCloudScor
   const findings: McpCloudScoringFinding[] = [];
   for (const scanner of scanners) {
     if (scanner.status === "error") {
-      findings.push(
-        createScannerFinding(
-          "MCP-SCAN-001",
-          "blocker",
-          scanner.scanner_id,
-          `Scanner '${scanner.scanner_id}' reported runtime error state.`,
-          "Fix scanner runtime failures before trusting cloud score output."
-        )
-      );
+      findings.push(createScannerFinding("MCP-SCAN-001", "blocker", scanner.scanner_id,
+        `Scanner '${scanner.scanner_id}' reported runtime error state.`,
+        "Fix scanner runtime failures before trusting cloud score output."));
     }
     if (scanner.status === "blocked") {
-      findings.push(
-        createScannerFinding(
-          "MCP-SCAN-002",
-          "warning",
-          scanner.scanner_id,
-          `Scanner '${scanner.scanner_id}' is blocked by policy findings.`,
-          "Resolve scanner blockers first; cloud score does not override failed baseline checks."
-        )
-      );
+      findings.push(createScannerFinding("MCP-SCAN-002", "warning", scanner.scanner_id,
+        `Scanner '${scanner.scanner_id}' is blocked by policy findings.`,
+        "Resolve scanner blockers first; cloud score does not override failed baseline checks."));
     }
   }
   return findings;

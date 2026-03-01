@@ -17,6 +17,12 @@ import {
 } from "./codebaseTourTypes";
 import { Logger } from "../utils/logger";
 
+let lastTourSummary: TourSummary | undefined;
+
+export function getLastTourSummary(): TourSummary | undefined {
+  return lastTourSummary;
+}
+
 const IMPORT_SPECIFIER_PATTERNS: RegExp[] = [
   /\bimport\s+[^'"`]*?\sfrom\s*['"`]([^'"`]+)['"`]/gu,
   /\bimport\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/gu,
@@ -40,49 +46,38 @@ export function registerGenerateCodebaseTourCommand(logger: Logger): vscode.Disp
   return vscode.commands.registerCommand("narrate.generateCodebaseTour", async () => {
     const workspace = vscode.workspace.workspaceFolders?.[0];
     if (!workspace) {
-      void vscode.window.showWarningMessage(
-        "Narrate: open a workspace folder before generating codebase tour."
-      );
+      void vscode.window.showWarningMessage("Narrate: open a workspace folder before generating codebase tour.");
       return;
     }
-
     const settings = getTourSettings();
-    const fileUris = await vscode.workspace.findFiles(
-      new vscode.RelativePattern(workspace, settings.includeGlob),
-      new vscode.RelativePattern(workspace, settings.excludeGlob),
-      settings.maxFiles
-    );
-
+    const fileUris = await findTourFiles(workspace, settings);
     if (fileUris.length === 0) {
-      void vscode.window.showInformationMessage(
-        "Narrate: no matching files found for codebase tour."
-      );
+      void vscode.window.showInformationMessage("Narrate: no matching files found for codebase tour.");
       return;
     }
-
     const summary = await vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: "Narrate: Generating codebase tour",
-        cancellable: false
-      },
+      { location: vscode.ProgressLocation.Notification, title: "Narrate: Generating codebase tour", cancellable: false },
       async (progress) => buildTourSummary(workspace, fileUris, progress)
     );
-
-    const report = buildTourMarkdown(summary);
-    const document = await vscode.workspace.openTextDocument({
-      language: "markdown",
-      content: report
-    });
-    await vscode.window.showTextDocument(document, { preview: false });
-
-    logger.info(
-      `Codebase tour generated: files=${summary.filesScanned}, entrypoints=${summary.likelyEntrypoints.length}, routes=${summary.routeSurface.length}`
-    );
-    void vscode.window.showInformationMessage(
-      `Narrate Codebase Tour: scanned ${summary.filesScanned} files, found ${summary.likelyEntrypoints.length} entrypoint candidates.`
-    );
+    lastTourSummary = summary;
+    await showTourReport(summary, logger);
   });
+}
+
+async function findTourFiles(workspace: vscode.WorkspaceFolder, settings: TourSettings): Promise<vscode.Uri[]> {
+  return vscode.workspace.findFiles(
+    new vscode.RelativePattern(workspace, settings.includeGlob),
+    new vscode.RelativePattern(workspace, settings.excludeGlob),
+    settings.maxFiles
+  );
+}
+
+async function showTourReport(summary: TourSummary, logger: Logger): Promise<void> {
+  const report = buildTourMarkdown(summary);
+  const document = await vscode.workspace.openTextDocument({ language: "markdown", content: report });
+  await vscode.window.showTextDocument(document, { preview: false });
+  logger.info(`Codebase tour generated: files=${summary.filesScanned}, entrypoints=${summary.likelyEntrypoints.length}, routes=${summary.routeSurface.length}`);
+  void vscode.window.showInformationMessage(`Narrate Codebase Tour: scanned ${summary.filesScanned} files, found ${summary.likelyEntrypoints.length} entrypoint candidates.`);
 }
 
 function getTourSettings(): TourSettings {
@@ -267,30 +262,35 @@ function readPackageScripts(text: string): string[] {
   }
 }
 
+interface EntryScoreRule {
+  pattern: RegExp;
+  points: number;
+  reason: string;
+}
+
+const ENTRY_SCORE_RULES: EntryScoreRule[] = [
+  { pattern: /(^|\/)(index|main|app|server|extension)\.(ts|tsx|js|jsx|mts|cts|mjs|cjs|py|go|rs|cs|java)$/u, points: 60, reason: "core entry filename" },
+  { pattern: /\/src\/(index|main|app)\./u, points: 25, reason: "src entry location" },
+  { pattern: /\/app\/.*\/(layout|page|route)\.(ts|tsx|js|jsx)$/u, points: 35, reason: "app router surface" },
+  { pattern: /\/pages\/.*\.(ts|tsx|js|jsx)$/u, points: 25, reason: "pages router surface" },
+  { pattern: /\.(module|controller|service)\.(ts|js)$/u, points: 25, reason: "framework module/controller" },
+  { pattern: /(^|\/)(middleware|worker|service-worker)\.(ts|tsx|js|jsx|mts)$/u, points: 30, reason: "middleware/worker entry" },
+  { pattern: /\+(page|layout|error|server)\.(ts|js|svelte)$/u, points: 30, reason: "SvelteKit route convention" },
+  { pattern: /(^|\/)bin\//u, points: 35, reason: "CLI bin entry" },
+  { pattern: /(^|\/)prisma\/schema\.prisma$/u, points: 15, reason: "Prisma schema" },
+  { pattern: /(^|\/)(dockerfile|docker-compose\.yml|\.github\/workflows\/)/u, points: 15, reason: "CI/container config" }
+];
+
 function scoreEntrypoint(relativePath: string): ScoredEntry | undefined {
   const lower = relativePath.toLowerCase();
   const reasons: string[] = [];
   let score = 0;
 
-  if (
-    /(^|\/)(index|main|app|server|extension)\.(ts|tsx|js|jsx|mts|cts|mjs|cjs|py|go|rs|cs|java)$/u.test(
-      lower
-    )
-  ) {
-    score += 60;
-    reasons.push("core entry filename");
-  }
-  if (/\/src\/(index|main|app)\./u.test(lower)) {
-    score += 25;
-    reasons.push("src entry location");
-  }
-  if (/\/app\/.*\/(layout|page|route)\.(ts|tsx|js|jsx)$/u.test(lower)) {
-    score += 35;
-    reasons.push("app router surface");
-  }
-  if (/\/pages\/.*\.(ts|tsx|js|jsx)$/u.test(lower)) {
-    score += 25;
-    reasons.push("pages router surface");
+  for (const rule of ENTRY_SCORE_RULES) {
+    if (rule.pattern.test(lower)) {
+      score += rule.points;
+      reasons.push(rule.reason);
+    }
   }
   if (lower.endsWith("/package.json") || lower === "package.json") {
     score += 50;
@@ -300,15 +300,8 @@ function scoreEntrypoint(relativePath: string): ScoredEntry | undefined {
     score += 20;
     reasons.push("runtime/build config");
   }
-
-  if (score === 0) {
-    return undefined;
-  }
-  return {
-    file: relativePath,
-    score,
-    reason: reasons.join(", ")
-  };
+  if (score === 0) { return undefined; }
+  return { file: relativePath, score, reason: reasons.join(", ") };
 }
 
 function isLikelyConfigFile(relativePath: string): boolean {
@@ -325,11 +318,17 @@ function isRouteSurfacePath(relativePath: string): boolean {
     lower.includes("/route/") ||
     lower.includes("/controllers/") ||
     lower.includes("/controller/") ||
-    lower.includes("/api/")
+    lower.includes("/api/") ||
+    lower.includes("/resolvers/") ||
+    lower.includes("/handlers/")
   ) {
     return true;
   }
   if (/\/app\/.*\/route\.(ts|tsx|js|jsx)$/u.test(lower)) {
+    return true;
+  }
+  // NestJS controller, GraphQL resolver, express handler
+  if (/\.(controller|resolver|handler)\.(ts|tsx|js|jsx)$/u.test(lower)) {
     return true;
   }
   return /(^|\/)(route|controller)\.(ts|tsx|js|jsx|py|go|java|cs)$/u.test(lower);

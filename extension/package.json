@@ -28,6 +28,7 @@
     "onCommand:narrate.exportNarrationWorkspace",
     "onCommand:narrate.generateChangeReport",
     "onCommand:narrate.generateCodebaseTour",
+    "onCommand:narrate.showCodebaseTourGraph",
     "onCommand:narrate.pgPush",
     "onCommand:narrate.pgGit",
     "onCommand:narrate.governanceSyncNow",
@@ -45,6 +46,7 @@
     "onCommand:narrate.createDeadCodeCleanupBranch",
     "onCommand:narrate.applySafeDeadCodeFixes",
     "onCommand:narrate.runCommandDiagnostics",
+    "onCommand:narrate.runFlowInteractionCheck",
     "onCommand:narrate.runDeadCodeScan",
     "onCommand:narrate.runEnvironmentDoctor",
     "onCommand:narrate.runApiContractValidator",
@@ -58,6 +60,9 @@
     "onCommand:narrate.restartTypeScriptAndRefreshTrust",
     "onCommand:narrate.toggleTrustScore",
     "onCommand:narrate.openTrustScorePanel",
+    "onCommand:narrate.runDbIndexCheck",
+    "onCommand:narrate.runMcpCloudScore",
+    "onCommand:narrate.runObservabilityCheck",
     "onView:narrate.commandHelpView",
     "onView:narrate.trustScoreView",
     "onStartupFinished"
@@ -132,6 +137,10 @@
         "title": "Narrate: Generate Codebase Tour"
       },
       {
+        "command": "narrate.showCodebaseTourGraph",
+        "title": "Narrate: Show Codebase Tour Graph"
+      },
+      {
         "command": "narrate.pgPush",
         "title": "Narrate: PG Push (Git Add/Commit/Push)"
       },
@@ -200,6 +209,10 @@
         "title": "Narrate: Run Command Diagnostics"
       },
       {
+        "command": "narrate.runFlowInteractionCheck",
+        "title": "Narrate: Run Flow Interaction Check"
+      },
+      {
         "command": "narrate.runDeadCodeScan",
         "title": "Narrate: Run Dead Code Scan"
       },
@@ -250,6 +263,18 @@
       {
         "command": "narrate.openTrustScorePanel",
         "title": "Narrate: Open Trust Score Panel"
+      },
+      {
+        "command": "narrate.runDbIndexCheck",
+        "title": "Narrate: Run DB Index Check"
+      },
+      {
+        "command": "narrate.runMcpCloudScore",
+        "title": "Narrate: Run MCP Cloud Score"
+      },
+      {
+        "command": "narrate.runObservabilityCheck",
+        "title": "Narrate: Run Observability Check"
       }
     ],
     "viewsContainers": {
@@ -506,6 +531,18 @@
           "default": false,
           "description": "Run PG pre-push enforcement in warn mode (non-blocking)."
         },
+        "narrate.enforcement.prePush.prodProfile": {
+          "type": "string",
+          "default": "auto",
+          "enum": ["auto", "legacy", "standard", "strict"],
+          "enumDescriptions": [
+            "Use lifecycle recommended profile or standard",
+            "Dependency + coding only",
+            "Dependency + coding + API contract + DB index",
+            "Standard + Playwright smoke"
+          ],
+          "description": "PG Prod rollout profile used during pre-push enforcement. auto uses lifecycle-recommended or standard."
+        },
         "narrate.governance.autoSync.enabled": {
           "type": "boolean",
           "default": true,
@@ -721,6 +758,55 @@
           "type": "string",
           "default": "reports",
           "description": "Subfolder under export output where change report markdown files are written."
+        },
+        "narrate.dbIndex.serverEnvPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to .env file used by DB index maintenance check to resolve DATABASE_URL."
+        },
+        "narrate.dbIndex.seqScanThreshold": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "Sequential-scan count threshold for DB index check. 0 means use script default."
+        },
+        "narrate.mcpCloudScore.apiBase": {
+          "type": "string",
+          "default": "",
+          "description": "MCP cloud scoring API base URL. Empty uses script default."
+        },
+        "narrate.mcpCloudScore.stateFile": {
+          "type": "string",
+          "default": "",
+          "description": "Path to MCP cloud score state JSON file. Empty uses script default."
+        },
+        "narrate.mcpCloudScore.workloadSensitivity": {
+          "type": "string",
+          "enum": ["standard", "high", "critical"],
+          "default": "standard",
+          "description": "Workload sensitivity level passed to MCP cloud score verifier."
+        },
+        "narrate.observability.apiBase": {
+          "type": "string",
+          "default": "",
+          "description": "Observability check API base URL. Empty uses script default."
+        },
+        "narrate.observability.stateFile": {
+          "type": "string",
+          "default": "",
+          "description": "Path to observability check state JSON file. Empty uses script default."
+        },
+        "narrate.observability.rolloutPack": {
+          "type": "string",
+          "enum": ["pg-default", "enterprise-byoc", "hybrid", "minimal"],
+          "default": "",
+          "enumDescriptions": [
+            "PG-hosted OTLP + Sentry (recommended start)",
+            "All adapters customer-hosted (enterprise BYOC)",
+            "OTLP via PG, Sentry/SigNoz customer-hosted",
+            "OTLP-only via PG (smallest footprint)"
+          ],
+          "description": "Saved observability rollout pack preset. Empty prompts selection on first run."
         }
       }
     }

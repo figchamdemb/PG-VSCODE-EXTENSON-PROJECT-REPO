@@ -5,14 +5,18 @@ import { runPowerShellCommand } from "../governance/powerShellRunner";
 import { Logger } from "../utils/logger";
 import { RepoRootResolution, resolveRepoRoot } from "../utils/repoRootResolver";
 
+type DiagnosticCategory = "Infrastructure" | "Extension" | "Data";
+
 type DiagnosticPlan = {
   label: string;
+  category: DiagnosticCategory;
   args: string[];
   fixHint: string;
 };
 
 type DiagnosticResult = {
   label: string;
+  category: DiagnosticCategory;
   ok: boolean;
   output: string;
   fixHint: string;
@@ -82,13 +86,16 @@ function buildPlans(pgScriptPath: string): DiagnosticPlan[] {
     buildSlackHealthPlan(),
     buildDevProfilePlan(pgScriptPath),
     buildGovernanceWorkerPlan(pgScriptPath),
-    buildNarrateFlowPlan(pgScriptPath)
+    buildNarrateFlowPlan(pgScriptPath),
+    buildExtensionCompilePlan(),
+    buildDbIndexMaintenancePlan(pgScriptPath)
   ];
 }
 
 function buildBackendHealthPlan(): DiagnosticPlan {
   return {
     label: "Backend /health",
+    category: "Infrastructure",
     args: [
       "-NoProfile",
       "-Command",
@@ -101,6 +108,7 @@ function buildBackendHealthPlan(): DiagnosticPlan {
 function buildSlackHealthPlan(): DiagnosticPlan {
   return {
     label: "Slack integration health",
+    category: "Infrastructure",
     args: [
       "-NoProfile",
       "-Command",
@@ -114,6 +122,7 @@ function buildSlackHealthPlan(): DiagnosticPlan {
 function buildDevProfilePlan(pgScriptPath: string): DiagnosticPlan {
   return {
     label: "Local dev profile check",
+    category: "Infrastructure",
     args: [
       "-NoProfile",
       "-ExecutionPolicy",
@@ -132,6 +141,7 @@ function buildDevProfilePlan(pgScriptPath: string): DiagnosticPlan {
 function buildGovernanceWorkerPlan(pgScriptPath: string): DiagnosticPlan {
   return {
     label: "Governance worker one-shot",
+    category: "Infrastructure",
     args: [
       "-NoProfile",
       "-ExecutionPolicy",
@@ -149,6 +159,7 @@ function buildGovernanceWorkerPlan(pgScriptPath: string): DiagnosticPlan {
 function buildNarrateFlowPlan(pgScriptPath: string): DiagnosticPlan {
   return {
     label: "Narrate flow baseline check",
+    category: "Extension",
     args: [
       "-NoProfile",
       "-ExecutionPolicy",
@@ -163,6 +174,37 @@ function buildNarrateFlowPlan(pgScriptPath: string): DiagnosticPlan {
   };
 }
 
+function buildExtensionCompilePlan(): DiagnosticPlan {
+  return {
+    label: "Extension TypeScript compile",
+    category: "Extension",
+    args: [
+      "-NoProfile",
+      "-Command",
+      "Push-Location extension; npm run compile 2>&1 | Out-String; if ($LASTEXITCODE -ne 0) { exit 2 }; Pop-Location"
+    ],
+    fixHint:
+      "Fix TypeScript errors shown in compile output, then retry."
+  };
+}
+
+function buildDbIndexMaintenancePlan(pgScriptPath: string): DiagnosticPlan {
+  return {
+    label: "DB index maintenance check",
+    category: "Data",
+    args: [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      pgScriptPath,
+      "db-index-check"
+    ],
+    fixHint:
+      "Run .\\pg.ps1 db-index-fix-plan -DbMaxRows 5 to generate remediation SQL."
+  };
+}
+
 async function runPlan(
   plan: DiagnosticPlan,
   workspaceRoot: string,
@@ -172,11 +214,11 @@ async function runPlan(
     const result = await runPowerShellCommand(plan.args, workspaceRoot);
     const output = normalizeOutput(result.stdout, result.stderr);
     logger.info(`Diagnostics: ${plan.label} -> PASS`);
-    return { label: plan.label, ok: true, output, fixHint: plan.fixHint };
+    return { label: plan.label, category: plan.category, ok: true, output, fixHint: plan.fixHint };
   } catch (error) {
     const output = error instanceof Error ? error.message : String(error);
     logger.warn(`Diagnostics: ${plan.label} -> FAIL | ${output}`);
-    return { label: plan.label, ok: false, output, fixHint: plan.fixHint };
+    return { label: plan.label, category: plan.category, ok: false, output, fixHint: plan.fixHint };
   }
 }
 
@@ -211,17 +253,24 @@ function buildDiagnosticsReportMarkdown(
   lines.push(`- resolved_pg_script: ${repo.pgScriptPath}`);
   lines.push(`- resolution_start_path: ${repo.startPath}`);
   lines.push("");
-  for (const result of results) {
-    lines.push(`## ${result.ok ? "PASS" : "FAIL"} - ${result.label}`);
+  const categories: DiagnosticCategory[] = ["Infrastructure", "Extension", "Data"];
+  for (const cat of categories) {
+    const group = results.filter((r) => r.category === cat);
+    if (group.length === 0) continue;
+    lines.push(`## ${cat}`);
     lines.push("");
-    lines.push("Output:");
-    lines.push("```text");
-    lines.push(result.output || "(no output)");
-    lines.push("```");
-    lines.push("");
-    if (!result.ok) {
-      lines.push(`Fix: ${result.fixHint}`);
+    for (const result of group) {
+      lines.push(`### ${result.ok ? "PASS" : "FAIL"} - ${result.label}`);
       lines.push("");
+      lines.push("Output:");
+      lines.push("```text");
+      lines.push(result.output || "(no output)");
+      lines.push("```");
+      lines.push("");
+      if (!result.ok) {
+        lines.push(`Fix: ${result.fixHint}`);
+        lines.push("");
+      }
     }
   }
   return lines.join("\n");
@@ -247,6 +296,7 @@ function buildDiagnosticsReportJson(
     summary,
     checks: results.map((item) => ({
       label: item.label,
+      category: item.category,
       ok: item.ok,
       output: item.output,
       fix_hint: item.fixHint

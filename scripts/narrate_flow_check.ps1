@@ -78,7 +78,14 @@ $requiredCommandIds = @(
     "narrate.requestChangePrompt",
     "narrate.exportNarrationFile",
     "narrate.exportNarrationWorkspace",
-    "narrate.generateChangeReport"
+    "narrate.generateChangeReport",
+    "narrate.switchNarrationMode",
+    "narrate.switchReadingViewMode",
+    "narrate.switchReadingPaneMode",
+    "narrate.switchReadingSnippetMode",
+    "narrate.switchEduDetailLevel",
+    "narrate.refreshReadingView",
+    "narrate.runFlowInteractionCheck"
 )
 
 # Step 1: package command entries
@@ -116,10 +123,16 @@ try {
         "registerRequestChangePromptCommand(",
         "registerExportNarrationFileCommand(",
         "registerExportNarrationWorkspaceCommand(",
-        "registerGenerateChangeReportCommand("
+        "registerGenerateChangeReportCommand(",
+        "registerSwitchNarrationModeCommand(",
+        "registerSwitchReadingViewModeCommand(",
+        "registerSwitchReadingPaneModeCommand(",
+        "registerSwitchReadingSnippetModeCommand(",
+        "registerSwitchEduDetailLevelCommand(",
+        "registerRunFlowInteractionCheckCommand("
     )
     $missingRegistration = @($requiredMarkers | Where-Object { $entry -notmatch [regex]::Escape($_) })
-    if ($entry -notmatch [regex]::Escape('registerTextDocumentContentProvider("narrate", schemeProvider)')) {
+    if ($entry -notmatch [regex]::Escape('registerTextDocumentContentProvider("narrate",')) {
         $missingRegistration += 'registerTextDocumentContentProvider("narrate", schemeProvider)'
     }
     if ($missingRegistration.Count -gt 0) {
@@ -139,8 +152,16 @@ try {
         "src\commands\exportNarrationFile.ts",
         "src\commands\exportNarrationWorkspace.ts",
         "src\commands\generateChangeReport.ts",
+        "src\commands\switchNarrationMode.ts",
+        "src\commands\switchReadingViewMode.ts",
+        "src\commands\switchReadingPaneMode.ts",
+        "src\commands\switchReadingSnippetMode.ts",
+        "src\commands\switchEduDetailLevel.ts",
+        "src\commands\runFlowInteractionCheck.ts",
         "src\readingView\renderNarration.ts",
-        "src\narration\narrationEngine.ts"
+        "src\narration\narrationEngine.ts",
+        "src\commands\modeState.ts",
+        "src\readingView\narrateSchemeProvider.ts"
     ) | ForEach-Object { Join-Path $extensionDir $_ }
 
     $missingFiles = @($requiredFiles | Where-Object { -not (Test-Path -LiteralPath $_) })
@@ -171,6 +192,84 @@ if ($SkipCompile.IsPresent) {
         try { Pop-Location } catch {}
         Add-Result -results $results -step "Extension compile" -ok $false -details $_.Exception.Message
     }
+}
+
+# Step 5: runtime interaction surface validation
+try {
+    $modeStatePath = Join-Path $extensionDir "src\commands\modeState.ts"
+    $schemePath    = Join-Path $extensionDir "src\readingView\narrateSchemeProvider.ts"
+    $renderPath    = Join-Path $extensionDir "src\readingView\renderNarration.ts"
+    $interactionPath = Join-Path $extensionDir "src\commands\runFlowInteractionCheck.ts"
+
+    $surfaceErrors = @()
+
+    # 5a: modeState must export all getter/setter pairs
+    if (Test-Path -LiteralPath $modeStatePath) {
+        $modeContent = Get-Content -LiteralPath $modeStatePath -Raw
+        $modeExports = @(
+            "getCurrentMode", "setCurrentMode",
+            "getCurrentReadingViewMode", "setCurrentReadingViewMode",
+            "getCurrentReadingPaneMode", "setCurrentReadingPaneMode",
+            "getCurrentReadingSnippetMode", "setCurrentReadingSnippetMode",
+            "getCurrentEduDetailLevel", "setCurrentEduDetailLevel"
+        )
+        $missingMode = @($modeExports | Where-Object { $modeContent -notmatch ("export\s+(async\s+)?function\s+" + [regex]::Escape($_)) })
+        if ($missingMode.Count -gt 0) {
+            $surfaceErrors += "modeState missing exports: " + ($missingMode -join ", ")
+        }
+    } else {
+        $surfaceErrors += "modeState.ts not found"
+    }
+
+    # 5b: NarrateSchemeProvider must have provideTextDocumentContent
+    if (Test-Path -LiteralPath $schemePath) {
+        $schemeContent = Get-Content -LiteralPath $schemePath -Raw
+        if ($schemeContent -notmatch "provideTextDocumentContent") {
+            $surfaceErrors += "NarrateSchemeProvider missing provideTextDocumentContent"
+        }
+    } else {
+        $surfaceErrors += "narrateSchemeProvider.ts not found"
+    }
+
+    # 5c: renderNarration must export renderNarrationDocument
+    if (Test-Path -LiteralPath $renderPath) {
+        $renderContent = Get-Content -LiteralPath $renderPath -Raw
+        if ($renderContent -notmatch "export\s+(async\s+)?function\s+renderNarrationDocument") {
+            $surfaceErrors += "renderNarration missing renderNarrationDocument export"
+        }
+    } else {
+        $surfaceErrors += "renderNarration.ts not found"
+    }
+
+    # 5d: runtime interaction check command must exercise all 9 checks
+    if (Test-Path -LiteralPath $interactionPath) {
+        $interactionContent = Get-Content -LiteralPath $interactionPath -Raw
+        $expectedChecks = @(
+            "checkModeStateRoundTrip",
+            "checkViewModeRoundTrip",
+            "checkPaneModeRoundTrip",
+            "checkSnippetModeRoundTrip",
+            "checkEduDetailLevelRoundTrip",
+            "checkRenderPipeline",
+            "checkSchemeProvider",
+            "checkExportUtility",
+            "checkToggleCommandRegistration"
+        )
+        $missingChecks = @($expectedChecks | Where-Object { $interactionContent -notmatch [regex]::Escape($_) })
+        if ($missingChecks.Count -gt 0) {
+            $surfaceErrors += "runFlowInteractionCheck missing checks: " + ($missingChecks -join ", ")
+        }
+    } else {
+        $surfaceErrors += "runFlowInteractionCheck.ts not found"
+    }
+
+    if ($surfaceErrors.Count -gt 0) {
+        Add-Result -results $results -step "Runtime interaction surface" -ok $false -details ($surfaceErrors -join "`n")
+    } else {
+        Add-Result -results $results -step "Runtime interaction surface" -ok $true -details "All mode state exports, scheme provider, render pipeline, and interaction checks validated."
+    }
+} catch {
+    Add-Result -results $results -step "Runtime interaction surface" -ok $false -details $_.Exception.Message
 }
 
 $passCount = @($results | Where-Object { $_.ok }).Count

@@ -373,6 +373,50 @@ export interface GovernanceDecisionAckRecord {
   acked_at: string | null;
 }
 
+export interface PolicyTenantOverlayRecord {
+  id: string;
+  scope_type: "user" | "team";
+  scope_id: string;
+  plan: PlanTier;
+  overrides: Record<string, Record<string, unknown>>;
+  updated_at: string;
+  created_at: string;
+}
+
+export type EnforcementPhase = "start-session" | "post-write" | "pre-push" | "prompt-guard";
+export type EnforcementStatus = "pass" | "warn" | "blocked" | "error";
+
+export interface EnforcementAuditRecord {
+  id: string;
+  user_id: string;
+  phase: EnforcementPhase;
+  status: EnforcementStatus;
+  risk_score: number;
+  blocker_count: number;
+  warning_count: number;
+  checks_run: string[];
+  findings_summary: string;
+  source: string;
+  created_at: string;
+}
+
+export type ReviewerAssignmentMode = "round_robin" | "all";
+
+export interface ReviewerAutomationPolicyRecord {
+  id: string;
+  scope_type: "user" | "team";
+  scope_id: string;
+  enabled: boolean;
+  reviewer_emails: string[];
+  required_approvals: number;
+  sla_hours: number;
+  escalation_email: string | null;
+  assignment_mode: ReviewerAssignmentMode;
+  last_assigned_index: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ServerKeySet {
   alg: "ES256";
   private_key_pem: string;
@@ -411,6 +455,9 @@ export interface StoreState {
   mastermind_outcomes: MastermindOutcomeRecord[];
   governance_decision_events: GovernanceDecisionEventRecord[];
   governance_decision_acks: GovernanceDecisionAckRecord[];
+  policy_tenant_overlays: PolicyTenantOverlayRecord[];
+  enforcement_audit_log: EnforcementAuditRecord[];
+  reviewer_automation_policies: ReviewerAutomationPolicyRecord[];
   keys: ServerKeySet;
   updated_at: string;
 }

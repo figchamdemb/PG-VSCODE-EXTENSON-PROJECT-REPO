@@ -1,14 +1,25 @@
 import { execFile } from "child_process";
-import * as fs from "fs";
 import * as vscode from "vscode";
 import {
   CommitFileChange,
+  CommitQualityGateOutcome,
   parseCommitFileChanges,
   promptForCommitMessageWithQualityGate
 } from "./pgPushCommitQuality";
 import { DeadCodeGateOutcome, runDeadCodePrePushGate } from "./pgPushDeadCodeGate";
-import { runPowerShellCommand } from "../governance/powerShellRunner";
-import { TrustReport, TrustScoreService } from "../trust/trustScoreService";
+import {
+  EnforcementGateOutcome,
+  runEnforcementPrePushGate,
+  showEnforcementBlockedActions,
+  writeGateReport
+} from "./pgPushEnforcementGate";
+import {
+  TrustGateOutcome,
+  runTrustScorePrePushGate,
+  showTrustBlockedActions,
+  writeTrustGateReport
+} from "./pgPushTrustGate";
+import { TrustScoreService } from "../trust/trustScoreService";
 import { RepoRootResolution, resolveRepoRoot } from "../utils/repoRootResolver";
 
 const GIT_BUFFER_BYTES = 1024 * 1024 * 4;
@@ -18,20 +29,12 @@ type GitResult = {
   stderr: string;
 };
 
-type TrustPgPushGateMode = "off" | "relaxed" | "strict";
-
-type TrustGateOutcome = {
-  allowPush: boolean;
-  mode: TrustPgPushGateMode;
-  message: string;
-  report?: TrustReport;
-};
-
 type PgPushFlowContext = {
   repo: RepoRootResolution;
   workspace: vscode.WorkspaceFolder;
   hasChanges: boolean;
   commitMessage?: string;
+  commitQualityOutcome?: CommitQualityGateOutcome;
 };
 
 export function registerPgPushCommands(
@@ -52,54 +55,41 @@ export function registerPgPushCommands(
   );
 }
 
-async function runPgPushFlow(trustScoreService: TrustScoreService): Promise<void> {
+function validatePgPushPrereqs(): { workspace: vscode.WorkspaceFolder; repo: RepoRootResolution } | null {
   const workspace = vscode.workspace.workspaceFolders?.[0];
   if (!workspace) {
     vscode.window.showWarningMessage("Narrate: open a workspace folder before PG push.");
-    return;
+    return null;
   }
-
   const repo = resolveRepoRoot({ seedPath: workspace.uri.fsPath });
   if (!repo) {
-    vscode.window.showWarningMessage(
-      "Narrate: unable to resolve repository root (pg.ps1) for PG push."
-    );
-    return;
+    vscode.window.showWarningMessage("Narrate: unable to resolve repository root (pg.ps1) for PG push.");
+    return null;
   }
+  return { workspace, repo };
+}
+
+async function runPgPushFlow(trustScoreService: TrustScoreService): Promise<void> {
+  const prereqs = validatePgPushPrereqs();
+  if (!prereqs) return;
+  const { workspace, repo } = prereqs;
 
   await ensureGitWorkspace(repo.repoRoot);
   const initialChanges = await collectCommitFileChanges(repo.repoRoot);
   const hasChanges = initialChanges.length > 0;
-  const commitMessage = hasChanges
-    ? await promptForCommitMessageWithQualityGate(initialChanges)
-    : undefined;
-  if (hasChanges && !commitMessage) {
-    return;
-  }
+  const commitResult = hasChanges ? await promptForCommitMessageWithQualityGate(initialChanges) : undefined;
+  if (hasChanges && !commitResult) return;
 
   const confirmed = await vscode.window.showWarningMessage(
     `Run git add -A, git commit, and git push in:\n${repo.repoRoot}`,
-    { modal: true },
-    "Run PG Push"
+    { modal: true }, "Run PG Push"
   );
-  if (confirmed !== "Run PG Push") {
-    return;
-  }
+  if (confirmed !== "Run PG Push") return;
 
-  const flowContext: PgPushFlowContext = {
-    repo,
-    workspace,
-    hasChanges,
-    commitMessage
-  };
-
+  const ctx: PgPushFlowContext = { repo, workspace, hasChanges, commitMessage: commitResult?.message, commitQualityOutcome: commitResult };
   await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: "Narrate: Running PG push",
-      cancellable: false
-    },
-    async (progress) => runPgPushProgressFlow(progress, flowContext, trustScoreService)
+    { location: vscode.ProgressLocation.Notification, title: "Narrate: Running PG push", cancellable: false },
+    async (progress) => runPgPushProgressFlow(progress, ctx, trustScoreService)
   );
 }
 
@@ -114,12 +104,18 @@ async function runPgPushProgressFlow(
   trustScoreService: TrustScoreService
 ): Promise<void> {
   progress.report({ message: "Running PG enforcement preflight..." });
-  await runPrePushEnforcement(flowContext.repo);
+  const enforcementOutcome = await runEnforcementPrePushGate(flowContext.repo);
+  writeGateReport(enforcementOutcome, flowContext.repo);
+  if (!enforcementOutcome.allowPush) {
+    await showEnforcementBlockedActions(enforcementOutcome, flowContext.repo);
+    throw new Error(enforcementOutcome.message);
+  }
 
   progress.report({ message: "Running Trust Score pre-push gate..." });
   const trustGateOutcome = await runTrustScorePrePushGate(trustScoreService);
+  writeTrustGateReport(trustGateOutcome, flowContext.repo);
   if (!trustGateOutcome.allowPush) {
-    await maybeShowDiagnosticsRecoveryHint(trustGateOutcome, trustScoreService);
+    await showTrustBlockedActions(trustGateOutcome, trustScoreService);
     throw new Error(trustGateOutcome.message);
   }
 
@@ -137,7 +133,22 @@ async function runPgPushProgressFlow(
     await runGit(["rev-parse", "--abbrev-ref", "HEAD"], flowContext.repo.repoRoot)
   ).stdout.trim();
 
-  showPgPushSuccessMessage(flowContext, committed, branch, trustGateOutcome, deadCodeGateOutcome);
+  showPgPushSuccessMessage(
+    flowContext, committed, branch, enforcementOutcome, trustGateOutcome, deadCodeGateOutcome
+  );
+}
+
+function buildCommitQualityNote(outcome?: CommitQualityGateOutcome): string {
+  if (!outcome || outcome.mode === "off") {
+    return "";
+  }
+  if (outcome.qualityPassed) {
+    return " Commit quality: passed.";
+  }
+  if (outcome.overridden) {
+    return ` Commit quality: overridden (${outcome.mode}).`;
+  }
+  return ` Commit quality: ${outcome.mode}.`;
 }
 
 async function stageAndCommitChangesIfNeeded(
@@ -170,6 +181,7 @@ function showPgPushSuccessMessage(
   flowContext: PgPushFlowContext,
   committed: boolean,
   branch: string,
+  enforcementOutcome: EnforcementGateOutcome,
   trustGateOutcome: TrustGateOutcome,
   deadCodeGateOutcome: DeadCodeGateOutcome
 ): void {
@@ -178,241 +190,23 @@ function showPgPushSuccessMessage(
       ? "Committed and pushed."
       : "Pushed without a new commit."
     : "No local changes to commit.";
+  const enforcementNote = enforcementOutcome.status === "skipped" ? ""
+    : ` Enforcement: ${enforcementOutcome.status} [${enforcementOutcome.profile}].`;
   const trustStateNote =
-    trustGateOutcome.mode === "off" ? "" : ` Trust gate: ${trustGateOutcome.mode}.`;
+    trustGateOutcome.mode === "off" ? ""
+      : trustGateOutcome.score !== null
+        ? ` Trust: ${trustGateOutcome.status} (${trustGateOutcome.score}/100).`
+        : ` Trust gate: ${trustGateOutcome.mode}.`;
   const deadCodeStateNote =
     deadCodeGateOutcome.mode === "off"
       ? ""
       : ` Dead-code gate: ${deadCodeGateOutcome.mode}.`;
+  const commitQualityNote = buildCommitQualityNote(flowContext.commitQualityOutcome);
 
   vscode.window.showInformationMessage(
     `Narrate: PG push completed on branch '${branch || "current"}'. ` +
-      `${commitState}${trustStateNote}${deadCodeStateNote}`
+      `${commitState}${enforcementNote}${trustStateNote}${deadCodeStateNote}${commitQualityNote}`
   );
-}
-
-async function runTrustScorePrePushGate(
-  trustScoreService: TrustScoreService
-): Promise<TrustGateOutcome> {
-  const mode = getTrustGateMode();
-  if (mode === "off") {
-    return {
-      allowPush: true,
-      mode,
-      message: "Trust gate mode is off.",
-      report: trustScoreService.getLatestReport()
-    };
-  }
-
-  const gateWithoutScore = await maybeHandleDisabledTrustScore(mode, trustScoreService);
-  if (gateWithoutScore) {
-    return gateWithoutScore;
-  }
-
-  await trustScoreService.refreshNow();
-  const report = trustScoreService.getLatestReport();
-  if (!report) {
-    return handleMissingTrustScoreReport(mode);
-  }
-
-  return evaluateTrustGateFromReport(mode, report);
-}
-
-function getTrustGateMode(): TrustPgPushGateMode {
-  return vscode.workspace
-    .getConfiguration("narrate")
-    .get<TrustPgPushGateMode>("trustScore.pgPushGateMode", "off");
-}
-
-async function maybeHandleDisabledTrustScore(
-  mode: TrustPgPushGateMode,
-  trustScoreService: TrustScoreService
-): Promise<TrustGateOutcome | undefined> {
-  if (trustScoreService.isTrustScoreEnabled()) {
-    return undefined;
-  }
-  if (mode === "strict") {
-    return {
-      allowPush: false,
-      mode,
-      message:
-        "Trust Score gate is strict but Trust Score is disabled. Enable Trust Score or change gate mode.",
-      report: trustScoreService.getLatestReport()
-    };
-  }
-  const continueAnyway = await askRelaxedGateContinue(
-    "Trust Score is disabled. Continue push in relaxed mode?"
-  );
-  return {
-    allowPush: continueAnyway,
-    mode,
-    message: continueAnyway ? "Proceeding in relaxed mode." : "Push canceled.",
-    report: trustScoreService.getLatestReport()
-  };
-}
-
-async function handleMissingTrustScoreReport(
-  mode: TrustPgPushGateMode
-): Promise<TrustGateOutcome> {
-  if (mode === "strict") {
-    return {
-      allowPush: false,
-      mode,
-      message:
-        "Strict Trust Score gate could not evaluate an active source file. Open a source file, run 'Narrate: Refresh Trust Score', then retry.",
-      report: undefined
-    };
-  }
-  const continueAnyway = await askRelaxedGateContinue(
-    "Trust Score report is not available. Continue push in relaxed mode?"
-  );
-  return {
-    allowPush: continueAnyway,
-    mode,
-    message: continueAnyway ? "Proceeding in relaxed mode." : "Push canceled.",
-    report: undefined
-  };
-}
-
-async function evaluateTrustGateFromReport(
-  mode: TrustPgPushGateMode,
-  report: TrustReport
-): Promise<TrustGateOutcome> {
-  const isBlocked = report.blockers > 0 || report.status === "red";
-  if (!isBlocked) {
-    return {
-      allowPush: true,
-      mode,
-      message: `Trust Score ${report.score}/100 (${report.grade}) passed gate.`,
-      report
-    };
-  }
-
-  const gateMessage =
-    `Trust Score is ${report.score}/100 (${report.grade}) with ${report.blockers} blocker(s)` +
-    ` on ${report.file}.`;
-  if (mode === "strict") {
-    return {
-      allowPush: false,
-      mode,
-      message: `${gateMessage} Strict mode blocks push until blockers are fixed.`,
-      report
-    };
-  }
-
-  const continueAnyway = await askRelaxedGateContinue(
-    `${gateMessage} Continue push in relaxed mode?`
-  );
-  return {
-    allowPush: continueAnyway,
-    mode,
-    message: continueAnyway ? "Proceeding in relaxed mode." : "Push canceled.",
-    report
-  };
-}
-
-async function askRelaxedGateContinue(message: string): Promise<boolean> {
-  const picked = await vscode.window.showWarningMessage(
-    `Narrate Trust Gate: ${message}`,
-    { modal: true },
-    "Continue Push"
-  );
-  return picked === "Continue Push";
-}
-
-async function maybeShowDiagnosticsRecoveryHint(
-  outcome: TrustGateOutcome,
-  trustScoreService: TrustScoreService
-): Promise<void> {
-  if (!outcome.report) {
-    return;
-  }
-  const showHint = vscode.workspace
-    .getConfiguration("narrate")
-    .get<boolean>("trustScore.showDiagnosticsRecoveryHint", true);
-  if (!showHint) {
-    return;
-  }
-  const hasTypeScriptErrors = outcome.report.findings.some(
-    (finding) => finding.ruleId === "TRUST-TS-001"
-  );
-  if (!hasTypeScriptErrors) {
-    return;
-  }
-
-  const action = await vscode.window.showWarningMessage(
-    "Narrate Trust Gate: TypeScript diagnostics are still reported. If compile passed, restart TS server and refresh Trust Score before retrying push.",
-    "Restart TS + Refresh Trust",
-    "Show Trust Report"
-  );
-  if (action === "Restart TS + Refresh Trust") {
-    await vscode.commands.executeCommand("narrate.restartTypeScriptAndRefreshTrust");
-    return;
-  }
-  if (action === "Show Trust Report") {
-    await trustScoreService.showLatestReport();
-  }
-}
-
-async function runPrePushEnforcement(repo: RepoRootResolution): Promise<void> {
-  const config = vscode.workspace.getConfiguration("narrate");
-  if (!config.get<boolean>("enforcement.prePush.enabled", true)) {
-    return;
-  }
-  if (!fs.existsSync(repo.pgScriptPath)) {
-    throw new Error(`Missing pg command script at ${repo.pgScriptPath}`);
-  }
-
-  const args = buildPrePushEnforcementArgs(repo, config);
-  try {
-    await runPowerShellCommand(args, repo.repoRoot);
-  } catch (error) {
-    throw mapPrePushEnforcementError(error);
-  }
-}
-
-function buildPrePushEnforcementArgs(
-  repo: RepoRootResolution,
-  config: vscode.WorkspaceConfiguration
-): string[] {
-  const args = [
-    "-NoProfile",
-    "-ExecutionPolicy",
-    "Bypass",
-    "-File",
-    repo.pgScriptPath,
-    "enforce-trigger",
-    "-Phase",
-    "pre-push"
-  ];
-  if (config.get<boolean>("enforcement.prePush.warnOnly", false)) {
-    args.push("-WarnOnly");
-  }
-
-  const apiBase = config.get<string>("licensing.apiBaseUrl", "").trim();
-  if (apiBase) {
-    args.push("-ApiBase", apiBase);
-  }
-  const projectFramework =
-    config.get<string>("enforcement.projectFramework", "unknown").trim() || "unknown";
-  args.push("-ProjectFramework", projectFramework);
-  return args;
-}
-
-function mapPrePushEnforcementError(error: unknown): Error {
-  const details = getErrorText(error);
-  const errorCode = getExitCode(error);
-  const lowered = details.toLowerCase();
-  if (
-    errorCode === 2 ||
-    lowered.includes("blocked by policy violations") ||
-    lowered.includes("exit code 2")
-  ) {
-    return new Error(
-      "PG policy blockers found. Run `./pg.ps1 prod` in terminal, fix blockers, then push again."
-    );
-  }
-  return new Error(`PG enforcement preflight failed: ${details}`);
 }
 
 async function ensureGitWorkspace(workspaceRoot: string): Promise<void> {
@@ -449,15 +243,4 @@ async function runGit(args: string[], cwd: string): Promise<GitResult> {
 
 function getErrorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function getExitCode(error: unknown): number | undefined {
-  const raw = (error as { code?: unknown })?.code;
-  if (typeof raw === "number") {
-    return raw;
-  }
-  if (typeof raw === "string" && /^\d+$/u.test(raw)) {
-    return Number(raw);
-  }
-  return undefined;
 }

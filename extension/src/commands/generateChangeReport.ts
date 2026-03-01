@@ -31,50 +31,32 @@ async function runGenerateChangeReport(
   narrationEngine: NarrationEngine,
   gates: FeatureGateService
 ): Promise<void> {
-  const allowed = await gates.requireProFeature("Generate Change Report");
-  if (!allowed) {
-    return;
-  }
-
-  const git = GitClient.fromWorkspace();
-  if (!git) {
-    vscode.window.showWarningMessage("Narrate: open a workspace folder to generate a change report.");
-    return;
-  }
-
-  if (!(await git.isGitRepository())) {
-    vscode.window.showWarningMessage("Narrate: workspace is not a git repository.");
-    return;
-  }
-
-  const diffRaw = await git.getWorkingTreeDiffAgainstHead();
-  if (!diffRaw.trim()) {
-    vscode.window.showInformationMessage("Narrate: no changes detected against HEAD.");
-    return;
-  }
-
-  const parsedFiles = parseUnifiedDiff(diffRaw);
-  if (parsedFiles.length === 0) {
-    vscode.window.showInformationMessage("Narrate: unable to parse changed files from git diff.");
-    return;
-  }
-
+  const prereqs = await validateChangeReportPrereqs(gates);
+  if (!prereqs) return;
+  const { git, parsedFiles } = prereqs;
   const mode = getCurrentMode(context);
   const repoRoot = await git.getRepositoryRoot();
   const branch = await git.getCurrentBranchName();
   const analysis = await buildFileAnalyses(parsedFiles, repoRoot, narrationEngine, mode);
-
-  const report = renderChangeReportMarkdown({
-    branch,
-    mode,
-    generatedAt: new Date().toISOString(),
-    files: analysis
-  });
-
+  const report = renderChangeReportMarkdown({ branch, mode, generatedAt: new Date().toISOString(), files: analysis });
   const reportPath = await writeChangeReportFile(context, branch, report);
   const doc = await vscode.workspace.openTextDocument(reportPath);
   await vscode.window.showTextDocument(doc, { preview: false });
   vscode.window.showInformationMessage(`Narrate: change report created at ${reportPath}`);
+}
+
+async function validateChangeReportPrereqs(
+  gates: FeatureGateService
+): Promise<{ git: GitClient; parsedFiles: DiffFile[] } | null> {
+  if (!(await gates.requireProFeature("Generate Change Report"))) return null;
+  const git = GitClient.fromWorkspace();
+  if (!git) { vscode.window.showWarningMessage("Narrate: open a workspace folder to generate a change report."); return null; }
+  if (!(await git.isGitRepository())) { vscode.window.showWarningMessage("Narrate: workspace is not a git repository."); return null; }
+  const diffRaw = await git.getWorkingTreeDiffAgainstHead();
+  if (!diffRaw.trim()) { vscode.window.showInformationMessage("Narrate: no changes detected against HEAD."); return null; }
+  const parsedFiles = parseUnifiedDiff(diffRaw);
+  if (parsedFiles.length === 0) { vscode.window.showInformationMessage("Narrate: unable to parse changed files from git diff."); return null; }
+  return { git, parsedFiles };
 }
 
 async function writeChangeReportFile(
@@ -100,56 +82,44 @@ async function writeChangeReportFile(
 }
 
 async function buildFileAnalyses(
-  files: DiffFile[],
-  repoRoot: string,
-  narrationEngine: NarrationEngine,
-  mode: "dev" | "edu"
+  files: DiffFile[], repoRoot: string, narrationEngine: NarrationEngine, mode: "dev" | "edu"
 ): Promise<FileAnalysis[]> {
   const results: FileAnalysis[] = [];
-
   for (const file of files) {
-    const changedLines = flattenChangedLines(file);
-    const addedCount = changedLines.filter((line) => line.kind === "added").length;
-    const removedCount = changedLines.filter((line) => line.kind === "removed").length;
+    results.push(await analyzeSingleFile(file, repoRoot, narrationEngine, mode));
+  }
+  return results;
+}
 
-    let narratedAddedLines: Array<{ lineNumber: number; narration: string }> = [];
+async function analyzeSingleFile(
+  file: DiffFile, repoRoot: string, narrationEngine: NarrationEngine, mode: "dev" | "edu"
+): Promise<FileAnalysis> {
+  const changedLines = flattenChangedLines(file);
+  const addedCount = changedLines.filter((l) => l.kind === "added").length;
+  const removedCount = changedLines.filter((l) => l.kind === "removed").length;
+  const narratedAddedLines = await narrateFileAdditions(file, repoRoot, changedLines, narrationEngine, mode);
+  return { file, addedCount, removedCount, narratedAddedLines };
+}
 
-    const canNarrateFile = file.newPath !== "/dev/null" && file.status !== "deleted";
-    if (canNarrateFile) {
-      const absolutePath = path.join(repoRoot, file.newPath);
-      try {
-        const doc = await vscode.workspace.openTextDocument(absolutePath);
-        const addedLineNumbers = uniqueSorted(
-          changedLines
-            .filter((line) => line.kind === "added" && line.newLineNumber !== null)
-            .map((line) => line.newLineNumber as number)
-        );
-
-        const ranges = groupContiguous(addedLineNumbers);
-        const narrationByLine = new Map<number, string>();
-        for (const range of ranges) {
-          const narrated = await narrationEngine.narrateRange(doc, mode, range.start, range.end);
-          for (const item of narrated) {
-            narrationByLine.set(item.lineNumber, item.narration);
-          }
-        }
-        narratedAddedLines = addedLineNumbers
-          .filter((lineNo) => narrationByLine.has(lineNo))
-          .map((lineNo) => ({ lineNumber: lineNo, narration: narrationByLine.get(lineNo) ?? "" }));
-      } catch {
-        narratedAddedLines = [];
+async function narrateFileAdditions(
+  file: DiffFile, repoRoot: string, changedLines: DiffLine[],
+  narrationEngine: NarrationEngine, mode: "dev" | "edu"
+): Promise<Array<{ lineNumber: number; narration: string }>> {
+  if (file.newPath === "/dev/null" || file.status === "deleted") return [];
+  const absolutePath = path.join(repoRoot, file.newPath);
+  try {
+    const doc = await vscode.workspace.openTextDocument(absolutePath);
+    const addedLineNumbers = uniqueSorted(
+      changedLines.filter((l) => l.kind === "added" && l.newLineNumber !== null).map((l) => l.newLineNumber as number)
+    );
+    const narrationByLine = new Map<number, string>();
+    for (const range of groupContiguous(addedLineNumbers)) {
+      for (const item of await narrationEngine.narrateRange(doc, mode, range.start, range.end)) {
+        narrationByLine.set(item.lineNumber, item.narration);
       }
     }
-
-    results.push({
-      file,
-      addedCount,
-      removedCount,
-      narratedAddedLines
-    });
-  }
-
-  return results;
+    return addedLineNumbers.filter((n) => narrationByLine.has(n)).map((n) => ({ lineNumber: n, narration: narrationByLine.get(n) ?? "" }));
+  } catch { return []; }
 }
 
 function flattenChangedLines(file: DiffFile): DiffLine[] {
@@ -181,12 +151,14 @@ function groupContiguous(values: number[]): Array<{ start: number; end: number }
   return ranges;
 }
 
-function renderChangeReportMarkdown(input: {
+type ChangeReportInput = {
   branch: string;
   mode: "dev" | "edu";
   generatedAt: string;
   files: FileAnalysis[];
-}): string {
+};
+
+function renderChangeReportMarkdown(input: ChangeReportInput): string {
   const totalAdded = input.files.reduce((acc, file) => acc + file.addedCount, 0);
   const totalRemoved = input.files.reduce((acc, file) => acc + file.removedCount, 0);
 

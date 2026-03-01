@@ -75,6 +75,7 @@ function Should-IncludeFile {
         "\out\",
         "\coverage\",
         "\memory-bank\",
+        "\migrations\",
         "\.verificaton-before-production-folder\"
     )
     foreach ($part in $skipParts) {

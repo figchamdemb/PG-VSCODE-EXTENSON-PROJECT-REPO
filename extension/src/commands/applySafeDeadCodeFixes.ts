@@ -8,6 +8,8 @@ import {
 } from "./runDeadCodeScan";
 import { Logger } from "../utils/logger";
 
+const UNUSED_DIAGNOSTIC_CODES = new Set<number>([6133, 6138, 6192, 6196]);
+
 type FixRunStats = {
   targetFiles: number;
   changedFiles: string[];
@@ -25,35 +27,16 @@ export function registerApplySafeDeadCodeFixesCommand(
 
 async function runApplySafeDeadCodeFixes(logger: Logger): Promise<void> {
   const workspace = vscode.workspace.workspaceFolders?.[0];
-  if (!workspace) {
-    void vscode.window.showWarningMessage(
-      "Narrate: open a workspace folder before applying dead-code fixes."
-    );
-    return;
-  }
-
+  if (!workspace) { void vscode.window.showWarningMessage("Narrate: open a workspace folder before applying dead-code fixes."); return; }
   const before = await scanHighConfidenceDeadCode(workspace);
   const targetFiles = collectTargetFiles(before);
-  if (targetFiles.length === 0) {
-    void vscode.window.showInformationMessage(
-      "Narrate: no high-confidence dead-code findings to auto-fix."
-    );
-    return;
-  }
-
-  const confirmed = await confirmSafeFixRun(targetFiles.length);
-  if (!confirmed) {
-    return;
-  }
-
+  if (targetFiles.length === 0) { void vscode.window.showInformationMessage("Narrate: no high-confidence dead-code findings to auto-fix."); return; }
+  if (!(await confirmSafeFixRun(targetFiles.length))) return;
   const stats = await applyOrganizeImportsForFiles(workspace, targetFiles);
   const after = await rescanDeadCode(workspace);
-
   await openSafeFixReport(workspace.uri.fsPath, before, after, stats);
   const reducedBy = before.highConfidenceUnused.length - after.highConfidenceUnused.length;
-  logger.info(
-    `Safe dead-code fix run completed: target=${stats.targetFiles}, changed=${stats.changedFiles.length}, highConfidenceDelta=${reducedBy}`
-  );
+  logger.info(`Safe dead-code fix run completed: target=${stats.targetFiles}, changed=${stats.changedFiles.length}, highConfidenceDelta=${reducedBy}`);
   void vscode.window.showInformationMessage(
     `Narrate dead-code fixes: changed ${stats.changedFiles.length}/${stats.targetFiles} files. High-confidence findings delta: ${reducedBy >= 0 ? "-" : "+"}${Math.abs(reducedBy)}.`
   );
@@ -115,96 +98,55 @@ async function openSafeFixReport(
 }
 
 async function applyOrganizeImportsForFiles(
-  workspace: vscode.WorkspaceFolder,
-  relativeFiles: string[]
+  workspace: vscode.WorkspaceFolder, relativeFiles: string[]
 ): Promise<FixRunStats> {
-  const changedFiles: string[] = [];
-  const noChangeFiles: string[] = [];
-  const failedFiles: Array<{ file: string; reason: string }> = [];
-
+  const stats: FixRunStats = { targetFiles: relativeFiles.length, changedFiles: [], noChangeFiles: [], failedFiles: [] };
   await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: "Narrate: Applying safe dead-code fixes",
-      cancellable: false
-    },
+    { location: vscode.ProgressLocation.Notification, title: "Narrate: Applying safe dead-code fixes", cancellable: false },
     async (progress) => {
-      for (let index = 0; index < relativeFiles.length; index += 1) {
-        const relativeFile = relativeFiles[index];
-        progress.report({
-          message: `${index + 1}/${relativeFiles.length} ${relativeFile}`,
-          increment:
-            relativeFiles.length === 0
-              ? 0
-              : ((index + 1) / relativeFiles.length) * 100
-        });
-
-        try {
-          const fileUri = vscode.Uri.file(path.join(workspace.uri.fsPath, relativeFile));
-          const changed = await applyOrganizeImportsForFile(fileUri);
-          if (changed) {
-            changedFiles.push(relativeFile);
-          } else {
-            noChangeFiles.push(relativeFile);
-          }
-        } catch (error) {
-          failedFiles.push({
-            file: relativeFile,
-            reason: error instanceof Error ? error.message : String(error)
-          });
-        }
+      for (let i = 0; i < relativeFiles.length; i++) {
+        progress.report({ message: `${i + 1}/${relativeFiles.length} ${relativeFiles[i]}`, increment: relativeFiles.length === 0 ? 0 : ((i + 1) / relativeFiles.length) * 100 });
+        await processSingleFile(workspace, relativeFiles[i], stats);
       }
     }
   );
+  return stats;
+}
 
-  return {
-    targetFiles: relativeFiles.length,
-    changedFiles,
-    noChangeFiles,
-    failedFiles
-  };
+async function processSingleFile(
+  workspace: vscode.WorkspaceFolder, relFile: string, stats: FixRunStats
+): Promise<void> {
+  try {
+    const fileUri = vscode.Uri.file(path.join(workspace.uri.fsPath, relFile));
+    const changed = (await applyOrganizeImportsForFile(fileUri)) || (await applyUnusedVariablePrefixFixes(fileUri));
+    (changed ? stats.changedFiles : stats.noChangeFiles).push(relFile);
+  } catch (err) {
+    stats.failedFiles.push({ file: relFile, reason: err instanceof Error ? err.message : String(err) });
+  }
 }
 
 async function applyOrganizeImportsForFile(fileUri: vscode.Uri): Promise<boolean> {
-  const document = await vscode.workspace.openTextDocument(fileUri);
-  const versionBefore = document.version;
-  const fullRange = new vscode.Range(0, 0, document.lineCount, 0);
+  const doc = await vscode.workspace.openTextDocument(fileUri);
+  const versionBefore = doc.version;
   const actions = await vscode.commands.executeCommand<Array<vscode.CodeAction | vscode.Command>>(
-    "vscode.executeCodeActionProvider",
-    fileUri,
-    fullRange,
-    vscode.CodeActionKind.SourceOrganizeImports.value
+    "vscode.executeCodeActionProvider", fileUri,
+    new vscode.Range(0, 0, doc.lineCount, 0), vscode.CodeActionKind.SourceOrganizeImports.value
   );
-
-  if (!actions || actions.length === 0) {
-    return false;
-  }
-
-  for (const action of actions) {
-    if (isCodeAction(action)) {
-      if (action.edit) {
-        await vscode.workspace.applyEdit(action.edit);
-      }
-      if (action.command) {
-        await vscode.commands.executeCommand(
-          action.command.command,
-          ...(action.command.arguments ?? [])
-        );
-      }
-      continue;
-    }
-    await vscode.commands.executeCommand(
-      action.command,
-      ...(action.arguments ?? [])
-    );
-  }
-
+  if (!actions || actions.length === 0) return false;
+  for (const action of actions) await executeCodeActionOrCommand(action);
   const reopened = await vscode.workspace.openTextDocument(fileUri);
   const changed = reopened.version !== versionBefore || reopened.isDirty;
-  if (reopened.isDirty) {
-    await reopened.save();
-  }
+  if (reopened.isDirty) await reopened.save();
   return changed;
+}
+
+async function executeCodeActionOrCommand(action: vscode.CodeAction | vscode.Command): Promise<void> {
+  if (isCodeAction(action)) {
+    if (action.edit) await vscode.workspace.applyEdit(action.edit);
+    if (action.command) await vscode.commands.executeCommand(action.command.command, ...(action.command.arguments ?? []));
+  } else {
+    await vscode.commands.executeCommand(action.command, ...(action.arguments ?? []));
+  }
 }
 
 function isCodeAction(
@@ -213,66 +155,72 @@ function isCodeAction(
   return "title" in value && ("kind" in value || "edit" in value || "command" in value);
 }
 
+async function applyUnusedVariablePrefixFixes(fileUri: vscode.Uri): Promise<boolean> {
+  const diagnostics = vscode.languages.getDiagnostics(fileUri);
+  const unusedDiagnostics = diagnostics.filter((d) => isUnusedDiagnosticForPrefix(d));
+  let changed = false;
+  for (const diagnostic of unusedDiagnostics) {
+    if (await tryApplyPrefixFix(fileUri, diagnostic)) changed = true;
+  }
+  if (changed) await saveIfDirty(fileUri);
+  return changed;
+}
+
+async function tryApplyPrefixFix(fileUri: vscode.Uri, diagnostic: vscode.Diagnostic): Promise<boolean> {
+  const actions = await vscode.commands.executeCommand<Array<vscode.CodeAction | vscode.Command>>(
+    "vscode.executeCodeActionProvider", fileUri, diagnostic.range, vscode.CodeActionKind.QuickFix.value
+  );
+  if (!actions || actions.length === 0) return false;
+  const prefixAction = actions.find(
+    (a) => isCodeAction(a) && a.title?.toLowerCase().includes("prefix") && a.title?.toLowerCase().includes("underscore")
+  );
+  if (!prefixAction || !isCodeAction(prefixAction) || !prefixAction.edit) return false;
+  await vscode.workspace.applyEdit(prefixAction.edit);
+  return true;
+}
+
+async function saveIfDirty(fileUri: vscode.Uri): Promise<void> {
+  const document = await vscode.workspace.openTextDocument(fileUri);
+  if (document.isDirty) await document.save();
+}
+
+function isUnusedDiagnosticForPrefix(diagnostic: vscode.Diagnostic): boolean {
+  const source = String(diagnostic.source ?? "").toLowerCase();
+  if (!source.includes("ts")) {
+    return false;
+  }
+  const code =
+    typeof diagnostic.code === "object" ? diagnostic.code.value : diagnostic.code;
+  return typeof code === "number" && UNUSED_DIAGNOSTIC_CODES.has(code);
+}
+
 function buildSafeFixReportMarkdown(
-  workspaceRoot: string,
-  before: DeadCodeScanResult,
-  after: DeadCodeScanResult,
-  stats: FixRunStats
+  workspaceRoot: string, before: DeadCodeScanResult, after: DeadCodeScanResult, stats: FixRunStats
 ): string {
-  const lines: string[] = [];
-  lines.push("# Narrate Safe Dead Code Fix Run");
-  lines.push("");
-  lines.push(`UTC: ${new Date().toISOString()}`);
-  lines.push("");
-  lines.push(`Workspace: ${workspaceRoot}`);
-  lines.push("");
-  lines.push("## Summary");
-  lines.push("");
-  lines.push(`- Target files: ${stats.targetFiles}`);
-  lines.push(`- Changed files: ${stats.changedFiles.length}`);
-  lines.push(`- No-change files: ${stats.noChangeFiles.length}`);
-  lines.push(`- Failed files: ${stats.failedFiles.length}`);
-  lines.push(
-    `- High-confidence findings: before ${before.highConfidenceUnused.length} -> after ${after.highConfidenceUnused.length}`
-  );
-  lines.push(
-    `- Medium-confidence orphans: before ${before.mediumConfidenceOrphans.length} -> after ${after.mediumConfidenceOrphans.length}`
-  );
-  lines.push(
-    `- Low-confidence orphans: before ${before.lowConfidenceOrphans.length} -> after ${after.lowConfidenceOrphans.length}`
-  );
+  return [
+    buildFixReportHeader(workspaceRoot, before, after, stats),
+    renderFileList("Changed Files", stats.changedFiles.map((f) => `\`${f}\``)),
+    renderFileList("Failed Files", stats.failedFiles.map((f) => `\`${f.file}\` - ${f.reason}`)),
+    "## Post-Run Dead Code Report", "",
+    buildDeadCodeReportMarkdown(workspaceRoot, after).split("\n").map((l) => `> ${l}`).join("\n")
+  ].join("\n");
+}
 
-  lines.push("");
-  lines.push("## Changed Files");
-  lines.push("");
-  if (stats.changedFiles.length === 0) {
-    lines.push("- none");
-  } else {
-    for (const file of stats.changedFiles) {
-      lines.push(`- \`${file}\``);
-    }
-  }
+function buildFixReportHeader(
+  workspaceRoot: string, before: DeadCodeScanResult, after: DeadCodeScanResult, stats: FixRunStats
+): string {
+  return [
+    "# Narrate Safe Dead Code Fix Run", "", `UTC: ${new Date().toISOString()}`, "",
+    `Workspace: ${workspaceRoot}`, "", "## Summary", "",
+    `- Target files: ${stats.targetFiles}`, `- Changed files: ${stats.changedFiles.length}`,
+    `- No-change files: ${stats.noChangeFiles.length}`, `- Failed files: ${stats.failedFiles.length}`,
+    `- High-confidence findings: before ${before.highConfidenceUnused.length} -> after ${after.highConfidenceUnused.length}`,
+    `- Medium-confidence orphans: before ${before.mediumConfidenceOrphans.length} -> after ${after.mediumConfidenceOrphans.length}`,
+    `- Low-confidence orphans: before ${before.lowConfidenceOrphans.length} -> after ${after.lowConfidenceOrphans.length}`, ""
+  ].join("\n");
+}
 
-  lines.push("");
-  lines.push("## Failed Files");
-  lines.push("");
-  if (stats.failedFiles.length === 0) {
-    lines.push("- none");
-  } else {
-    for (const failure of stats.failedFiles) {
-      lines.push(`- \`${failure.file}\` - ${failure.reason}`);
-    }
-  }
-
-  lines.push("");
-  lines.push("## Post-Run Dead Code Report");
-  lines.push("");
-  lines.push(
-    buildDeadCodeReportMarkdown(workspaceRoot, after)
-      .split("\n")
-      .map((line) => `> ${line}`)
-      .join("\n")
-  );
-
-  return lines.join("\n");
+function renderFileList(title: string, items: string[]): string {
+  const body = items.length === 0 ? "- none" : items.map((i) => `- ${i}`).join("\n");
+  return `## ${title}\n\n${body}\n`;
 }

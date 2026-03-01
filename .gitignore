@@ -30,6 +30,11 @@ Memory-bank/_generated/governance-agent-state.json
 Memory-bank/_generated/pg-cli-state.json
 Memory-bank/_generated/governance-worker-execution.log
 Memory-bank/_generated/governance-agent-queue.jsonl
+Memory-bank/_generated/enforcement-gate-latest.md
+Memory-bank/_generated/db-index-check-latest.md
+Memory-bank/_generated/trust-gate-latest.md
+Memory-bank/_generated/mcp-cloud-score-latest.md
+Memory-bank/_generated/observability-check-latest.md
 
 # Local temporary backend runtime logs
 server/tmp-server-*.log

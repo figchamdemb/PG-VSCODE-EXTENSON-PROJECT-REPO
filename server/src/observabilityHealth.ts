@@ -1,4 +1,5 @@
 type VerificationSeverity = "blocker" | "warning";
+import type { ObservabilityThresholds } from "./policyVaultTypes";
 
 type ObservabilityAdapter = "otlp" | "sentry" | "signoz";
 
@@ -63,41 +64,34 @@ export interface ObservabilityHealthResult {
 
 const ADAPTERS: ObservabilityAdapter[] = ["otlp", "sentry", "signoz"];
 
-export function evaluateObservabilityHealth(requestBody: ObservabilityHealthRequest): ObservabilityHealthResult {
+export function evaluateObservabilityHealth(requestBody: ObservabilityHealthRequest, thresholds?: ObservabilityThresholds | null): ObservabilityHealthResult {
   const source = normalizeSource(requestBody.runtime?.source);
-  const deploymentProfile = resolveDeploymentProfile(requestBody.deployment_profile);
+  const deploymentProfile = thresholds?.default_deployment_profile ?? resolveDeploymentProfile(requestBody.deployment_profile);
   const requestMap = buildRequestAdapterMap(requestBody.adapters);
-
-  const adapters = ADAPTERS.map((adapter) => resolveAdapter(adapter, requestMap.get(adapter) ?? null));
+  const activeAdapters: ObservabilityAdapter[] = thresholds?.enabled_adapters ?? ADAPTERS;
+  const adapters = activeAdapters.map((a) => resolveAdapter(a, requestMap.get(a) ?? null));
   const findings: ObservabilityHealthFinding[] = [];
-
   applyGlobalProfileChecks(findings, deploymentProfile, adapters);
-  for (const adapter of adapters) {
-    applyAdapterChecks(findings, deploymentProfile, adapter);
-  }
+  for (const adapter of adapters) applyAdapterChecks(findings, deploymentProfile, adapter);
+  return buildObservabilityResult(source, deploymentProfile, adapters, findings);
+}
 
+function buildObservabilityResult(
+  source: string, deploymentProfile: ObservabilityDeploymentProfile,
+  adapters: ObservabilityAdapterState[], findings: ObservabilityHealthFinding[]
+): ObservabilityHealthResult {
   const blockers = countBySeverity(findings, "blocker");
   const warnings = countBySeverity(findings, "warning");
-  const enabledAdapters = adapters.filter((item) => item.enabled).length;
-  const readyAdapters = adapters.filter((item) => item.readiness === "ready").length;
   const status: "pass" | "blocked" = blockers > 0 ? "blocked" : "pass";
-
   return {
-    ok: status === "pass",
-    status,
-    evaluator_version: "observability-health-v1",
+    ok: status === "pass", status, evaluator_version: "observability-health-v1",
     summary: {
-      deployment_profile: deploymentProfile,
-      adapters_checked: adapters.length,
-      enabled_adapters: enabledAdapters,
-      ready_adapters: readyAdapters,
-      blockers,
-      warnings,
-      source,
-      evaluated_at: new Date().toISOString()
+      deployment_profile: deploymentProfile, adapters_checked: adapters.length,
+      enabled_adapters: adapters.filter((i) => i.enabled).length,
+      ready_adapters: adapters.filter((i) => i.readiness === "ready").length,
+      blockers, warnings, source, evaluated_at: new Date().toISOString()
     },
-    adapters,
-    findings
+    adapters, findings
   };
 }
 
@@ -138,40 +132,41 @@ function resolveAdapter(
   };
 }
 
-function resolveEnvDefaults(adapter: ObservabilityAdapter): {
-  enabled: boolean;
-  endpoint_url: string | null;
-  ingest_token_present: boolean | null;
-  hosted_by: AdapterHostedBy;
-} {
-  if (adapter === "otlp") {
-    return {
-      enabled: parseBooleanEnv(process.env.OBSERVABILITY_OTLP_ENABLED, false),
-      endpoint_url: normalizeEndpoint(process.env.OBSERVABILITY_OTLP_ENDPOINT),
-      ingest_token_present: resolveTokenPresence(process.env.OBSERVABILITY_OTLP_TOKEN),
-      hosted_by: normalizeHostedBy(process.env.OBSERVABILITY_OTLP_HOSTED_BY)
-    };
-  }
-  if (adapter === "sentry") {
-    const endpoint = process.env.OBSERVABILITY_SENTRY_ENDPOINT ?? process.env.SENTRY_DSN ?? "";
-    const token = process.env.OBSERVABILITY_SENTRY_TOKEN ?? process.env.SENTRY_AUTH_TOKEN ?? "";
-    return {
-      enabled: parseBooleanEnv(process.env.OBSERVABILITY_SENTRY_ENABLED, false),
-      endpoint_url: normalizeEndpoint(endpoint),
-      ingest_token_present: resolveTokenPresence(token),
-      hosted_by: normalizeHostedBy(process.env.OBSERVABILITY_SENTRY_HOSTED_BY)
-    };
-  }
+type EnvDefaults = { enabled: boolean; endpoint_url: string | null; ingest_token_present: boolean | null; hosted_by: AdapterHostedBy };
+
+function resolveOtlpEnvDefaults(): EnvDefaults {
+  return {
+    enabled: parseBooleanEnv(process.env.OBSERVABILITY_OTLP_ENABLED, false),
+    endpoint_url: normalizeEndpoint(process.env.OBSERVABILITY_OTLP_ENDPOINT),
+    ingest_token_present: resolveTokenPresence(process.env.OBSERVABILITY_OTLP_TOKEN),
+    hosted_by: normalizeHostedBy(process.env.OBSERVABILITY_OTLP_HOSTED_BY)
+  };
+}
+
+function resolveSentryEnvDefaults(): EnvDefaults {
+  const endpoint = process.env.OBSERVABILITY_SENTRY_ENDPOINT ?? process.env.SENTRY_DSN ?? "";
+  const token = process.env.OBSERVABILITY_SENTRY_TOKEN ?? process.env.SENTRY_AUTH_TOKEN ?? "";
+  return {
+    enabled: parseBooleanEnv(process.env.OBSERVABILITY_SENTRY_ENABLED, false),
+    endpoint_url: normalizeEndpoint(endpoint),
+    ingest_token_present: resolveTokenPresence(token),
+    hosted_by: normalizeHostedBy(process.env.OBSERVABILITY_SENTRY_HOSTED_BY)
+  };
+}
+
+function resolveSignozEnvDefaults(): EnvDefaults {
   return {
     enabled: parseBooleanEnv(process.env.OBSERVABILITY_SIGNOZ_ENABLED, false),
-    endpoint_url: normalizeEndpoint(
-      process.env.OBSERVABILITY_SIGNOZ_ENDPOINT ?? process.env.SIGNOZ_INGEST_ENDPOINT ?? ""
-    ),
-    ingest_token_present: resolveTokenPresence(
-      process.env.OBSERVABILITY_SIGNOZ_TOKEN ?? process.env.SIGNOZ_INGEST_TOKEN ?? ""
-    ),
+    endpoint_url: normalizeEndpoint(process.env.OBSERVABILITY_SIGNOZ_ENDPOINT ?? process.env.SIGNOZ_INGEST_ENDPOINT ?? ""),
+    ingest_token_present: resolveTokenPresence(process.env.OBSERVABILITY_SIGNOZ_TOKEN ?? process.env.SIGNOZ_INGEST_TOKEN ?? ""),
     hosted_by: normalizeHostedBy(process.env.OBSERVABILITY_SIGNOZ_HOSTED_BY)
   };
+}
+
+function resolveEnvDefaults(adapter: ObservabilityAdapter): EnvDefaults {
+  if (adapter === "otlp") return resolveOtlpEnvDefaults();
+  if (adapter === "sentry") return resolveSentryEnvDefaults();
+  return resolveSignozEnvDefaults();
 }
 
 function applyGlobalProfileChecks(

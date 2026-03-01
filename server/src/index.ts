@@ -2,16 +2,14 @@ import "dotenv/config";
 import * as path from "path";
 import Fastify from "fastify";
 import { PrismaClient } from "@prisma/client";
-import { AdminPermissionKeys } from "./adminRbacBootstrap";
+import { AdminPermissionKeys, ADMIN_PERMISSION_KEYS } from "./adminRbacBootstrap";
 import { registerAffiliateRoutes } from "./affiliateRoutes";
 import { registerAccountRoutes } from "./accountRoutes";
 import { registerAdminRoutes } from "./adminRoutes";
 import { registerAuthRoutes } from "./authRoutes";
-import {
-  buildEntitlementClaims,
-  resolveEffectivePlan
-} from "./entitlementHelpers";
-import { sanitizeLogText, sanitizeLogValue } from "./logSanitization";
+import { buildEntitlementClaims, resolveEffectivePlan } from "./entitlementHelpers";
+import { registerPlanRoutes } from "./planRoutes";
+import { sanitizeLogValue } from "./logSanitization";
 import { registerGovernanceRoutes } from "./governanceRoutes";
 import { createGovernanceHelpers } from "./governanceHelpers";
 import { createOAuthHelpers } from "./oauthHelpers";
@@ -21,6 +19,12 @@ import { registerPolicyRoutes } from "./policyRoutes";
 import { createSessionAuthHelpers } from "./sessionAuthHelpers";
 import { createSlackIntegration } from "./slackIntegration";
 import { registerSlackRoutes } from "./slackRoutes";
+import { registerOfflinePackRoutes } from "./offlinePackRoutes";
+import { registerEnforcementAuditRoutes } from "./enforcementAuditRoutes";
+import { registerHealthRoutes } from "./healthRoutes";
+import { PACK_VERSIONS } from "./policyPackRegistry";
+import { runProductionReadinessCheck } from "./productionReadiness";
+import { createSafeLoggers } from "./safeLogging";
 import { createSubscriptionHelpers } from "./subscriptionHelpers";
 import { PrismaStateStore } from "./prismaStore";
 import { configureServerRuntime } from "./serverRuntimeSetup";
@@ -55,6 +59,7 @@ import {
   hasActiveTeamSeat,
   resolveTeamAccessForUser
 } from "./teamHelpers";
+const NODE_ENV = (process.env.NODE_ENV ?? "development").trim().toLowerCase();
 const PORT = Number(process.env.PORT ?? "8787");
 const HOST = process.env.HOST ?? "127.0.0.1";
 const ADMIN_KEY = process.env.ADMIN_KEY ?? "dev-admin-key";
@@ -81,7 +86,10 @@ const OAUTH_CALLBACK_ORIGINS = parseOriginList(
   PUBLIC_BASE_URL
 );
 const ENABLE_EMAIL_OTP = parseBooleanEnv(process.env.ENABLE_EMAIL_OTP, true);
-const EXPOSE_DEV_OTP_CODE = parseBooleanEnv(process.env.EXPOSE_DEV_OTP_CODE, true);
+const EXPOSE_DEV_OTP_CODE = parseBooleanEnv(
+  process.env.EXPOSE_DEV_OTP_CODE,
+  NODE_ENV !== "production"
+);
 const SUPER_ADMIN_EMAILS = parseEmailAllowList(process.env.SUPER_ADMIN_EMAILS);
 const SUPER_ADMIN_SOURCE = parseSuperAdminSource(process.env.SUPER_ADMIN_SOURCE);
 const ADMIN_AUTH_MODE = parseAdminAuthMode(process.env.ADMIN_AUTH_MODE);
@@ -93,43 +101,27 @@ const SESSION_COOKIE_NAME = (process.env.SESSION_COOKIE_NAME ?? "pg_session").tr
 const SESSION_COOKIE_SECURE = parseBooleanEnv(process.env.SESSION_COOKIE_SECURE, false);
 const SESSION_COOKIE_SAME_SITE = parseCookieSameSite(process.env.SESSION_COOKIE_SAMESITE, "lax");
 const AUTH_START_RATE_LIMIT_MAX = parsePositiveInt(process.env.AUTH_START_RATE_LIMIT_MAX, 20);
-const AUTH_START_RATE_LIMIT_WINDOW =
-  (process.env.AUTH_START_RATE_LIMIT_WINDOW ?? "1 hour").trim() || "1 hour";
+const AUTH_START_RATE_LIMIT_WINDOW = (process.env.AUTH_START_RATE_LIMIT_WINDOW ?? "1 hour").trim() || "1 hour";
 const AUTH_VERIFY_RATE_LIMIT_MAX = parsePositiveInt(process.env.AUTH_VERIFY_RATE_LIMIT_MAX, 5);
-const AUTH_VERIFY_RATE_LIMIT_WINDOW =
-  (process.env.AUTH_VERIFY_RATE_LIMIT_WINDOW ?? "5 hours").trim() || "5 hours";
+const AUTH_VERIFY_RATE_LIMIT_WINDOW = (process.env.AUTH_VERIFY_RATE_LIMIT_WINDOW ?? "5 hours").trim() || "5 hours";
 const ADMIN_ROUTE_PREFIX = normalizeAdminRoutePrefix(process.env.ADMIN_ROUTE_PREFIX);
 const GOVERNANCE_ALLOW_PRO = parseBooleanEnv(process.env.GOVERNANCE_ALLOW_PRO, false);
-const GOVERNANCE_DEFAULT_RETENTION_DAYS = clampInt(
-  parsePositiveInt(process.env.GOVERNANCE_DEFAULT_RETENTION_DAYS, 7),
-  1,
-  90
-);
+const GOVERNANCE_DEFAULT_RETENTION_DAYS = clampInt(parsePositiveInt(process.env.GOVERNANCE_DEFAULT_RETENTION_DAYS, 7), 1, 90);
 const GOVERNANCE_MIN_RETENTION_DAYS = 1;
 const GOVERNANCE_MAX_RETENTION_DAYS = 90;
-const GOVERNANCE_DEFAULT_MAX_DEBATE_CHARS = clampInt(
-  parsePositiveInt(process.env.GOVERNANCE_DEFAULT_MAX_DEBATE_CHARS, 4000),
-  500,
-  16000
-);
+const GOVERNANCE_DEFAULT_MAX_DEBATE_CHARS = clampInt(parsePositiveInt(process.env.GOVERNANCE_DEFAULT_MAX_DEBATE_CHARS, 4000), 500, 16000);
 const GOVERNANCE_MIN_DEBATE_CHARS = 500;
 const GOVERNANCE_MAX_DEBATE_CHARS = 16000;
-const GOVERNANCE_SLACK_ADDON_SEAT_PRICE_CENTS = parsePositiveInt(
-  process.env.GOVERNANCE_SLACK_ADDON_SEAT_PRICE_CENTS,
-  2500
-);
+const GOVERNANCE_SLACK_ADDON_SEAT_PRICE_CENTS = parsePositiveInt(process.env.GOVERNANCE_SLACK_ADDON_SEAT_PRICE_CENTS, 2500);
 const STORE_BACKEND = parseStoreBackend(process.env.STORE_BACKEND);
+const SERVER_STARTED_AT = new Date();
 const SLACK_COMMANDS_ENABLED = parseBooleanEnv(process.env.SLACK_COMMANDS_ENABLED, false);
 const SLACK_SIGNING_SECRET = (process.env.SLACK_SIGNING_SECRET ?? "").trim();
 const SLACK_BOT_TOKEN = (process.env.SLACK_BOT_TOKEN ?? "").trim();
 const SLACK_WEBHOOK_URL = (process.env.SLACK_WEBHOOK_URL ?? "").trim();
 const SLACK_ALLOWED_TEAM_IDS = parseStringAllowList(process.env.SLACK_ALLOWED_TEAM_IDS);
 const SLACK_ALLOWED_EMAILS = parseEmailAllowList(process.env.SLACK_ALLOWED_EMAILS);
-const SLACK_REQUEST_MAX_AGE_SECONDS = clampInt(
-  parsePositiveInt(process.env.SLACK_REQUEST_MAX_AGE_SECONDS, 300),
-  30,
-  900
-);
+const SLACK_REQUEST_MAX_AGE_SECONDS = clampInt(parsePositiveInt(process.env.SLACK_REQUEST_MAX_AGE_SECONDS, 300), 30, 900);
 const CLOUDFLARE_ACCESS_ENABLED = parseBooleanEnv(process.env.CLOUDFLARE_ACCESS_ENABLED, false);
 const CLOUDFLARE_ACCESS_TEAM_DOMAIN = (process.env.CLOUDFLARE_ACCESS_TEAM_DOMAIN ?? "")
   .trim()
@@ -140,18 +132,7 @@ const CLOUDFLARE_ACCESS_JWKS_TTL_SECONDS = clampInt(
   60,
   3600
 );
-const ADMIN_PERMISSION_KEYS: AdminPermissionKeys = {
-  BOARD_READ: "board.read",
-  BOARD_SUPPORT_WRITE: "board.support.write",
-  BOARD_SUBSCRIPTION_WRITE: "board.subscription.write",
-  BOARD_SESSION_REVOKE: "board.session.revoke",
-  REFUND_APPROVE: "refund.approve",
-  SUBSCRIPTION_GRANT: "subscription.grant",
-  TEAM_MANAGE: "team.manage",
-  PROVIDER_POLICY_MANAGE: "provider_policy.manage",
-  OFFLINE_PAYMENT_REVIEW: "offline.review",
-  AFFILIATE_MANAGE: "affiliate.manage"
-} as const;
+
 const CHECKOUT_SUCCESS_URL =
   (process.env.CHECKOUT_SUCCESS_URL ?? `${PUBLIC_BASE_URL}/checkout/success`).trim();
 const CHECKOUT_CANCEL_URL =
@@ -167,19 +148,7 @@ const app = Fastify({ logger: true, trustProxy: true });
 const prisma = new PrismaClient();
 const store: StateStore =
   STORE_BACKEND === "prisma" ? new PrismaStateStore(prisma) : new JsonStore(STORE_PATH);
-function makeSafeLog(level: "info" | "warn" | "error") {
-  return (message: string, context?: Record<string, unknown>): void => {
-    const sm = sanitizeLogText(message, 600);
-    if (context) {
-      app.log[level](sanitizeLogValue(context) as Record<string, unknown>, sm);
-      return;
-    }
-    app.log[level](sm);
-  };
-}
-const safeLogInfo = makeSafeLog("info");
-const safeLogWarn = makeSafeLog("warn");
-const safeLogError = makeSafeLog("error");
+const { safeLogInfo, safeLogWarn, safeLogError } = createSafeLoggers(app.log);
 
 const gov = createGovernanceHelpers({
   GOVERNANCE_ALLOW_PRO,
@@ -293,18 +262,37 @@ const slack = createSlackIntegration({
   getObject
 });
 
+function buildProductionReadinessConfig() {
+  return {
+    nodeEnv: NODE_ENV, storeBackend: STORE_BACKEND, adminKey: ADMIN_KEY,
+    stripeSecretKey: STRIPE_SECRET_KEY, stripeWebhookSecret: STRIPE_WEBHOOK_SECRET,
+    githubClientId: GITHUB_CLIENT_ID, githubClientSecret: GITHUB_CLIENT_SECRET,
+    googleClientId: GOOGLE_CLIENT_ID, googleClientSecret: GOOGLE_CLIENT_SECRET,
+    sessionCookieSecure: SESSION_COOKIE_SECURE, exposeDevOtpCode: EXPOSE_DEV_OTP_CODE,
+    adminAuthMode: ADMIN_AUTH_MODE, publicBaseUrl: PUBLIC_BASE_URL,
+    databaseUrl: process.env.DATABASE_URL ?? "",
+    slackSigningSecret: SLACK_SIGNING_SECRET, slackCommandsEnabled: SLACK_COMMANDS_ENABLED,
+    host: HOST, port: PORT
+  };
+}
+
+function buildRuntimeConfig() {
+  return {
+    publicDir: PUBLIC_DIR, cloudflareAccessEnabled: CLOUDFLARE_ACCESS_ENABLED,
+    cloudflareAccessTeamDomain: CLOUDFLARE_ACCESS_TEAM_DOMAIN,
+    cloudflareAccessAud: CLOUDFLARE_ACCESS_AUD,
+    corsOrigins: OAUTH_CALLBACK_ORIGINS, nodeEnv: NODE_ENV,
+    onWarn: (message: string) => safeLogWarn(message)
+  };
+}
+
 async function bootstrap(): Promise<void> {
+  runProductionReadinessCheck(buildProductionReadinessConfig(), safeLogWarn, safeLogError);
   safeLogInfo("Database target resolved", { database_target: DATABASE_TARGET });
   await store.initialize();
   safeLogInfo("Store initialized", { store_backend: STORE_BACKEND });
   await ensureAdminRbacBaselineSafely();
-  await configureServerRuntime(app, {
-    publicDir: PUBLIC_DIR,
-    cloudflareAccessEnabled: CLOUDFLARE_ACCESS_ENABLED,
-    cloudflareAccessTeamDomain: CLOUDFLARE_ACCESS_TEAM_DOMAIN,
-    cloudflareAccessAud: CLOUDFLARE_ACCESS_AUD,
-    onWarn: (message) => safeLogWarn(message)
-  });
+  await configureServerRuntime(app, buildRuntimeConfig());
   registerAllRoutes();
   await app.listen({ port: PORT, host: HOST });
   safeLogInfo(`Narrate licensing server started on http://${HOST}:${PORT}`);
@@ -320,6 +308,15 @@ async function ensureAdminRbacBaselineSafely(): Promise<void> {
   }
 }
 function registerAllRoutes(): void {
+  registerStaticPageRoutes();
+  registerInfraRoutes();
+  registerAuthAndAccountRoutes();
+  registerPolicyAndEnforcementRoutes();
+  registerTeamAndGovernanceRoutes();
+  registerPaymentAndAffiliateRoutes();
+}
+
+function registerStaticPageRoutes(): void {
   const staticPages: Array<[string, string]> = [
     ["/", "index.html"],
     ["/terms", "terms.html"],
@@ -328,16 +325,24 @@ function registerAllRoutes(): void {
     ["/checkout/cancel", "checkout-cancel.html"],
     ["/oauth/github/complete", "oauth-complete.html"],
     ["/oauth/google/complete", "oauth-complete.html"],
-    ["/app", "app.html"]
+    ["/app", "app.html"],
+    ["/help", "help.html"]
   ];
   for (const [route, file] of staticPages) {
     app.get(route, async (_request, reply) => {
       return reply.type("text/html; charset=utf-8").sendFile(file);
     });
   }
+}
 
-  app.get("/health", async () => ({ ok: true }));
-
+function registerInfraRoutes(): void {
+  registerHealthRoutes(app, {
+    storeBackend: STORE_BACKEND,
+    nodeEnv: NODE_ENV,
+    startedAt: SERVER_STARTED_AT,
+    checkStoreReady: () => store.checkReady()
+  });
+  registerPlanRoutes(app);
   registerSlackRoutes(app, {
     slackCommandsEnabled: SLACK_COMMANDS_ENABLED,
     slackSigningSecret: SLACK_SIGNING_SECRET,
@@ -349,149 +354,116 @@ function registerAllRoutes(): void {
     getOrCreateUserByEmail,
     getString
   });
-  registerAuthRoutes(app, {
-    store,
-    githubClientId: GITHUB_CLIENT_ID,
-    githubClientSecret: GITHUB_CLIENT_SECRET,
-    githubRedirectUri: GITHUB_REDIRECT_URI,
-    googleClientId: GOOGLE_CLIENT_ID,
-    googleClientSecret: GOOGLE_CLIENT_SECRET,
-    googleRedirectUri: GOOGLE_REDIRECT_URI,
-    sessionTtlHours: SESSION_TTL_HOURS,
-    oauthStateTtlMinutes: OAUTH_STATE_TTL_MINUTES,
-    enableEmailOtp: ENABLE_EMAIL_OTP,
-    exposeDevOtpCode: EXPOSE_DEV_OTP_CODE,
-    authStartRateLimitMax: AUTH_START_RATE_LIMIT_MAX,
-    authStartRateLimitWindow: AUTH_START_RATE_LIMIT_WINDOW,
-    authVerifyRateLimitMax: AUTH_VERIFY_RATE_LIMIT_MAX,
-    authVerifyRateLimitWindow: AUTH_VERIFY_RATE_LIMIT_WINDOW,
+}
+
+function buildAuthDeps() {
+  return {
+    store, githubClientId: GITHUB_CLIENT_ID, githubClientSecret: GITHUB_CLIENT_SECRET,
+    githubRedirectUri: GITHUB_REDIRECT_URI, googleClientId: GOOGLE_CLIENT_ID,
+    googleClientSecret: GOOGLE_CLIENT_SECRET, googleRedirectUri: GOOGLE_REDIRECT_URI,
+    sessionTtlHours: SESSION_TTL_HOURS, oauthStateTtlMinutes: OAUTH_STATE_TTL_MINUTES,
+    enableEmailOtp: ENABLE_EMAIL_OTP, exposeDevOtpCode: EXPOSE_DEV_OTP_CODE,
+    authStartRateLimitMax: AUTH_START_RATE_LIMIT_MAX, authStartRateLimitWindow: AUTH_START_RATE_LIMIT_WINDOW,
+    authVerifyRateLimitMax: AUTH_VERIFY_RATE_LIMIT_MAX, authVerifyRateLimitWindow: AUTH_VERIFY_RATE_LIMIT_WINDOW,
     governanceAllowPro: GOVERNANCE_ALLOW_PRO,
     governanceSlackAddonSeatPriceCents: GOVERNANCE_SLACK_ADDON_SEAT_PRICE_CENTS,
-    isAllowedOAuthCallbackUrl,
-    consumeOAuthState,
-    exchangeGitHubOAuthCode,
-    exchangeGoogleOAuthCode,
-    fetchGitHubProfile,
-    fetchGoogleProfile,
-    resolveGitHubPrimaryEmail,
-    getOrCreateUserByEmail,
-    replyAfterOAuth,
-    setSessionCookie,
-    clearSessionCookie,
-    getSessionTokenFromCookie
-  });
-  registerAccountRoutes(app, {
-    store,
-    requireAuth,
-    issueEntitlement,
-    trialDurationHours: TRIAL_DURATION_HOURS,
-    sessionTtlHours: SESSION_TTL_HOURS,
-    supportsGovernancePlan: gov.supportsGovernancePlan,
-    getSuperAdminEmailSet,
-    resolveAdminAccessFromDb,
+    isAllowedOAuthCallbackUrl, consumeOAuthState, exchangeGitHubOAuthCode, exchangeGoogleOAuthCode,
+    fetchGitHubProfile, fetchGoogleProfile, resolveGitHubPrimaryEmail,
+    getOrCreateUserByEmail, replyAfterOAuth, setSessionCookie, clearSessionCookie, getSessionTokenFromCookie
+  };
+}
+
+function buildAccountDeps() {
+  return {
+    store, requireAuth, issueEntitlement, trialDurationHours: TRIAL_DURATION_HOURS,
+    sessionTtlHours: SESSION_TTL_HOURS, supportsGovernancePlan: gov.supportsGovernancePlan,
+    getSuperAdminEmailSet, resolveAdminAccessFromDb,
     governanceSeatPriceCents: GOVERNANCE_SLACK_ADDON_SEAT_PRICE_CENTS,
-    adminRoutePrefix: ADMIN_ROUTE_PREFIX,
-    cloudflareAccessEnabled: CLOUDFLARE_ACCESS_ENABLED,
-    boardReadPermission: ADMIN_PERMISSION_KEYS.BOARD_READ,
-    safeLogWarn,
-    toErrorMessage
-  });
+    adminRoutePrefix: ADMIN_ROUTE_PREFIX, cloudflareAccessEnabled: CLOUDFLARE_ACCESS_ENABLED,
+    boardReadPermission: ADMIN_PERMISSION_KEYS.BOARD_READ, safeLogWarn, toErrorMessage
+  };
+}
+
+function registerAuthAndAccountRoutes(): void {
+  registerAuthRoutes(app, buildAuthDeps());
+  registerAccountRoutes(app, buildAccountDeps());
+}
+
+function registerPolicyAndEnforcementRoutes(): void {
   registerPolicyRoutes(app, {
-    requireAuth,
-    safeLogInfo
+    requireAuth, safeLogInfo, store, resolveEffectivePlan, requireAdminPermission,
+    adminPermissionKeys: ADMIN_PERMISSION_KEYS, adminRoutePrefix: ADMIN_ROUTE_PREFIX
   });
-  registerTeamRoutes(app, {
-    store,
-    requireAuth,
-    getOrCreateUserByEmail,
-    grantSubscriptionByUserId,
-    upsertProviderPolicy
+  registerEnforcementAuditRoutes(app, {
+    requireAuth, safeLogInfo, store, requireAdminPermission,
+    adminPermissionKeys: ADMIN_PERMISSION_KEYS, adminRoutePrefix: ADMIN_ROUTE_PREFIX
   });
-  registerGovernanceRoutes(app, {
-    requireAuth,
-    store,
-    resolveGovernanceContextForUser: gov.resolveGovernanceContextForUser,
-    getGovernanceSettingsForScope: gov.getGovernanceSettingsForScope,
-    buildDefaultGovernanceSettings: gov.buildDefaultGovernanceSettings,
-    governanceSlackAddonSeatPriceCents: GOVERNANCE_SLACK_ADDON_SEAT_PRICE_CENTS,
-    upsertGovernanceSettings: gov.upsertGovernanceSettings,
-    normalizeGovernanceVoteMode: gov.normalizeGovernanceVoteMode,
-    pruneGovernanceState: gov.pruneGovernanceState,
-    dispatchSlackGovernanceNotification: slack.dispatchSlackGovernanceNotification,
-    normalizeStringList: gov.normalizeStringList,
-    normalizeIsoDateOrNull: gov.normalizeIsoDateOrNull,
-    parseMastermindOptionsInput: gov.parseMastermindOptionsInput,
+  registerOfflinePackRoutes(app, {
+    requireAuth, store, resolveEffectivePlan, requireAdminPermission,
+    adminPermissionKeys: ADMIN_PERMISSION_KEYS, adminRoutePrefix: ADMIN_ROUTE_PREFIX,
+    packVersions: PACK_VERSIONS, safeLogInfo, safeLogWarn, toErrorMessage
+  });
+}
+
+function buildGovernanceDeps() {
+  return {
+    requireAuth, store, resolveGovernanceContextForUser: gov.resolveGovernanceContextForUser,
+    getGovernanceSettingsForScope: gov.getGovernanceSettingsForScope, buildDefaultGovernanceSettings: gov.buildDefaultGovernanceSettings,
+    governanceSlackAddonSeatPriceCents: GOVERNANCE_SLACK_ADDON_SEAT_PRICE_CENTS, upsertGovernanceSettings: gov.upsertGovernanceSettings,
+    normalizeGovernanceVoteMode: gov.normalizeGovernanceVoteMode, pruneGovernanceState: gov.pruneGovernanceState,
+    dispatchSlackGovernanceNotification: slack.dispatchSlackGovernanceNotification, normalizeStringList: gov.normalizeStringList,
+    normalizeIsoDateOrNull: gov.normalizeIsoDateOrNull, parseMastermindOptionsInput: gov.parseMastermindOptionsInput,
     applyMastermindThreadCreateStateUpdate: slack.applyMastermindThreadCreateStateUpdate,
-    canAccessGovernanceThread: gov.canAccessGovernanceThread,
-    buildMastermindThreadDetail: gov.buildMastermindThreadDetail,
-    normalizeMastermindEntryType: gov.normalizeMastermindEntryType,
-    resolveGovernanceSettingsForThread: gov.resolveGovernanceSettingsForThread,
-    addDays,
-    normalizeMastermindDecision: gov.normalizeMastermindDecision,
-    applySlackDecisionStateUpdate: slack.applySlackDecisionStateUpdate,
-    toErrorMessage,
-    buildMastermindVoteTally: gov.buildMastermindVoteTally,
-    clampInt,
-    hasActiveTeamSeat,
-    setGovernanceSlackAddonState: gov.setGovernanceSlackAddonState,
-    requireAdminPermission,
-    adminPermissionKeys: ADMIN_PERMISSION_KEYS,
-    adminRoutePrefix: ADMIN_ROUTE_PREFIX,
-    getSuperAdminEmailSet,
-    resolveEffectivePlan,
-    safeLogWarn,
-    normalizeEmail
-  });
-  registerAdminRoutes(app, {
-    store,
-    requireAdminPermission,
-    adminPermissionKeys: ADMIN_PERMISSION_KEYS,
-    adminRoutePrefix: ADMIN_ROUTE_PREFIX,
-    getOrCreateUserByEmail,
-    grantSubscriptionByEmail,
-    grantSubscriptionByUserId,
-    upsertProviderPolicy
-  });
-  registerPaymentsRoutes(app, {
-    requireAuth,
-    store,
-    stripeSecretKey: STRIPE_SECRET_KEY,
-    stripeWebhookSecret: STRIPE_WEBHOOK_SECRET,
-    checkoutSuccessUrl: CHECKOUT_SUCCESS_URL,
-    checkoutCancelUrl: CHECKOUT_CANCEL_URL,
-    resolveStripePriceId,
-    safeJson,
-    verifyStripeSignature,
-    getObject,
-    getString,
-    normalizeEmail,
-    asPaidPlanTier,
-    asModuleScope,
-    getNumber,
-    grantSubscriptionByEmail,
-    recordAffiliatePaidConversion,
-    addDays,
-    offlineRefTtlDays: OFFLINE_REF_TTL_DAYS,
-    generateCode,
-    requireAdminPermission,
-    adminPermissionKeys: ADMIN_PERMISSION_KEYS,
-    adminRoutePrefix: ADMIN_ROUTE_PREFIX,
-    grantSubscriptionByUserId,
-    toErrorMessage
-  });
-  registerAffiliateRoutes(app, {
-    requireAuth,
-    store,
-    clampCommissionRate,
-    defaultAffiliateRateBps: DEFAULT_AFFILIATE_RATE_BPS,
-    generateCode,
-    normalizeEmail,
-    requireAdminPermission,
-    adminPermissionKeys: ADMIN_PERMISSION_KEYS,
-    adminRoutePrefix: ADMIN_ROUTE_PREFIX,
-    recordAffiliatePaidConversion,
-    toErrorMessage
-  });
+    canAccessGovernanceThread: gov.canAccessGovernanceThread, buildMastermindThreadDetail: gov.buildMastermindThreadDetail,
+    normalizeMastermindEntryType: gov.normalizeMastermindEntryType, resolveGovernanceSettingsForThread: gov.resolveGovernanceSettingsForThread,
+    addDays, normalizeMastermindDecision: gov.normalizeMastermindDecision,
+    applySlackDecisionStateUpdate: slack.applySlackDecisionStateUpdate, toErrorMessage,
+    buildMastermindVoteTally: gov.buildMastermindVoteTally, clampInt, hasActiveTeamSeat,
+    setGovernanceSlackAddonState: gov.setGovernanceSlackAddonState, requireAdminPermission,
+    adminPermissionKeys: ADMIN_PERMISSION_KEYS, adminRoutePrefix: ADMIN_ROUTE_PREFIX,
+    getSuperAdminEmailSet, resolveEffectivePlan, safeLogWarn, normalizeEmail
+  };
+}
+
+function buildAdminDeps() {
+  return {
+    store, requireAdminPermission, adminPermissionKeys: ADMIN_PERMISSION_KEYS,
+    adminRoutePrefix: ADMIN_ROUTE_PREFIX, getOrCreateUserByEmail,
+    grantSubscriptionByEmail, grantSubscriptionByUserId, upsertProviderPolicy
+  };
+}
+
+function registerTeamAndGovernanceRoutes(): void {
+  registerTeamRoutes(app, { store, requireAuth, getOrCreateUserByEmail, grantSubscriptionByUserId, upsertProviderPolicy });
+  registerGovernanceRoutes(app, buildGovernanceDeps());
+  registerAdminRoutes(app, buildAdminDeps());
+}
+
+function buildPaymentsDeps() {
+  return {
+    requireAuth, store, stripeSecretKey: STRIPE_SECRET_KEY,
+    stripeWebhookSecret: STRIPE_WEBHOOK_SECRET, checkoutSuccessUrl: CHECKOUT_SUCCESS_URL,
+    checkoutCancelUrl: CHECKOUT_CANCEL_URL, resolveStripePriceId, safeJson,
+    verifyStripeSignature, getObject, getString, normalizeEmail, asPaidPlanTier,
+    asModuleScope, getNumber, grantSubscriptionByEmail, recordAffiliatePaidConversion,
+    addDays, offlineRefTtlDays: OFFLINE_REF_TTL_DAYS, generateCode,
+    requireAdminPermission, adminPermissionKeys: ADMIN_PERMISSION_KEYS,
+    adminRoutePrefix: ADMIN_ROUTE_PREFIX, grantSubscriptionByUserId, toErrorMessage
+  };
+}
+
+function buildAffiliateDeps() {
+  return {
+    requireAuth, store, clampCommissionRate,
+    defaultAffiliateRateBps: DEFAULT_AFFILIATE_RATE_BPS, generateCode, normalizeEmail,
+    requireAdminPermission, adminPermissionKeys: ADMIN_PERMISSION_KEYS,
+    adminRoutePrefix: ADMIN_ROUTE_PREFIX, recordAffiliatePaidConversion, toErrorMessage
+  };
+}
+
+function registerPaymentAndAffiliateRoutes(): void {
+  registerPaymentsRoutes(app, buildPaymentsDeps());
+  registerAffiliateRoutes(app, buildAffiliateDeps());
 }
 bootstrap().catch((error) => {
   console.error(sanitizeLogValue(error));

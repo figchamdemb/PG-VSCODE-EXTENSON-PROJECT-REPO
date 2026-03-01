@@ -13,79 +13,57 @@ import {
 } from "./apiContractTypes";
 
 export function registerRunApiContractValidatorCommand(
-  gates: FeatureGateService,
-  logger: Logger
+  gates: FeatureGateService, logger: Logger
 ): vscode.Disposable {
-  const runCommand = vscode.commands.registerCommand("narrate.runApiContractValidator", async () => {
+  return vscode.Disposable.from(
+    registerRunValidatorCommand(gates, logger),
+    registerApiCheckAlias(),
+    registerApiHandoffCommand(gates, logger)
+  );
+}
+
+function registerRunValidatorCommand(gates: FeatureGateService, logger: Logger): vscode.Disposable {
+  return vscode.commands.registerCommand("narrate.runApiContractValidator", async () => {
     const execution = await runValidatorExecution(gates, logger);
-    if (!execution) {
-      return;
-    }
+    if (!execution) return;
     await openApiReportDocument(execution.workspace, execution.result);
     showApiSummary(execution.result);
   });
+}
 
-  const openApiCheckAlias = vscode.commands.registerCommand("narrate.openApiCheck", async () => {
-    await vscode.commands.executeCommand("narrate.runApiContractValidator");
-  });
-
-  const openApiHandoffCommand = vscode.commands.registerCommand(
-    "narrate.openApiFixHandoff",
-    async () => {
-      const execution = await runValidatorExecution(gates, logger);
-      if (!execution) {
-        return;
-      }
-      const prompt = buildApiContractHandoffPrompt(
-        execution.workspace.uri.fsPath,
-        execution.result
-      );
-      await vscode.env.clipboard.writeText(prompt);
-      const promptDoc = await vscode.workspace.openTextDocument({
-        language: "markdown",
-        content: prompt
-      });
-      await vscode.window.showTextDocument(promptDoc, { preview: false, viewColumn: vscode.ViewColumn.Beside });
-      void vscode.window.showInformationMessage(
-        "Narrate: OpenAPI fix handoff prompt copied to clipboard."
-      );
-    }
+function registerApiCheckAlias(): vscode.Disposable {
+  return vscode.commands.registerCommand("narrate.openApiCheck", () =>
+    vscode.commands.executeCommand("narrate.runApiContractValidator")
   );
+}
 
-  return vscode.Disposable.from(runCommand, openApiCheckAlias, openApiHandoffCommand);
+function registerApiHandoffCommand(gates: FeatureGateService, logger: Logger): vscode.Disposable {
+  return vscode.commands.registerCommand("narrate.openApiFixHandoff", async () => {
+    const execution = await runValidatorExecution(gates, logger);
+    if (!execution) return;
+    const prompt = buildApiContractHandoffPrompt(execution.workspace.uri.fsPath, execution.result);
+    await vscode.env.clipboard.writeText(prompt);
+    const doc = await vscode.workspace.openTextDocument({ language: "markdown", content: prompt });
+    await vscode.window.showTextDocument(doc, { preview: false, viewColumn: vscode.ViewColumn.Beside });
+    void vscode.window.showInformationMessage("Narrate: OpenAPI fix handoff prompt copied to clipboard.");
+  });
 }
 
 async function runValidatorExecution(
-  gates: FeatureGateService,
-  logger: Logger
+  gates: FeatureGateService, logger: Logger
 ): Promise<{ workspace: vscode.WorkspaceFolder; result: ApiContractValidationResult } | undefined> {
-  const allowed = await gates.requireProFeature("API Contract Validator");
-  if (!allowed) {
-    return undefined;
-  }
-
+  if (!(await gates.requireProFeature("API Contract Validator"))) return undefined;
   const workspace = vscode.workspace.workspaceFolders?.[0];
   if (!workspace) {
-    void vscode.window.showWarningMessage(
-      "Narrate: open a workspace folder before running API Contract Validator."
-    );
+    void vscode.window.showWarningMessage("Narrate: open a workspace folder before running API Contract Validator.");
     return undefined;
   }
-
   const settings = getApiContractSettings();
   const result = await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: "Narrate: Running API Contract Validator",
-      cancellable: false
-    },
-    async (progress) => runApiContractValidation(workspace, settings, progress)
+    { location: vscode.ProgressLocation.Notification, title: "Narrate: Running API Contract Validator", cancellable: false },
+    (progress) => runApiContractValidation(workspace, settings, progress)
   );
-
-  logger.info(
-    `API Contract Validator: mismatches=${result.mismatches.length}, unmatched_calls=${result.unmatchedFrontendCalls.length}, source=${result.sourceMode}`
-  );
-
+  logger.info(`API Contract Validator: mismatches=${result.mismatches.length}, unmatched_calls=${result.unmatchedFrontendCalls.length}, source=${result.sourceMode}`);
   return { workspace, result };
 }
 

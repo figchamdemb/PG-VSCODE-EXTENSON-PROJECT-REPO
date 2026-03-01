@@ -9,6 +9,8 @@ interface RuntimeSetupOptions {
   cloudflareAccessEnabled: boolean;
   cloudflareAccessTeamDomain: string;
   cloudflareAccessAud: string;
+  corsOrigins: string[];
+  nodeEnv: string;
   onWarn: (message: string) => void;
 }
 
@@ -16,18 +18,31 @@ export async function configureServerRuntime(
   app: FastifyInstance,
   options: RuntimeSetupOptions
 ): Promise<void> {
-  await registerCorePlugins(app, options.publicDir);
+  await registerCorePlugins(app, options.publicDir, options.corsOrigins, options.nodeEnv);
   registerJsonParser(app);
   registerFormParser(app);
   warnIfCloudflareConfigIncomplete(options);
-  registerSecurityHeaders(app);
+  registerSecurityHeaders(app, options.nodeEnv);
 }
 
-async function registerCorePlugins(app: FastifyInstance, publicDir: string): Promise<void> {
+async function registerCorePlugins(
+  app: FastifyInstance,
+  publicDir: string,
+  corsOrigins: string[],
+  nodeEnv: string
+): Promise<void> {
   await app.register(cookie);
-  await app.register(cors, { origin: true });
+  const isProd = nodeEnv === "production";
+  await app.register(cors, {
+    origin: isProd && corsOrigins.length > 0 ? corsOrigins : true,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie", "X-Requested-With"]
+  });
   await app.register(rateLimit, {
-    global: false,
+    global: true,
+    max: isProd ? 100 : 1000,
+    timeWindow: "1 minute",
     addHeaders: {
       "x-ratelimit-limit": true,
       "x-ratelimit-remaining": true,
@@ -93,15 +108,19 @@ function warnIfCloudflareConfigIncomplete(options: RuntimeSetupOptions): void {
   }
 }
 
-function registerSecurityHeaders(app: FastifyInstance): void {
+function registerSecurityHeaders(app: FastifyInstance, nodeEnv: string): void {
+  const isProd = nodeEnv === "production";
   app.addHook("onSend", async (_request, reply, payload) => {
     reply.header("X-Content-Type-Options", "nosniff");
     reply.header("X-Frame-Options", "DENY");
     reply.header("Referrer-Policy", "same-origin");
     reply.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    if (isProd) {
+      reply.header("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+    }
     reply.header(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     );
     return payload;
   });
