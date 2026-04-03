@@ -2,5 +2,9 @@
   "narrate.licensing.placeholderPlan": "pro",
   "narrate.export.outputDir": ".narrate/exports",
   "narrate.report.outputSubdir": "reports",
-  "narrate.deadCodeScan.pgPushGateMode": "strict"
+  "narrate.deadCodeScan.pgPushGateMode": "strict",
+  "python-envs.defaultEnvManager": "ms-python.python:system",
+  "chat.tools.terminal.autoApprove": {
+    "&": true
+  }
 }

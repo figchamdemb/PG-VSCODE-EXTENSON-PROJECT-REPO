@@ -7,6 +7,7 @@
   <meta name="description" content="PG Narrate governance KPI dashboard — reviewer digest, activity, and decision analytics." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#111113" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{--bg:#111113;--surface:#1a1a1e;--card:#222226;--border:#333;--text:#e4e4e7;--muted:#888;--accent:#7c5cfc;--accent-dim:#5a3fbd;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--blue:#3b82f6;--radius:10px}
@@ -65,6 +66,12 @@
     .tab-bar button{background:transparent;border:none;color:var(--muted);padding:.5rem 1rem;font-size:.9rem;cursor:pointer;border-bottom:2px solid transparent}
     .tab-bar button.active{color:var(--accent);border-bottom-color:var(--accent)}
     .tab-content{display:none}.tab-content.active{display:block}
+    .auth-subtitle{font-size:.85rem;color:var(--muted);margin-bottom:.8rem}
+    .decision-chart{max-width:400px}
+    .empty-row,.empty-copy{color:var(--muted)}
+    .btn-primary{background:var(--accent)!important;color:#fff!important}
+    .btn-secondary{background:transparent!important;color:var(--text)!important;border:1px solid var(--border)!important}
+    .btn-nav{color:var(--muted)}
     /* ── Toast ─────────────────────────────────────────────────── */
     .toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);padding:.6rem 1.2rem;border-radius:8px;font-size:.85rem;z-index:999;opacity:0;transition:opacity .3s}
     .toast.show{opacity:1}
@@ -77,14 +84,14 @@
 <!-- ── Auth Gate ──────────────────────────────────────────────── -->
 <div id="authGate">
   <h2>Governance Dashboard</h2>
-  <p style="font-size:.85rem;color:var(--muted);margin-bottom:.8rem">Sign in to view governance KPIs</p>
+  <p class="auth-subtitle">Sign in to view governance KPIs</p>
   <div id="emailStep">
     <input id="emailInput" type="email" placeholder="Email address" autocomplete="email" />
-    <button id="emailBtn">Send Code</button>
+    <button id="emailBtn" class="btn-primary">Send Code</button>
   </div>
   <div id="codeStep" class="hidden">
     <input id="codeInput" type="text" placeholder="6-digit code" maxlength="10" />
-    <button id="codeBtn">Verify</button>
+    <button id="codeBtn" class="btn-primary">Verify</button>
   </div>
   <div id="authMsg" class="auth-msg"></div>
 </div>
@@ -96,7 +103,7 @@
     <div class="topbar-actions">
       <a href="/reviewer.html">Reviewer</a>
       <a href="/app.html">Portal</a>
-      <button id="signOutBtn">Sign Out</button>
+      <button id="signOutBtn" class="btn-secondary">Sign Out</button>
     </div>
   </header>
 
@@ -112,21 +119,21 @@
       </select>
       <input id="fromInput" type="date" class="hidden" />
       <input id="toInput" type="date" class="hidden" />
-      <button id="refreshBtn">Refresh</button>
+      <button id="refreshBtn" class="btn-primary">Refresh</button>
     </div>
 
     <div class="tab-bar">
-      <button class="active" data-tab="overview">Overview</button>
-      <button data-tab="threads">Threads</button>
-      <button data-tab="eod">EOD Reports</button>
-      <button data-tab="activity">Activity</button>
+      <button class="btn-nav active" data-tab="overview">Overview</button>
+      <button class="btn-nav" data-tab="threads">Threads</button>
+      <button class="btn-nav" data-tab="eod">EOD Reports</button>
+      <button class="btn-nav" data-tab="activity">Activity</button>
     </div>
 
     <!-- Overview tab -->
     <div id="tab-overview" class="tab-content active">
       <div id="kpiGrid" class="kpi-grid"></div>
       <h3 class="section-title">Decisions by Type</h3>
-      <div id="decisionChart" class="kpi-grid" style="max-width:400px"></div>
+      <div id="decisionChart" class="kpi-grid decision-chart"></div>
     </div>
 
     <!-- Threads tab -->
@@ -296,14 +303,14 @@
       `<td>${t.decision ? `<span class="badge badge-${t.decision}">${t.decision}</span>` : "—"}</td>` +
       `<td>${t.vote_count}</td><td>${t.entry_count}</td>` +
       `<td>${formatLatency(t.approval_latency_ms)}</td><td>${shortDate(t.created_at)}</td></tr>`
-    ).join("") || "<tr><td colspan=7 style='color:var(--muted)'>No threads in period</td></tr>";
+    ).join("") || '<tr><td colspan="7" class="empty-row">No threads in period</td></tr>';
   }
 
   function renderEodTable(reports) {
     document.getElementById("eodBody").innerHTML = reports.map(r =>
       `<tr><td>${esc(r.title)}</td><td>${esc(r.email)}</td>` +
       `<td>${r.blocker_count}</td><td>${r.source}</td><td>${shortDate(r.created_at)}</td></tr>`
-    ).join("") || "<tr><td colspan=5 style='color:var(--muted)'>No EOD reports in period</td></tr>";
+    ).join("") || '<tr><td colspan="5" class="empty-row">No EOD reports in period</td></tr>';
   }
 
   // ── Render activity ─────────────────────────────────────────
@@ -322,12 +329,12 @@
     document.getElementById("contributorList").innerHTML = (a.top_contributors || []).map(c =>
       `<div class="card-item"><div class="name">${esc(c.email)}</div>` +
       `<div class="meta">${c.votes} votes · ${c.entries} entries · ${c.eod_reports} EODs</div></div>`
-    ).join("") || '<div style="color:var(--muted)">No contributors in period</div>';
+    ).join("") || '<div class="empty-copy">No contributors in period</div>';
 
     document.getElementById("blockedList").innerHTML = (a.blocked_threads || []).map(b =>
       `<div class="card-item"><div class="name">${esc(b.title)}</div>` +
       `<div class="meta">by ${esc(b.created_by_email)} · expires ${shortDate(b.expires_at)}</div></div>`
-    ).join("") || '<div style="color:var(--muted)">No blocked threads</div>';
+    ).join("") || '<div class="empty-copy">No blocked threads</div>';
   }
 
   // ── Helpers ─────────────────────────────────────────────────

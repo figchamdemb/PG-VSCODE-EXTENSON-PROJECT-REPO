@@ -1,0 +1,94 @@
+
+> narrate-licensing-server@0.1.0 start
+> node dist/index.js
+
+{"level":40,"time":1773298263468,"pid":42152,"hostname":"CHAM-DEMBA","msg":"[readiness] ADMIN_KEY is still the default 'dev-admin-key'"}
+{"level":40,"time":1773298263470,"pid":42152,"hostname":"CHAM-DEMBA","msg":"[readiness] SESSION_COOKIE_SECURE=false – cookies sent over plain HTTP"}
+{"level":40,"time":1773298263470,"pid":42152,"hostname":"CHAM-DEMBA","msg":"[readiness] STRIPE_SECRET_KEY is empty – checkout will fail"}
+{"level":40,"time":1773298263470,"pid":42152,"hostname":"CHAM-DEMBA","msg":"[readiness] STRIPE_WEBHOOK_SECRET is empty – webhooks unverified"}
+{"level":40,"time":1773298263470,"pid":42152,"hostname":"CHAM-DEMBA","msg":"[readiness] HOST=0.0.0.0 in a non-production environment – binding all interfaces"}
+{"level":30,"time":1773298263471,"pid":42152,"hostname":"CHAM-DEMBA","database_target":"91.98.162.101:5433/narate-enterprise?schema=narate_enterprise","msg":"Database target resolved"}
+{"level":30,"time":1773298263535,"pid":42152,"hostname":"CHAM-DEMBA","stripe_runtime_config_path":"C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server\\.narrate\\stripe-runtime.local.json","msg":"Stripe runtime config initialized"}
+{"level":30,"time":1773298267241,"pid":42152,"hostname":"CHAM-DEMBA","store_backend":"prisma","msg":"Store initialized"}
+{"level":30,"time":1773298268056,"pid":42152,"hostname":"CHAM-DEMBA","msg":"Server listening at http://127.0.0.1:8787"}
+{"level":30,"time":1773298268056,"pid":42152,"hostname":"CHAM-DEMBA","msg":"Server listening at http://172.25.96.1:8787"}
+{"level":30,"time":1773298268056,"pid":42152,"hostname":"CHAM-DEMBA","msg":"Server listening at http://10.100.1.59:8787"}
+{"level":30,"time":1773298268056,"pid":42152,"hostname":"CHAM-DEMBA","msg":"Narrate licensing server started on http://0.0.0.0:8787"}
+{"level":30,"time":1773298277999,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-1","req":{"method":"GET","url":"/health","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":62107},"msg":"incoming request"}
+{"level":30,"time":1773298278009,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-1","res":{"statusCode":200},"responseTime":8.995300009846687,"msg":"request completed"}
+{"level":30,"time":1773298288657,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-2","req":{"method":"POST","url":"/account/policy/dependency/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":62117},"msg":"incoming request"}
+{"level":30,"time":1773298289003,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":0,"msg":"Dependency verification completed"}
+{"level":30,"time":1773298289004,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-2","res":{"statusCode":200},"responseTime":346.6676999926567,"msg":"request completed"}
+{"level":30,"time":1773298291721,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-3","req":{"method":"POST","url":"/account/policy/dependency/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":62123},"msg":"incoming request"}
+{"level":30,"time":1773298296113,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":2,"msg":"Dependency verification completed"}
+{"level":30,"time":1773298296123,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-3","res":{"statusCode":200},"responseTime":4401.928300008178,"msg":"request completed"}
+{"level":30,"time":1773298296788,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-4","req":{"method":"POST","url":"/account/policy/coding/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":55686},"msg":"incoming request"}
+{"level":30,"time":1773298296897,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":18,"checked_files":55,"msg":"Coding standards verification completed"}
+{"level":30,"time":1773298296900,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-4","res":{"statusCode":200},"responseTime":111.504100009799,"msg":"request completed"}
+{"level":30,"time":1773298296992,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-5","req":{"method":"POST","url":"/account/policy/enforcement/event","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":55687},"msg":"incoming request"}
+{"level":30,"time":1773298302383,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","phase":"post-write","status":"pass","risk_score":0,"source":"cli","msg":"Enforcement audit event recorded"}
+{"level":30,"time":1773298302384,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-5","res":{"statusCode":200},"responseTime":5391.049899995327,"msg":"request completed"}
+{"level":30,"time":1773298312995,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-6","req":{"method":"GET","url":"/health","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":58553},"msg":"incoming request"}
+{"level":30,"time":1773298312997,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-6","res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1773298313004,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-7","req":{"method":"GET","url":"/health","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":58553},"msg":"incoming request"}
+{"level":30,"time":1773298313005,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-7","res":{"statusCode":200},"responseTime":0.6730000078678131,"msg":"request completed"}
+{"level":30,"time":1773298315759,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-8","req":{"method":"GET","url":"/health","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":58559},"msg":"incoming request"}
+{"level":30,"time":1773298315760,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-8","res":{"statusCode":200},"responseTime":0.6077000051736832,"msg":"request completed"}
+{"level":30,"time":1773298315834,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-9","req":{"method":"GET","url":"/","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":58559},"msg":"incoming request"}
+{"level":30,"time":1773298315843,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-9","res":{"statusCode":200},"responseTime":8.840300008654594,"msg":"request completed"}
+{"level":30,"time":1773298394504,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-a","req":{"method":"POST","url":"/account/policy/dependency/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":63679},"msg":"incoming request"}
+{"level":30,"time":1773298394621,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":0,"msg":"Dependency verification completed"}
+{"level":30,"time":1773298394622,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-a","res":{"statusCode":200},"responseTime":117.80249999463558,"msg":"request completed"}
+{"level":30,"time":1773298397324,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-b","req":{"method":"POST","url":"/account/policy/dependency/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":63682},"msg":"incoming request"}
+{"level":30,"time":1773298400996,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":2,"msg":"Dependency verification completed"}
+{"level":30,"time":1773298401011,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-b","res":{"statusCode":200},"responseTime":3686.632800012827,"msg":"request completed"}
+{"level":30,"time":1773298401783,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-c","req":{"method":"POST","url":"/account/policy/coding/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":63698},"msg":"incoming request"}
+{"level":30,"time":1773298401844,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":18,"checked_files":55,"msg":"Coding standards verification completed"}
+{"level":30,"time":1773298401845,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-c","res":{"statusCode":200},"responseTime":61.157899990677834,"msg":"request completed"}
+{"level":30,"time":1773298401900,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-d","req":{"method":"POST","url":"/account/policy/enforcement/event","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":63699},"msg":"incoming request"}
+{"level":30,"time":1773298405964,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","phase":"post-write","status":"pass","risk_score":0,"source":"cli","msg":"Enforcement audit event recorded"}
+{"level":30,"time":1773298405964,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-d","res":{"statusCode":200},"responseTime":4063.689199998975,"msg":"request completed"}
+{"level":30,"time":1773298417108,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-e","req":{"method":"GET","url":"/health","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":63718},"msg":"incoming request"}
+{"level":30,"time":1773298417109,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-e","res":{"statusCode":200},"responseTime":0.8147999942302704,"msg":"request completed"}
+{"level":30,"time":1773298417117,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-f","req":{"method":"GET","url":"/health","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":63718},"msg":"incoming request"}
+{"level":30,"time":1773298417118,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-f","res":{"statusCode":200},"responseTime":1.1367000043392181,"msg":"request completed"}
+{"level":30,"time":1773298420244,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-g","req":{"method":"GET","url":"/health","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":63725},"msg":"incoming request"}
+{"level":30,"time":1773298420245,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-g","res":{"statusCode":200},"responseTime":0.7008000016212463,"msg":"request completed"}
+{"level":30,"time":1773298420352,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-h","req":{"method":"GET","url":"/","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":63725},"msg":"incoming request"}
+{"level":30,"time":1773298420377,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-h","res":{"statusCode":200},"responseTime":24.417099997401237,"msg":"request completed"}
+{"level":30,"time":1773303746561,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-i","req":{"method":"POST","url":"/account/policy/dependency/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":51644},"msg":"incoming request"}
+{"level":30,"time":1773303746830,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":0,"msg":"Dependency verification completed"}
+{"level":30,"time":1773303746833,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-i","res":{"statusCode":200},"responseTime":270.5341999977827,"msg":"request completed"}
+{"level":30,"time":1773303748848,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-j","req":{"method":"POST","url":"/account/policy/dependency/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":51648},"msg":"incoming request"}
+{"level":30,"time":1773303753776,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":2,"msg":"Dependency verification completed"}
+{"level":30,"time":1773303753780,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-j","res":{"statusCode":200},"responseTime":4931.625699996948,"msg":"request completed"}
+{"level":30,"time":1773303754246,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-k","req":{"method":"POST","url":"/account/policy/coding/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":51656},"msg":"incoming request"}
+{"level":30,"time":1773303754285,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":18,"checked_files":55,"msg":"Coding standards verification completed"}
+{"level":30,"time":1773303754286,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-k","res":{"statusCode":200},"responseTime":39.293099999427795,"msg":"request completed"}
+{"level":30,"time":1773303754331,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-l","req":{"method":"POST","url":"/account/policy/enforcement/event","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":51657},"msg":"incoming request"}
+{"level":30,"time":1773303762223,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","phase":"post-write","status":"pass","risk_score":0,"source":"cli","msg":"Enforcement audit event recorded"}
+{"level":30,"time":1773303762225,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-l","res":{"statusCode":200},"responseTime":7894.357600003481,"msg":"request completed"}
+{"level":30,"time":1773303886635,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-m","req":{"method":"POST","url":"/account/policy/dependency/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":63487},"msg":"incoming request"}
+{"level":30,"time":1773303886877,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":0,"msg":"Dependency verification completed"}
+{"level":30,"time":1773303886878,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-m","res":{"statusCode":200},"responseTime":241.7182999998331,"msg":"request completed"}
+{"level":30,"time":1773303889225,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-n","req":{"method":"POST","url":"/account/policy/dependency/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":63492},"msg":"incoming request"}
+{"level":30,"time":1773303894018,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":2,"msg":"Dependency verification completed"}
+{"level":30,"time":1773303894024,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-n","res":{"statusCode":200},"responseTime":4797.9227000027895,"msg":"request completed"}
+{"level":30,"time":1773303894528,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-o","req":{"method":"POST","url":"/account/policy/coding/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":51804},"msg":"incoming request"}
+{"level":30,"time":1773303894577,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":18,"checked_files":55,"msg":"Coding standards verification completed"}
+{"level":30,"time":1773303894578,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-o","res":{"statusCode":200},"responseTime":48.78380000591278,"msg":"request completed"}
+{"level":30,"time":1773303894833,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-p","req":{"method":"POST","url":"/account/policy/enforcement/event","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":51805},"msg":"incoming request"}
+{"level":30,"time":1773303901416,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","phase":"post-write","status":"pass","risk_score":0,"source":"cli","msg":"Enforcement audit event recorded"}
+{"level":30,"time":1773303901416,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-p","res":{"statusCode":200},"responseTime":6582.607900008559,"msg":"request completed"}
+{"level":30,"time":1773304056836,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-q","req":{"method":"POST","url":"/account/policy/dependency/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":63334},"msg":"incoming request"}
+{"level":30,"time":1773304057689,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":0,"msg":"Dependency verification completed"}
+{"level":30,"time":1773304057707,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-q","res":{"statusCode":200},"responseTime":869.4499000012875,"msg":"request completed"}
+{"level":30,"time":1773304065791,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-r","req":{"method":"POST","url":"/account/policy/dependency/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":64712},"msg":"incoming request"}
+{"level":30,"time":1773304078446,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":2,"msg":"Dependency verification completed"}
+{"level":30,"time":1773304078491,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-r","res":{"statusCode":200},"responseTime":12699.011500000954,"msg":"request completed"}
+{"level":30,"time":1773304080725,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-s","req":{"method":"POST","url":"/account/policy/coding/verify","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":64509},"msg":"incoming request"}
+{"level":30,"time":1773304080956,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","verification_status":"pass","blockers":0,"warnings":18,"checked_files":55,"msg":"Coding standards verification completed"}
+{"level":30,"time":1773304080957,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-s","res":{"statusCode":200},"responseTime":229.7572000026703,"msg":"request completed"}
+{"level":30,"time":1773304081942,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-t","req":{"method":"POST","url":"/account/policy/enforcement/event","host":"127.0.0.1:8787","remoteAddress":"127.0.0.1","remotePort":64512},"msg":"incoming request"}
+{"level":30,"time":1773304091431,"pid":42152,"hostname":"CHAM-DEMBA","user_id":"19c7af42-4018-4362-8b6f-c7a52d6b2bbd","phase":"post-write","status":"pass","risk_score":0,"source":"cli","msg":"Enforcement audit event recorded"}
+{"level":30,"time":1773304091431,"pid":42152,"hostname":"CHAM-DEMBA","reqId":"req-t","res":{"statusCode":200},"responseTime":9489.061400011182,"msg":"request completed"}

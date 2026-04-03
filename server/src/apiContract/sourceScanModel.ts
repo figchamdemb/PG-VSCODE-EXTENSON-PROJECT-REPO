@@ -37,13 +37,14 @@ export function isScriptFile(relativePath: string): boolean {
 
 export function isLikelyBackendFile(relativePath: string): boolean {
   const lower = relativePath.toLowerCase();
+  const normalized = lower.startsWith("/") ? lower : `/${lower}`;
   return (
-    lower.includes("/server/src/") ||
-    lower.includes("/api/") ||
-    lower.includes("/routes/") ||
-    lower.includes("/controllers/") ||
-    /\/app\/api\/.+\/route\.(ts|tsx|js|jsx)$/u.test(lower) ||
-    /\/pages\/api\/.+\.(ts|tsx|js|jsx)$/u.test(lower)
+    normalized.includes("/server/src/") ||
+    normalized.includes("/api/") ||
+    normalized.includes("/routes/") ||
+    normalized.includes("/controllers/") ||
+    /\/app\/api\/.+\/route\.(ts|tsx|js|jsx)$/u.test(normalized) ||
+    /\/pages\/api\/.+\.(ts|tsx|js|jsx)$/u.test(normalized)
   );
 }
 

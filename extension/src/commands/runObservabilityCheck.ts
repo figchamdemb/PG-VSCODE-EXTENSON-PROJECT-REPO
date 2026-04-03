@@ -5,6 +5,8 @@ import * as vscode from "vscode";
 import { runPowerShellCommand } from "../governance/powerShellRunner";
 import { RepoRootResolution, resolveRepoRoot } from "../utils/repoRootResolver";
 import { Logger } from "../utils/logger";
+import { showPgRootGuidance } from "./pgRootGuidance";
+import { ensureDevProfileReady } from "./devProfilePreflight";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -112,7 +114,9 @@ export function registerRunObservabilityCheckCommand(
 
 async function runObservabilityCheck(logger: Logger): Promise<void> {
   const repo = resolveRepoRoot();
-  if (!repo) { vscode.window.showWarningMessage("Narrate: open a workspace with pg.ps1 before running observability check."); return; }
+  if (!repo) { await showPgRootGuidance("observability check"); return; }
+  const canContinue = await ensureDevProfileReady(repo, "observability check");
+  if (!canContinue) { return; }
   const scriptPath = path.join(repo.repoRoot, "scripts", "observability_check.ps1");
   if (!fs.existsSync(scriptPath)) { vscode.window.showWarningMessage("Narrate: observability_check.ps1 not found."); return; }
   const packKey = await pickRolloutPack();

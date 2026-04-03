@@ -66,6 +66,25 @@ npm run prisma:dbpush
 # http://127.0.0.1:8787/app
 ```
 
+CMD equivalents:
+
+```bat
+pg.cmd start -Yes
+pg.cmd map-structure
+pg.cmd status
+```
+
+Shell rule:
+- PowerShell or `pwsh`: use `.\pg.ps1 ...`
+- CMD: use `pg.cmd ...`
+
+## First-Run Guides
+
+- Root/shell-safe onboarding for new projects:
+  - `docs/PG_FIRST_RUN_GUIDE.md`
+- Local VSIX install + normal VS Code UI verification:
+  - `docs/LOCAL_VSIX_INSTALL_AND_UI_TEST.md`
+
 In extension host settings:
 
 - `narrate.licensing.mode = backend`

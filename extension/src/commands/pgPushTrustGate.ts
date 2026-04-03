@@ -151,7 +151,7 @@ export function writeTrustGateReport(
   if (outcome.report?.findings.some((f) => f.ruleId === "TRUST-TS-001")) {
     lines.push("- **TypeScript errors detected**: Run `Narrate: Restart TS + Refresh Trust` from command palette.");
   }
-  if (outcome.report?.findings.some((f) => f.ruleId === "TRUST-VALID-001")) {
+  if (outcome.report?.findings.some((f) => isValidationFinding(f.ruleId))) {
     lines.push("- **Missing input validation**: Run `Narrate: Setup Validation Library` or add manual validation.");
   }
   if (outcome.blockerCount > 0) {
@@ -160,6 +160,13 @@ export function writeTrustGateReport(
   lines.push("");
 
   fs.writeFileSync(reportPath, lines.join("\n"), "utf8");
+}
+
+function isValidationFinding(ruleId: string): boolean {
+  return (
+    ruleId === "TRUST-CSTD-VAL-001" ||
+    ruleId === "TRUST-CSTD-VAL-002"
+  );
 }
 
 // ── Internal helpers ─────────────────────────────────────────────────

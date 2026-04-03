@@ -4,6 +4,7 @@ import * as vscode from "vscode";
 import { runPowerShellCommand } from "./powerShellRunner";
 import { Logger } from "../utils/logger";
 import { resolveRepoRoot } from "../utils/repoRootResolver";
+import { StartupContextEnforcer } from "../startup/startupContextEnforcer";
 
 type PendingTimer = ReturnType<typeof setTimeout>;
 
@@ -11,7 +12,10 @@ export class PostWriteEnforcer implements vscode.Disposable {
   private readonly logger: Logger;
   private readonly timers = new Map<string, PendingTimer>();
 
-  constructor(logger: Logger) {
+  constructor(
+    logger: Logger,
+    private readonly startupContextEnforcer: StartupContextEnforcer
+  ) {
     this.logger = logger;
   }
 
@@ -24,6 +28,14 @@ export class PostWriteEnforcer implements vscode.Disposable {
     }
     const filePath = document.uri.fsPath;
     if (this.shouldSkipPath(filePath)) {
+      return;
+    }
+    const enforcementReady = await this.startupContextEnforcer.ensureWorkspaceReadyForAction(
+      "saving files in this workspace",
+      document.uri
+    );
+    if (!enforcementReady) {
+      this.logger.warn(`[post-write] skipped because mandatory startup enforcement is unresolved for ${filePath}`);
       return;
     }
     const repo = resolveRepoRoot({ seedUri: document.uri });

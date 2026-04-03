@@ -7,7 +7,8 @@ param(
     [int]$MaxFiles = 400,
     [ValidateRange(1000, 2000000)]
     [int]$MaxFileBytes = 300000,
-    [switch]$SkipFunctionChecks
+    [switch]$SkipFunctionChecks,
+    [switch]$Json
 )
 
 $ErrorActionPreference = "Stop"
@@ -187,6 +188,16 @@ if ($response.warnings -and $response.warnings.Count -gt 0) {
         $filePath = if ($item.file_path) { $item.file_path } else { "-" }
         Write-Host "- [$($item.rule_id)] $filePath -> $($item.message)"
     }
+}
+
+if ($Json.IsPresent) {
+    $jsonPayload = [ordered]@{
+        status = $response.status
+        summary = $response.summary
+        blockers = @($response.blockers)
+        warnings = @($response.warnings)
+    }
+    Write-Output ("PG_CODING_VERIFY_JSON:{0}" -f ($jsonPayload | ConvertTo-Json -Depth 20 -Compress))
 }
 
 if ($response.status -eq "blocked") {

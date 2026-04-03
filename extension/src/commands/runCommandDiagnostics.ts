@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { runPowerShellCommand } from "../governance/powerShellRunner";
 import { Logger } from "../utils/logger";
 import { RepoRootResolution, resolveRepoRoot } from "../utils/repoRootResolver";
+import { showPgRootGuidance } from "./pgRootGuidance";
 
 type DiagnosticCategory = "Infrastructure" | "Extension" | "Data";
 
@@ -45,9 +46,7 @@ export function registerRunCommandDiagnosticsCommand(
 async function runCommandDiagnostics(logger: Logger): Promise<void> {
   const repo = resolveRepoRoot();
   if (!repo) {
-    void vscode.window.showWarningMessage(
-      "Narrate: unable to resolve repository root (pg.ps1). Open the repo folder and retry."
-    );
+    await showPgRootGuidance("command diagnostics");
     return;
   }
 

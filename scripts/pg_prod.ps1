@@ -16,6 +16,9 @@ param(
     [switch]$SkipFunctionChecks,
     [string]$PlaywrightWorkingDirectory = "",
     [string]$PlaywrightConfigPath = "",
+    [ValidateSet("minimal", "desktop", "full")]
+    [string]$PlaywrightBrowserMatrix = "minimal",
+    [switch]$InstallPlaywrightBrowsers,
     [string]$DatabaseUrl = "",
     [string]$StateFile = ""
 )
@@ -81,7 +84,7 @@ function Resolve-OptionalGatePlan(
     $plan = [ordered]@{
         ApiContract = $false
         DbIndexMaintenance = $false
-        PlaywrightSmoke = $false
+        PlaywrightSmoke = $true
     }
 
     switch ($profile) {
@@ -93,7 +96,6 @@ function Resolve-OptionalGatePlan(
         "strict" {
             $plan.ApiContract = $true
             $plan.DbIndexMaintenance = $true
-            $plan.PlaywrightSmoke = $true
         }
         default {
             throw "Unsupported prod profile '$profile'. Use: legacy, standard, strict."
@@ -261,35 +263,34 @@ else {
     Write-Host "PG Prod optional DB index maintenance check skipped. Use -EnableDbIndexMaintenanceCheck or -ProdProfile standard/strict."
 }
 
-if ($runPlaywrightSmokeCheck) {
-    $step += 1
-    Write-Host "- step $step/$($totalSteps): Playwright UI smoke verification"
-    $resolvedPlaywrightWorkingDirectory = $PlaywrightWorkingDirectory
-    if ([string]::IsNullOrWhiteSpace($resolvedPlaywrightWorkingDirectory)) {
-        $serverCandidate = Join-Path (Get-RepoRoot) "server"
-        if (Test-Path -LiteralPath $serverCandidate) {
-            $resolvedPlaywrightWorkingDirectory = $serverCandidate
-        }
-    }
-    $playwrightArgs = @{
-        WorkingDirectory = $resolvedPlaywrightWorkingDirectory
-        ConfigPath = $PlaywrightConfigPath
-    }
-    & (Join-Path $PSScriptRoot "playwright_smoke_check.ps1") @playwrightArgs
-    $playwrightExit = $LASTEXITCODE
-
-    if ($playwrightExit -ne 0) {
-        if ($playwrightExit -eq 2) {
-            Write-Host "PG Prod Check blocked by Playwright smoke verification."
-            exit 2
-        }
-        Write-Host "PG Prod Check failed during Playwright smoke verification."
-        exit $playwrightExit
+$step += 1
+Write-Host "- step $step/$($totalSteps): Playwright UI smoke verification"
+$resolvedPlaywrightWorkingDirectory = $PlaywrightWorkingDirectory
+if ([string]::IsNullOrWhiteSpace($resolvedPlaywrightWorkingDirectory)) {
+    $serverCandidate = Join-Path (Get-RepoRoot) "server"
+    if (Test-Path -LiteralPath $serverCandidate) {
+        $resolvedPlaywrightWorkingDirectory = $serverCandidate
     }
 }
-else {
-    Write-Host "PG Prod optional Playwright smoke check skipped. Use -EnablePlaywrightSmokeCheck or -ProdProfile strict."
+$playwrightArgs = @{
+    WorkingDirectory = $resolvedPlaywrightWorkingDirectory
+    ConfigPath = $PlaywrightConfigPath
+    BrowserMatrix = $PlaywrightBrowserMatrix
+}
+if ($InstallPlaywrightBrowsers.IsPresent) {
+    $playwrightArgs["InstallBrowsers"] = $true
+}
+& (Join-Path $PSScriptRoot "playwright_smoke_check.ps1") @playwrightArgs
+$playwrightExit = $LASTEXITCODE
+
+if ($playwrightExit -ne 0) {
+    if ($playwrightExit -eq 2) {
+        Write-Host "PG Prod Check blocked by Playwright smoke verification."
+        exit 2
+    }
+    Write-Host "PG Prod Check failed during Playwright smoke verification."
+    exit $playwrightExit
 }
 
-Write-Host ("PG Prod Check passed (profile: {0}; dependency + coding + configured optional gates)." -f $ProdProfile)
+Write-Host ("PG Prod Check passed (profile: {0}; dependency + coding + mandatory Playwright + configured profile gates)." -f $ProdProfile)
 exit 0

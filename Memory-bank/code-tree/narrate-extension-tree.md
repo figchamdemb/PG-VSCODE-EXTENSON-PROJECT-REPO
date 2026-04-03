@@ -1,14 +1,14 @@
 # Narrate + Licensing Code Tree
 
-LAST_UPDATED_UTC: 2026-02-28 18:19
-UPDATED_BY: codex
+LAST_UPDATED_UTC: 2026-03-20 23:20
+UPDATED_BY: copilot
 
 ## Extension Root
-- `extension/package.json`: VS Code manifest, commands, settings, scripts.
+- `extension/package.json`: VS Code manifest, commands, settings, scripts, Marketplace icon wiring, and installed display title (`PG-Narrate`).
 - `extension/tsconfig.json`: TypeScript build config.
 - `.vscode/settings.json`: repository workspace defaults (includes strict dead-code PG Push gate for this repo profile).
-- `extension/src/extension.ts`: activation entrypoint and command/runtime wiring (status-bar orchestration delegated to activation helper module), post-write enforcement hook wiring, governance auto-sync worker startup, command-help sidebar provider registration, and Trust Score/dead-code/environment diagnostics command wiring.
-- `extension/src/activation/statusBars.ts`: status-bar item factory + refresh controller helpers for mode/plan/reading controls.
+- `extension/src/extension.ts`: activation entrypoint and command/runtime wiring (status-bar orchestration delegated to activation helper module), post-write enforcement hook wiring, governance auto-sync worker startup, command-help sidebar provider registration, Trust Score/dead-code/environment diagnostics command wiring, exact-view reading selection sync subscriptions, and startup-enforcement bridge watcher lifecycle.
+- `extension/src/activation/statusBars.ts`: status-bar item factory + refresh controller helpers for mode/plan/reading controls, including active-option bracket rendering (`[selected]`) and tone highlighting (`Reading` critical/red tone, `View` caution/yellow tone).
 - `extension/.vscode/launch.json`: extension-host debug profile.
 - `extension/.vscode/tasks.json`: compile task used by debug prelaunch.
 - `extension/resources/help.svg`: activity bar icon for the Narrate Help container.
@@ -28,6 +28,7 @@ UPDATED_BY: codex
 - `extension/src/commands/codebaseTourReport.ts`: codebase-tour markdown report renderer.
 - `extension/src/commands/codebaseTourTypes.ts`: shared codebase-tour types/settings/constants.
 - `extension/src/commands/pgPush.ts`: safe PG git push workflow (enforcement preflight + Trust Score gate mode `off/relaxed/strict` + dead-code gate mode `off/relaxed/strict` for high-confidence unused findings with one-click `Apply Safe Fixes + Recheck` path + commit-quality gate mode `off/relaxed/strict` + git add/commit/push with confirmation).
+- `extension/src/commands/pgRootGuidance.ts`: shared wrong-root remediation UI (detected roots scan + `Open Fix Guide` + PowerShell copy/open-root actions) used by PG command entrypoints when root resolution fails.
 - `extension/src/commands/authSignIn.ts`: email sign-in trigger.
 - `extension/src/commands/authSignInGitHub.ts`: GitHub sign-in trigger.
 - `extension/src/commands/startTrial.ts`: manual 48h trial start trigger.
@@ -35,6 +36,7 @@ UPDATED_BY: codex
 - `extension/src/commands/redeemCode.ts`: redeem code apply trigger.
 - `extension/src/commands/manageDevices.ts`: device list/revoke trigger.
 - `extension/src/commands/openCommandHelp.ts`: opens/focuses command-help sidebar container.
+- `extension/src/commands/openToggleControlPanel.ts`: opens/focuses non-technical toggle control panel in the Narrate sidebar.
 - `extension/src/commands/createDeadCodeCleanupBranch.ts`: safe dead-code cleanup branch workflow (create/switch branch, run scan, open report).
 - `extension/src/commands/applySafeDeadCodeFixes.ts`: safe dead-code autofix workflow (organize imports on high-confidence files, then before/after rescan + report).
 - `extension/src/commands/runCommandDiagnostics.ts`: runs one-click local diagnostics and opens markdown report with pass/fail + fix hints.
@@ -64,7 +66,8 @@ UPDATED_BY: codex
 
 ## Extension Licensing
 - `extension/src/licensing/featureGates.ts`: licensing orchestration service (backend/placeholder checks, Pro/Edu gates, refresh/token handling, provider policy decisions), now delegating interactive action flows to helper module.
-- `extension/src/licensing/featureGateActions.ts`: extracted licensing interactive action flows (email/GitHub sign-in loopback, trial/redeem, checkout selections/session launch, project quota actions, device revoke flow).
+- `extension/src/licensing/featureGateActions.ts`: extracted licensing interactive action flows (email sign-in, browser GitHub sign-in with editor callback, trial/redeem, checkout selections/session launch, project quota actions, device revoke flow).
+- `extension/src/licensing/licensingCallbackHandler.ts`: extension URI handler for trusted browser-to-editor sign-in and checkout return callbacks, with auto-refresh on successful return.
 - `extension/src/licensing/entitlementClient.ts`: HTTP client for auth/trial/entitlement/quota/device/redeem/checkout endpoints.
 - `extension/src/licensing/tokenVerifier.ts`: JWT verification/decoding.
 - `extension/src/licensing/secretStorage.ts`: token/public key/install id secret persistence.
@@ -73,7 +76,8 @@ UPDATED_BY: codex
 - `extension/src/licensing/types.ts`: licensing API payload types.
 
 ## Narration / Reading Pipeline
-- `extension/src/readingView/narrateSchemeProvider.ts`: `narrate://` virtual doc provider with session-aware context reopen and pane-mode handling.
+- `extension/src/readingView/narrateSchemeProvider.ts`: `narrate://` virtual doc provider with session-aware context reopen, pane-mode handling, and source-focus preservation for side-by-side open.
+- `extension/src/readingView/readingSelectionSyncService.ts`: exact-view source<->narration selection mirror service that decorates corresponding whole-line ranges and reveals the counterpart range when it falls outside the viewport.
 - `extension/src/readingView/renderNarration.ts`: narration rendering (`exact` one-line mapping mode + `section` grouped mode).
 - `extension/src/readingView/sectionBuilder.ts`: contiguous code section grouping.
 - `extension/src/narration/narrationEngine.ts`: cache-first narration orchestration.
@@ -94,8 +98,11 @@ UPDATED_BY: codex
 - `extension/src/governance/powerShellRunner.ts`: shared PowerShell execution helper (`pwsh` fallback to Windows PowerShell).
 - `extension/src/governance/postWriteEnforcer.ts`: debounced on-save enforcement trigger runner (`pg enforce-trigger -Phase post-write`).
 - `extension/src/governance/decisionSyncWorker.ts`: background governance sync worker that runs `pg governance-worker -Once` on interval and supports manual one-shot sync.
+- `extension/src/startup/startupEnforcementBridge.ts`: workspace file-watcher bridge that consumes `Memory-bank/_generated/pg-enforcement-bridge.json` requests and applies extension-local stop/resume enforcement actions non-interactively.
 - `extension/src/help/commandHelpViewProvider.ts`: sidebar webview provider for command quickstart and troubleshooting.
-- `extension/src/help/commandHelpContent.ts`: static command-help HTML content model (local PG + Slack governance grammar + failure playbook).
+- `extension/src/help/commandHelpContent.ts`: static command-help HTML content model (local PG + Slack governance grammar + failure playbook), now including product explainer guidance, Slack decision flow, automation/cloud/enterprise explainer, and provider/handoff behavior notes.
+- `extension/src/help/commandHelpStaticSections.ts`: extracted static help sections/styles (terminal first-run root/shell guide + diagnostics block + product explainer + Slack/automation/provider explainer blocks) to keep page-file size guard compliant.
+- `extension/src/ui/toggleControlViewProvider.ts`: sidebar webview provider for non-technical color-button toggle controls (Reading/View/Pane/Source/Explain) with active-state highlighting and direct mode-state writes.
 - `extension/src/trust/trustScoreService.ts`: Trust Score orchestration service (status-bar + refresh/toggle/report UX + diagnostics/validation prompts); delegates policy evaluation/formatting helpers to trust analysis modules.
 - `extension/src/trust/trustScoreAnalysis.ts`: deterministic Trust Score policy evaluator entrypoint and core rule scanners used by `TrustScoreService`.
 - `extension/src/trust/trustScoreAnalysisUtils.ts`: shared Trust Score scoring/formatting/path/validation-library utility helpers (grade/status resolution, markdown report rendering, component detection, dependency detection cache).
@@ -114,19 +121,28 @@ UPDATED_BY: codex
 - `server/src/accountSummarySupport.ts`: extracted account/admin summary response helpers for catalog-plan payload, account team/billing/governance shaping, and admin board summary aggregation used by `server/src/index.ts`.
 - `server/src/accountSummaryOrchestration.ts`: extracted account-summary orchestration helpers for user snapshot composition and admin-access snapshot resolution with injected dependencies.
 - `server/src/authEmailVerifySupport.ts`: extracted email OTP verify/auth-session flow helpers for request payload validation, challenge/user/session mutation, and cookie/session response wiring.
+- `server/src/authOAuthRoutes.ts`: OAuth start/callback routes; now uses OAuth-state fast persistence helper path for start-state creation.
+- `server/src/planRoutes.ts`: plan comparison routes (`/api/plans/*`) with browser-safe public comparison behavior and protected raw comparison routes for enterprise/admin contexts.
 - `server/src/policyRoutes.ts`: extracted `/account/policy/*` route registration module (dependency, coding, API contract, prompt-guard, MCP cloud score, observability check) with shared auth/log dependency injection.
+- `server/src/integrationOrchestrationRoutes.ts`: authenticated frontend integration orchestration mirror routes that persist per-repo workflow state, validate protected transitions (`start-role`, `ready`, `complete`, `report`, `respond`), expose audit history, and flag stale agent heartbeats.
+- `server/src/integrationOrchestrationSupport.ts`: extracted frontend integration orchestration helpers for workflow lookup/upsert, audit trimming, state-shape validation, repo-key derivation, stale-heartbeat detection, and protected transition validation so the route file stays below strict size limits.
+- `server/src/agentsPolicyProfile.ts`: plan-aware agent policy profile resolver/route module for `/account/policy/agents/profile`, now including frontend design guardrail behaviour metadata and the design-guide document itself in reference surfaces.
 - `server/src/governanceRoutes.ts`: thin governance route-registration aggregator.
 - `server/src/governanceRoutes.shared.ts`: shared governance route dependency/type contract.
 - `server/src/governanceSettingsRoutes.ts`: governance settings update, Slack test, EOD report/list, and thread-create routes.
 - `server/src/governanceMastermindRoutes.ts`: mastermind threads/detail/entry/vote/decide route registrations.
 - `server/src/governanceSyncRoutes.ts`: governance sync pull/ack route registrations.
 - `server/src/governanceAdminBoardRoutes.ts`: admin governance Slack add-on + board route registrations.
+- `server/src/slackIntegration.ts`: Slack integration composition surface (signature verification, user lookup, dispatch, route-facing handler wiring).
+- `server/src/slackAsyncProcessing.ts`: extracted async Slack command/action execution helpers used by `slackIntegration` to keep factory/file policy limits compliant.
 - `server/src/dependencyVerification.ts`: dependency verification orchestration evaluator (policy decision flow + compatibility checks + blocker/warning aggregation).
 - `server/src/dependencyVerificationContracts.ts`: shared dependency verification request/result/violation type contracts.
 - `server/src/dependencyVerificationSupport.ts`: dependency verification helper module (deny/native maps, semver/normalization utilities, npm registry lookups, package-age helpers).
 - `server/src/codingStandardsVerification.ts`: Coding standards policy evaluator orchestration (profile-aware LOC limits, controller/input-validation/function checks, blocker/warning aggregation).
 - `server/src/codingStandardsQueryOptimization.ts`: query/index optimization policy module (`SELECT *`, N+1, deep `OFFSET`, non-SARGable predicates, HAVING misuse warning, Prisma FK-like index checks).
 - `server/src/codingStandardsLogSafety.ts`: logging-safety policy module (blocks unsafe direct `console.*` and direct runtime `*.log.*` usage when sanitization wrappers are not used).
+- `server/src/codingStandardsSecretSafety.ts`: secret-safety policy module (blocks hardcoded secret-like literals and private-key blocks in source files).
+- `server/src/codingStandardsNestModuleRules.ts`: NestJS module policy module (module metadata complexity and placeholder-name checks).
 - `server/src/codingStandardsFunctionScan.ts`: shared function parsing helpers for coding policy evaluation.
 - `server/src/apiContractVerification.ts`: API contract policy evaluator orchestrator for server-side verification route output (OpenAPI-first + backend inference + mismatch/warning findings).
 - `server/src/mcpCloudScoring.ts`: metadata-only cloud scoring evaluator (scanner summary intake + cloud architecture/provider/control checks + deterministic score/grade/status output).
@@ -141,29 +157,40 @@ UPDATED_BY: codex
 - `server/src/apiContract/sourceScanFrontend.ts`: frontend API-call extraction module (fetch/axios + wrapper patterns).
 - `server/src/apiContract/compare.ts`: deterministic API mismatch comparator.
 - `server/src/logSanitization.ts`: centralized server log sanitization helpers for string/value/object metadata (control-char neutralization, recursive sanitization, truncation).
-- `server/src/store.ts`: JSON persistence store with schema normalization (`normalizeLoadedState`) for migrations, including governance records (`governance_*`, `mastermind_*`).
-- `server/src/prismaStore.ts`: Prisma-backed runtime state store for `STORE_BACKEND=prisma` mode (table-by-table persistence across `narate_enterprise.*` runtime tables).
+- `server/src/store.ts`: JSON persistence store with schema normalization (`normalizeLoadedState`) for migrations, including governance records (`governance_*`, `mastermind_*`), frontend integration workflow/audit records, and OAuth-state fast-path hooks.
+- `server/src/prismaStore.ts`: Prisma-backed runtime state store for `STORE_BACKEND=prisma` mode (table-by-table persistence across `narate_enterprise.*` runtime tables) with direct OAuth-state insert/consume fast paths to avoid full-table rewrite latency on OAuth start.
 - `server/src/rules.ts`: plan/device/export/report/quota rules.
-- `server/src/types.ts`: store record types for auth/subscriptions/entitlements/quota/payments/redeem/affiliate/team/policy/oauth/support/feedback plus governance (EOD/mastermind/sync events/acks).
+- `server/src/types.ts`: store record types for auth/subscriptions/entitlements/quota/payments/redeem/affiliate/team/policy/oauth/support/feedback plus governance (EOD/mastermind/sync events/acks) and frontend integration workflow/audit state.
 - `server/prisma/schema.prisma`: PostgreSQL Prisma data model for licensing domain tables in `narate_enterprise` schema, including dedicated `admin_*` governance tables.
 - `server/.env.example`: `DATABASE_URL` template for Prisma/Postgres.
 - `server/README.md`: endpoint and environment documentation.
 
 ## Hosted Web Surface
 - `server/public/index.html`: marketing landing page with enterprise positioning and CTA to secure portal.
+- `server/public/pricing.html`: dedicated pricing and entitlement comparison page in the same light visual system as home (plan cards + live matrix from `/api/plans/comparison`).
 - `server/public/app.html`: secure sidebar portal app for sign-in, customer billing/support, team admin, governance controls (EOD/mastermind), and super-admin board.
-- `server/public/assets/site.css`: branded responsive design system and motion.
+- `server/public/help.html`: tier-filtered command help center shell with tabbed surfaces (`Command Help`, `About Narrate`, `About Memory-bank + PG Install`, `Slack Decision Flow`, `Automation + Cloud + Enterprise`, `Providers + Handoff`), now including frontend integration workflow guidance, legacy `integration-init` bootstrap clarification, and troubleshooting references.
+- `server/public/assets/site.css`: branded responsive design system and motion, including enhanced landing pricing section styling.
+- `server/public/assets/pricing.css`: pricing page layout styles aligned with home light theme tokens (with fallback token definitions).
+- `server/public/assets/help.css`: help-center layout and tier-table styles aligned with home light theme tokens.
 - `server/public/assets/app.css`: dedicated portal shell/sidebar/panel styles.
 - `server/public/assets/site.js`: browser app logic for sidebar routing, auth state, billing actions, support/feedback, team-admin, governance workflows, and super-admin operations.
+- `server/public/assets/pricing.js`: pricing comparison renderer and category filter logic for `/pricing`.
+- `server/public/assets/help.js`: command-catalog tier filtering/search/badge rendering, paid-tier deep-dive cards, tab-panel switching logic, and public command entries for the frontend integration workflow (`integration-init`, `backend-start`, `frontend-start`, `integration-summary`, `integration-next`, `integration-report`, `integration-respond`).
+- `docs/FRONTEND_DESIGN_GUARDRAILS.md`: default repo UI pattern guide for app/dashboard/help/pricing/admin/mobile secure-app surfaces; used when user-specific design guidance is absent.
+- `AI_ENFORCEMENT_GUIDE.md`: root explainer for AI startup enforcement boundaries (repo docs/hooks vs extension/editor behavior).
+- `.agents/workflows/startup.md`: optional startup workflow helper for tools that support repo-local workflow commands.
+- `docs/PG_FIRST_RUN_GUIDE.md`: shell-safe onboarding guide (PowerShell vs CMD, project-root rules, one-time install/start/status, multi-project setup), now including integration-ledger bootstrap rules for new vs legacy repos.
 - `server/public/terms.html`: terms page.
 - `server/public/privacy.html`: privacy page.
-- `server/public/checkout-success.html`: payment success page.
-- `server/public/checkout-cancel.html`: payment cancel page.
+- `server/public/checkout-success.html`: payment success page with hosted editor-return handoff.
+- `server/public/checkout-cancel.html`: payment cancel page with hosted editor-return handoff.
+- `server/public/assets/checkoutReturn.js`: checkout return-page script that attempts browser-to-editor handoff and exposes a fallback button.
 - `server/public/oauth-complete.html`: shared OAuth web callback bridge page (GitHub/Google).
 - `server/scripts/smoke-web.mjs`: automated smoke test for landing page assets and web routes.
 
 ## Root Scripts
-- `scripts/pg.ps1`: memory-bank and governance wrapper command surface, now includes `governance-bind`, `dependency-verify`, `coding-verify`, `api-contract-verify`, MCP cloud scoring (`mcp-cloud-score`), observability adapter health (`observability-check`), DB maintenance check (`db-index-check`), DB remediation planning (`db-index-fix-plan` / `db-index-remediate`), Playwright smoke checks (`playwright-smoke-check` / `ui-smoke-check`), and `prod`.
+- `scripts/pg.ps1`: memory-bank and governance wrapper command surface, now includes `governance-bind`, `dependency-verify`, `coding-verify`, `api-contract-verify`, MCP cloud scoring (`mcp-cloud-score`), observability adapter health (`observability-check`), DB maintenance check (`db-index-check`), DB remediation planning (`db-index-fix-plan` / `db-index-remediate`), Playwright smoke checks (`playwright-smoke-check` / `ui-smoke-check`), `prod`, and integration-command server sync forwarding (`ApiBase`/token/state-file passthrough to `frontend_integration.ps1`).
 - `scripts/dependency_verify.ps1`: local manifest-to-server dependency verification command helper.
 - `scripts/coding_verify.ps1`: local source/schema-file-to-server coding verification command helper (includes Prisma/SQL scan roots).
 - `scripts/api_contract_verify.ps1`: local source/spec-to-server API contract verification command helper.
@@ -175,3 +202,6 @@ UPDATED_BY: codex
 - `scripts/pg_prod.ps1`: production baseline gate runner (API health + strict dependency + strict coding verification hard-fail, then profile-driven optional gates via `-ProdProfile legacy|standard|strict`; explicit `-EnableApiContractCheck`, `-EnableDbIndexMaintenanceCheck`, and `-EnablePlaywrightSmokeCheck` still force checks on).
 - `scripts/governance_bind_action.ps1`: thread binding manager (`thread_id -> action_key`) for governance worker action routing.
 - `scripts/governance_action_playbook.json`: allowlisted local action catalog consumed by governance worker.
+- `scripts/memory_bank_guard.py`: pre-commit memory-bank policy guard (session freshness + docs presence + planning checks).
+- `scripts/memory_bank_guard_design.py`: extracted UI-design guard module for semantic layout/control, shared-token enforcement, and multi-button variant naming on changed frontend files.
+- `scripts/memory_bank_guard_milestones.py`: extracted planning-alignment module for guard (`project-spec` REQ tags -> `project-details` milestone mapping).

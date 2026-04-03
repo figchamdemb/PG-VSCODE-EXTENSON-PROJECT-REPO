@@ -1,3 +1,5 @@
+import type { ReviewWorkflowAuditRecord, ReviewWorkflowRecord } from "./reviewOrchestrationTypes";
+
 export type PlanTier = "free" | "trial" | "pro" | "team" | "enterprise";
 export type PaidPlanTier = Exclude<PlanTier, "trial" | "free">;
 export type ModuleScope = "narrate" | "memorybank" | "bundle";
@@ -162,6 +164,8 @@ export interface AffiliateConversionRecord {
   status: AffiliateConversionStatus;
   order_id: string | null;
   gross_amount_cents: number;
+  buyer_discount_cents: number;
+  effective_commission_rate_bps: number;
   commission_amount_cents: number;
   confirmed_at: string | null;
   created_at: string;
@@ -417,6 +421,34 @@ export interface ReviewerAutomationPolicyRecord {
   updated_at: string;
 }
 
+export interface FrontendIntegrationWorkflowRecord {
+  id: string;
+  user_id: string;
+  repo_key: string;
+  project_root: string;
+  state: Record<string, unknown>;
+  current_lease_id: string | null;
+  current_lease_expires_at: string | null;
+  last_sync_action: string;
+  last_actor_role: "backend" | "frontend" | null;
+  last_page_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FrontendIntegrationAuditRecord {
+  id: string;
+  workflow_id: string;
+  user_id: string;
+  repo_key: string;
+  action: string;
+  actor_role: "backend" | "frontend" | null;
+  page_id: string | null;
+  outcome_status: string;
+  summary: string;
+  created_at: string;
+}
+
 export interface ServerKeySet {
   alg: "ES256";
   private_key_pem: string;
@@ -458,6 +490,10 @@ export interface StoreState {
   policy_tenant_overlays: PolicyTenantOverlayRecord[];
   enforcement_audit_log: EnforcementAuditRecord[];
   reviewer_automation_policies: ReviewerAutomationPolicyRecord[];
+  frontend_integration_workflows: FrontendIntegrationWorkflowRecord[];
+  frontend_integration_audit_log: FrontendIntegrationAuditRecord[];
+  review_workflows: ReviewWorkflowRecord[];
+  review_workflow_audit_log: ReviewWorkflowAuditRecord[];
   keys: ServerKeySet;
   updated_at: string;
 }

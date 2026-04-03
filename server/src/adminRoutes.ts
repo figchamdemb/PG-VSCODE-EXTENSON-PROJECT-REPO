@@ -13,6 +13,50 @@ type AdminAccessContext = {
   userEmail?: string;
 };
 
+function approveRefundRequest(store: StateStore, requestId: string): Promise<void> {
+  return store.update((state) => {
+    const refund = state.refund_requests.find((item) => item.id === requestId);
+    if (!refund) {
+      throw new Error("refund request not found");
+    }
+    if (refund.status !== "requested") {
+      throw new Error("refund request is not pending");
+    }
+
+    refund.status = "approved";
+    refund.approved_at = new Date().toISOString();
+
+    const sub = state.subscriptions.find(
+      (item) => item.id === refund.subscription_id
+    );
+    const refundStartedAt = sub?.starts_at ?? null;
+    if (sub) {
+      sub.status = "refunded";
+      sub.revoked_at = new Date().toISOString();
+    }
+
+    const entitlement = state.product_entitlements.find(
+      (item) => item.user_id === refund.user_id && item.status === "active"
+    );
+    if (entitlement) {
+      entitlement.status = "refunded";
+      entitlement.ends_at = new Date().toISOString();
+    }
+
+    for (const conversion of state.affiliate_conversions) {
+      const isMatchingBuyer = conversion.buyer_user_id === refund.user_id;
+      const isPendingPayout =
+        conversion.status === "paid_confirmed" && conversion.payout_id === null;
+      const isSameSubscriptionWindow = refundStartedAt
+        ? conversion.created_at >= refundStartedAt
+        : true;
+      if (isMatchingBuyer && isPendingPayout && isSameSubscriptionWindow) {
+        conversion.status = "refunded";
+      }
+    }
+  });
+}
+
 export interface RegisterAdminRoutesDeps {
   store: StateStore;
   requireAdminPermission: (
@@ -68,37 +112,7 @@ export function registerAdminRoutes(
         return reply.code(400).send({ error: "request_id is required" });
       }
 
-      await deps.store.update((state) => {
-        const refund = state.refund_requests.find(
-          (item) => item.id === requestId
-        );
-        if (!refund) {
-          throw new Error("refund request not found");
-        }
-        if (refund.status !== "requested") {
-          throw new Error("refund request is not pending");
-        }
-
-        refund.status = "approved";
-        refund.approved_at = new Date().toISOString();
-
-        const sub = state.subscriptions.find(
-          (item) => item.id === refund.subscription_id
-        );
-        if (sub) {
-          sub.status = "refunded";
-          sub.revoked_at = new Date().toISOString();
-        }
-
-        const entitlement = state.product_entitlements.find(
-          (item) =>
-            item.user_id === refund.user_id && item.status === "active"
-        );
-        if (entitlement) {
-          entitlement.status = "refunded";
-          entitlement.ends_at = new Date().toISOString();
-        }
-      });
+      await approveRefundRequest(deps.store, requestId);
 
       return { ok: true };
     }

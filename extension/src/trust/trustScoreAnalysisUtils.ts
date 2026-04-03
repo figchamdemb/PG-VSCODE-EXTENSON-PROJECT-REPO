@@ -1,13 +1,23 @@
 import * as fs from "fs";
-import * as path from "path";
 import * as vscode from "vscode";
 import type { ComponentType, TrustReport } from "./trustScoreService";
+import {
+  resolveValidationWorkspace,
+  type ValidationWorkspaceKind
+} from "../utils/projectValidationResolver";
 
 export type ValidationLibraryPolicy = "off" | "warn" | "required";
 
 type ValidationLibraryState = {
+  kind: ValidationWorkspaceKind;
   detected: string[];
-  packageJsonPath: string | null;
+  manifestPath: string | null;
+  projectRoot: string | null;
+};
+
+type ValidationLibraryStateOptions = {
+  seedPath?: string;
+  seedUri?: vscode.Uri;
 };
 
 const SUPPORTED_VALIDATION_LIBRARIES = [
@@ -20,13 +30,13 @@ const SUPPORTED_VALIDATION_LIBRARIES = [
   "superstruct"
 ] as const;
 
-let validationLibraryCache:
-  | {
-      packageJsonPath: string;
-      mtimeMs: number;
-      detected: string[];
-    }
-  | undefined;
+const validationLibraryCache = new Map<
+  string,
+  {
+    mtimeMs: number;
+    detected: string[];
+  }
+>();
 
 export function resolveStatus(
   score: number,
@@ -198,6 +208,10 @@ export function isApiRouteFile(pathValue: string): boolean {
   );
 }
 
+export function isNodeValidationPackageRelevant(pathValue: string): boolean {
+  return /\.(cjs|mjs|cts|mts|js|jsx|ts|tsx)$/iu.test(pathValue);
+}
+
 function isTestPath(pathValue: string): boolean {
   return (
     pathValue.includes("/__tests__/") ||
@@ -226,42 +240,42 @@ export function getValidationLibraryPolicy(): ValidationLibraryPolicy {
   return "warn";
 }
 
-export function getValidationLibraryState(): ValidationLibraryState {
-  const packageJsonPath = resolveValidationPackageJsonPath();
-  if (!packageJsonPath) {
-    return { detected: [], packageJsonPath: null };
+export function getValidationLibraryState(
+  options: ValidationLibraryStateOptions = {}
+): ValidationLibraryState {
+  const workspace = resolveValidationWorkspace(options);
+  if (!workspace.manifestPath) {
+    return {
+      kind: "unknown",
+      detected: [],
+      manifestPath: null,
+      projectRoot: null
+    };
   }
+  const { kind, manifestPath, projectRoot } = workspace;
 
-  const cached = getCachedValidationLibraryState(packageJsonPath);
+  const cached = getCachedValidationLibraryState(kind, manifestPath, projectRoot);
   if (cached) {
     return cached;
   }
 
-  return readValidationLibraryState(packageJsonPath);
-}
-
-function resolveValidationPackageJsonPath(): string | null {
-  const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!workspacePath) {
-    return null;
-  }
-  const candidate = path.join(workspacePath, "package.json");
-  return fs.existsSync(candidate) ? candidate : null;
+  return readValidationLibraryState(kind, manifestPath, projectRoot);
 }
 
 function getCachedValidationLibraryState(
-  packageJsonPath: string
+  kind: ValidationWorkspaceKind,
+  manifestPath: string,
+  projectRoot: string | null
 ): ValidationLibraryState | undefined {
   try {
-    const stat = fs.statSync(packageJsonPath);
-    if (
-      validationLibraryCache &&
-      validationLibraryCache.packageJsonPath === packageJsonPath &&
-      validationLibraryCache.mtimeMs === stat.mtimeMs
-    ) {
+    const stat = fs.statSync(manifestPath);
+    const cached = validationLibraryCache.get(manifestPath);
+    if (cached && cached.mtimeMs === stat.mtimeMs) {
       return {
-        detected: validationLibraryCache.detected,
-        packageJsonPath
+        kind,
+        detected: cached.detected,
+        manifestPath,
+        projectRoot
       };
     }
   } catch {
@@ -270,30 +284,69 @@ function getCachedValidationLibraryState(
   return undefined;
 }
 
-function readValidationLibraryState(packageJsonPath: string): ValidationLibraryState {
+function readValidationLibraryState(
+  kind: ValidationWorkspaceKind,
+  manifestPath: string,
+  projectRoot: string | null
+): ValidationLibraryState {
   try {
-    const raw = fs.readFileSync(packageJsonPath, "utf8");
-    const parsed = JSON.parse(raw) as {
-      dependencies?: Record<string, unknown>;
-      devDependencies?: Record<string, unknown>;
-    };
-    const dependencyNames = [
-      ...Object.keys(parsed.dependencies ?? {}),
-      ...Object.keys(parsed.devDependencies ?? {})
-    ].map((name) => name.toLowerCase());
-    const detected = SUPPORTED_VALIDATION_LIBRARIES.filter((name) =>
-      dependencyNames.includes(name)
-    );
-    const stat = fs.statSync(packageJsonPath);
-    validationLibraryCache = {
-      packageJsonPath,
+    const raw = fs.readFileSync(manifestPath, "utf8");
+    const detected =
+      kind === "java"
+        ? readJavaValidationLibraries(raw)
+        : readNodeValidationLibraries(raw);
+    const stat = fs.statSync(manifestPath);
+    validationLibraryCache.set(manifestPath, {
       mtimeMs: stat.mtimeMs,
       detected: [...detected]
+    });
+    return {
+      kind,
+      detected: [...detected],
+      manifestPath,
+      projectRoot
     };
-    return { detected: [...detected], packageJsonPath };
   } catch {
-    return { detected: [], packageJsonPath };
+    return {
+      kind,
+      detected: [],
+      manifestPath,
+      projectRoot
+    };
   }
+}
+
+function readNodeValidationLibraries(raw: string): string[] {
+  const parsed = JSON.parse(raw) as {
+    dependencies?: Record<string, unknown>;
+    devDependencies?: Record<string, unknown>;
+    peerDependencies?: Record<string, unknown>;
+    optionalDependencies?: Record<string, unknown>;
+  };
+  const dependencyNames = [
+    ...Object.keys(parsed.dependencies ?? {}),
+    ...Object.keys(parsed.devDependencies ?? {}),
+    ...Object.keys(parsed.peerDependencies ?? {}),
+    ...Object.keys(parsed.optionalDependencies ?? {})
+  ].map((name) => name.toLowerCase());
+  return SUPPORTED_VALIDATION_LIBRARIES.filter((name) =>
+    dependencyNames.includes(name)
+  );
+}
+
+function readJavaValidationLibraries(raw: string): string[] {
+  const detected = new Set<string>();
+  const normalized = raw.toLowerCase();
+  if (normalized.includes("spring-boot-starter-validation")) {
+    detected.add("spring-boot-starter-validation");
+  }
+  if (normalized.includes("jakarta.validation-api")) {
+    detected.add("jakarta.validation-api");
+  }
+  if (normalized.includes("hibernate-validator")) {
+    detected.add("hibernate-validator");
+  }
+  return [...detected];
 }
 
 export function findFirstMatchingLine(

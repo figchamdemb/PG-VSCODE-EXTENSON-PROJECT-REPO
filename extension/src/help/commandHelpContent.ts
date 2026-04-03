@@ -1,18 +1,48 @@
+import {
+  AUTOMATION_CLOUD_ENTERPRISE_SECTION,
+  DIAGNOSTICS_SECTION,
+  FIRST_RUN_SECTION,
+  HELP_STYLE,
+  PRODUCT_EXPLAINER_SECTION,
+  PROVIDER_AND_HANDOFF_SECTION,
+  SLACK_DECISION_FLOW_SECTION
+} from "./commandHelpStaticSections";
+import { extensionPromptRows, integrationWorkflowRows, renderWorkflowAccess, renderWorkflowQuickAccess, reviewWorkflowRows } from "./commandHelpWorkflowSections";
 type CommandRow = {
   command: string;
   expected: string;
 };
-
 type TroubleshootRow = {
   symptom: string;
   cause: string;
   fix: string;
 };
-
 const quickstartRows: CommandRow[] = [
   {
+    command: "pg install backend --target \".\"  (or: pg install frontend --target \".\")",
+    expected:
+      "Scaffolds PG + Memory-bank workflow files for current project root."
+  },
+  {
+    command: ".\\pg.ps1 map-structure",
+    expected: "Scans existing code + migration/schema artifacts and writes auto docs to Memory-bank/code-tree and Memory-bank/db-schema."
+  },
+  {
+    command: ".\\pg.ps1 help",
+    expected: "Lists commands available in this project's installed PG profile."
+  },
+  {
+    command: "Narrate: Open Model Settings",
+    expected: "One-click jump to VS Code Settings filtered to `narrate.model.*` provider keys."
+  },
+  {
     command: ".\\pg.ps1 start -Yes",
-    expected: "Session bootstrap complete + health checks run."
+    expected: "Session bootstrap complete + strict start gate check (legacy map-structure must be fresh unless warn/bypass is explicitly used)."
+  },
+  {
+    command: "Narrate: Run Startup For Current Context",
+    expected:
+      "Re-runs nearest-context startup inside VS Code (detects closest AGENTS.md/pg.ps1 scope and forces a fresh pg start)."
   },
   {
     command: ".\\pg.ps1 dev-profile -DevProfileAction init",
@@ -48,14 +78,12 @@ const quickstartRows: CommandRow[] = [
   {
     command:
       ".\\pg.ps1 closure-check -ApiBase \"http://127.0.0.1:8787\" -PublicBaseUrl \"https://pg-ext.addresly.com\"",
-    expected:
-      "Runs one-shot Milestone closure matrix (10F Slack + 10G Narrate) and writes a combined report (strict mode)."
+    expected: "Runs one-shot Milestone closure matrix (10F Slack + 10G Narrate) and writes a combined report (strict mode)."
   },
   {
     command:
       ".\\pg.ps1 closure-check -ClosureMode local-core -ApiBase \"http://127.0.0.1:8787\" -PublicBaseUrl \"https://pg-ext.addresly.com\"",
-    expected:
-      "Runs closure matrix but allows tunnel-only public endpoint failures while keeping local flow checks strict."
+    expected: "Runs closure matrix but allows tunnel-only public endpoint failures while keeping local flow checks strict."
   },
   {
     command: ".\\pg.ps1 db-index-check",
@@ -75,7 +103,7 @@ const quickstartRows: CommandRow[] = [
     command:
       ".\\pg.ps1 self-check -WarnOnly -EnableDbIndexMaintenanceCheck -EnablePlaywrightSmokeCheck",
     expected:
-      "As-you-go verification for UI tasks: includes optional Playwright smoke checks in the same run."
+      "As-you-go verification for UI tasks: includes Playwright smoke in the same run."
   },
   {
     command: ".\\pg.ps1 self-check -EnableDbIndexMaintenanceCheck",
@@ -175,7 +203,7 @@ const quickstartRows: CommandRow[] = [
   {
     command: "Narrate: Show Trust Score Report",
     expected:
-      "Opens latest deterministic trust report (rule IDs, blockers, warnings, score)."
+      "Opens latest server-backed trust report with backend policy findings plus local editor diagnostics."
   },
   {
     command: "Narrate: Open Trust Score Panel",
@@ -190,7 +218,7 @@ const quickstartRows: CommandRow[] = [
   {
     command: "Narrate: Refresh Trust Score",
     expected:
-      "Runs Trust Score immediately (useful when auto-refresh is set to manual mode)."
+      "Runs Trust Score immediately by sending active file context to backend trust evaluation and merging local diagnostics."
   },
   {
     command: "Narrate: Run Trust Score Workspace Scan",
@@ -200,12 +228,12 @@ const quickstartRows: CommandRow[] = [
   {
     command: "Narrate: Restart TypeScript + Refresh Trust Score",
     expected:
-      "Runs save-all, restarts TS server, then refreshes Trust Score to clear stale diagnostics."
+      "Runs save-all, restarts TS server, then refreshes backend trust with fresh local diagnostics."
   },
   {
     command: "Narrate: Setup Validation Library",
     expected:
-      "Installs latest validation package (Zod recommended) and offers docs + trust refresh."
+      "Installs a Node/TS validation package when package.json is available, or shows framework-specific validation guidance for non-Node workspaces."
   },
   {
     command: "Narrate: PG Push (Git Add/Commit/Push)",
@@ -283,6 +311,16 @@ const slackRows: CommandRow[] = [
 
 const troubleshootingRows: TroubleshootRow[] = [
   {
+    symptom: "Target path not found: C:\\path\\to\\your\\project",
+    cause: "Placeholder path was pasted literally.",
+    fix: "Replace with your real absolute path in quotes."
+  },
+  {
+    symptom: "Set-Location: A positional parameter cannot be found that accepts argument '/d ...'",
+    cause: "You used CMD syntax (`cd /d`) inside PowerShell.",
+    fix: "Use `Set-Location \"C:\\real\\path\"` in PowerShell, or switch terminal profile to CMD."
+  },
+  {
     symptom: "ParserError: '<' operator is reserved for future use",
     cause: "You pasted placeholder text like <THREAD_ID> literally.",
     fix: "Use the real UUID in quotes. Example: -ThreadId \"6c920...\""
@@ -297,6 +335,11 @@ const troubleshootingRows: TroubleshootRow[] = [
     symptom: "The term '.\\pg.ps1' is not recognized",
     cause: "Terminal is not in repo root directory.",
     fix: "cd to project root, then run .\\pg.ps1 <command>."
+  },
+  {
+    symptom: "Narrate says command needs a PG project root",
+    cause: "Workspace root does not contain pg.ps1 and scripts\\pg.ps1.",
+    fix: "Use the warning action `Open Fix Guide`, then run commands from the detected root."
   },
   {
     symptom: "PG Self Check reports blockers while coding",
@@ -370,7 +413,7 @@ const troubleshootingRows: TroubleshootRow[] = [
   }
 ];
 
-function renderCommands(title: string, rows: CommandRow[]): string {
+function renderCommands(title: string, rows: CommandRow[], id?: string): string {
   const items = rows
     .map(
       (row) => `
@@ -382,7 +425,7 @@ function renderCommands(title: string, rows: CommandRow[]): string {
     .join("");
 
   return `
-    <section>
+    <section${id ? ` id="${escapeHtml(id)}"` : ""}>
       <h3>${escapeHtml(title)}</h3>
       <table>
         <thead>
@@ -392,7 +435,6 @@ function renderCommands(title: string, rows: CommandRow[]): string {
       </table>
     </section>`;
 }
-
 function renderTroubleshooting(rows: TroubleshootRow[]): string {
   const items = rows
     .map(
@@ -404,9 +446,8 @@ function renderTroubleshooting(rows: TroubleshootRow[]): string {
       </tr>`
     )
     .join("");
-
   return `
-    <section>
+    <section id="troubleshooting">
       <h3>Troubleshooting</h3>
       <table>
         <thead>
@@ -416,7 +457,6 @@ function renderTroubleshooting(rows: TroubleshootRow[]): string {
       </table>
     </section>`;
 }
-
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -425,75 +465,33 @@ function escapeHtml(value: string): string {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
-
-const HELP_STYLE = `
-  body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 8px 12px 20px; line-height: 1.45; }
-  h2 { margin-top: 0; font-size: 1.15rem; }
-  h3 { margin: 16px 0 8px; font-size: 1rem; }
-  p { margin: 6px 0; }
-  table { border-collapse: collapse; width: 100%; margin: 8px 0 14px; table-layout: fixed; }
-  th, td { border: 1px solid var(--vscode-panel-border); padding: 6px 8px; text-align: left; vertical-align: top; }
-  th { background: var(--vscode-editorWidget-background); }
-  td code { white-space: pre-wrap; word-break: break-word; font-family: var(--vscode-editor-font-family); }
-  .note { border-left: 3px solid var(--vscode-focusBorder); padding: 6px 10px; background: var(--vscode-editorWidget-background); }
-  .small { opacity: 0.9; font-size: 0.9rem; }
-`;
-
-const DIAGNOSTICS_SECTION = `
-  <section>
-    <h3>5) One-Click Diagnostics</h3>
-    <p>Run <code>Narrate: Run Command Diagnostics</code> from Command Palette to check:</p>
-    <ul>
-      <li>Backend health endpoint</li>
-      <li>Slack integration health endpoint</li>
-      <li>Local dev-profile readiness</li>
-      <li>Governance worker one-shot pull/apply path</li>
-      <li>Narrate flow baseline wiring check</li>
-    </ul>
-    <p>A diagnostics report opens automatically with pass/fail and fix hints.</p>
-    <p>Diagnostics are also saved to:</p>
-    <ul>
-      <li><code>Memory-bank/_generated/command-diagnostics-latest.md</code></li>
-      <li><code>Memory-bank/_generated/command-diagnostics-latest.json</code></li>
-      <li>timestamped <code>.md</code> and <code>.json</code> snapshots in the same folder.</li>
-    </ul>
-    <p>After run, use quick actions in the toast: <code>Open Latest Report</code>, <code>Open Diagnostics Folder</code>, or <code>Copy Latest Path</code>.</p>
-    <p>Run <code>Narrate: Run Environment Doctor</code> to detect missing, unused, and potentially exposed env variables.</p>
-    <p>Trust Score panel is available in the Narrate Help sidebar with one-click refresh/toggle actions.</p>
-  </section>
-`;
-
 function renderHelpSections(): string {
   return [
-    renderCommands("1) Local Quickstart (PG)", quickstartRows),
-    renderCommands("2) Decision Sync (Local Worker)", governanceRows),
-    renderCommands("3) Narrate Reading UI Toggles", narrationUiRows),
-    renderCommands("4) Slack Decision Commands", slackRows),
+    FIRST_RUN_SECTION,
+    PRODUCT_EXPLAINER_SECTION,
+    SLACK_DECISION_FLOW_SECTION,
+    AUTOMATION_CLOUD_ENTERPRISE_SECTION,
+    PROVIDER_AND_HANDOFF_SECTION,
+    renderWorkflowQuickAccess(escapeHtml),
+    renderWorkflowAccess(escapeHtml),
+    renderCommands("2) Local Quickstart (PG)", quickstartRows),
+    renderCommands("3) Extension Prompt + Handoff Commands", extensionPromptRows, "extension-prompts"),
+    renderCommands("4) Frontend/Backend Integration Workflow (Pro/Team/Enterprise)", integrationWorkflowRows, "integration-workflow"),
+    renderCommands("5) Secure Review Workflow (Pro/Team/Enterprise)", reviewWorkflowRows, "review-workflow"),
+    renderCommands("6) Decision Sync (Local Worker)", governanceRows, "decision-sync"),
+    renderCommands("7) Narrate Reading UI Toggles", narrationUiRows),
+    renderCommands("8) Slack Decision Commands", slackRows, "slack-commands"),
     DIAGNOSTICS_SECTION,
     renderTroubleshooting(troubleshootingRows),
     "<p class=\"small\">Security rule: local dev profile is for dev/test only and stays gitignored. Production secrets remain in .env/vault.</p>"
   ].join("");
 }
-
 function renderHelpDocument(style: string, body: string): string {
   return `<!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <style>${style}</style>
-  </head>
-  <body>
-    <h2>Narrate Command Help</h2>
-    <p class="note">
-      Decision flow only: this channel is for <strong>thread/vote/decide</strong> governance actions, not general chat.
-      Use real IDs and quoted values. Do not paste placeholder values like <code>&lt;THREAD_ID&gt;</code>.
-    </p>
-    ${body}
-  </body>
-  </html>`;
+  <html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><style>${style}</style></head>
+  <body><h2>Narrate Command Help</h2>
+    <p class="note">Decision flow only: this channel is for <strong>thread/vote/decide</strong> governance actions, not general chat.
+    Use real IDs and quoted values. Do not paste placeholder values like <code>&lt;THREAD_ID&gt;</code>.</p>
+    ${body}</body></html>`;
 }
-
-export function buildCommandHelpHtml(): string {
-  return renderHelpDocument(HELP_STYLE, renderHelpSections());
-}
+export function buildCommandHelpHtml(): string { return renderHelpDocument(HELP_STYLE, renderHelpSections()); }

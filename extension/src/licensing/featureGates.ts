@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { Logger } from "../utils/logger";
 import { formatPlanLabel, isProOrHigher, normalizePlan, PlanTier } from "./plans";
 import { EntitlementClient } from "./entitlementClient";
+import { LicensingCallbackHandler } from "./licensingCallbackHandler";
 import { LicensingSecretStorage } from "./secretStorage";
 import { EntitlementTokenVerifier } from "./tokenVerifier";
 import { EntitlementClaims } from "./types";
@@ -21,6 +22,7 @@ import {
 
 export class FeatureGateService {
   private readonly storage: LicensingSecretStorage;
+  private readonly callbackHandler: LicensingCallbackHandler;
   private readonly verifier = new EntitlementTokenVerifier();
   private readonly changedEmitter = new vscode.EventEmitter<void>();
   private entitlementClaims: EntitlementClaims | undefined;
@@ -31,10 +33,18 @@ export class FeatureGateService {
     private readonly context: vscode.ExtensionContext
   ) {
     this.storage = new LicensingSecretStorage(context);
+    this.callbackHandler = new LicensingCallbackHandler(context, logger, {
+      setAccessToken: (token) => this.storage.setAccessToken(token),
+      refreshLicense: (source) => this.refreshLicense(source)
+    });
   }
 
   get onDidChangeStatus(): vscode.Event<void> {
     return this.changedEmitter.event;
+  }
+
+  getLicensingCallbackHandler(): LicensingCallbackHandler {
+    return this.callbackHandler;
   }
 
   async initialize(): Promise<void> {
@@ -410,6 +420,7 @@ export class FeatureGateService {
     return {
       logger: this.logger,
       storage: this.storage,
+      callbackHandler: this.callbackHandler,
       getApiBaseUrl: () => this.getApiBaseUrl(),
       getClient: () => this.getClient(),
       refreshLicense: (source) => this.refreshLicense(source)

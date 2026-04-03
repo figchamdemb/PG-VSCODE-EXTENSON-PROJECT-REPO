@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PG Narrate Pricing | Plan Comparison</title>
+  <meta
+    name="description"
+    content="Compare PG Narrate Free, Trial, Pro, Team, and Enterprise plans, plus admin-editable annual paid SKUs for Narrate, Memory-bank, and Bundle checkout."
+  />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/assets/site.css?v=20260305-1" />
+  <link rel="stylesheet" href="/assets/pricing.css?v=20260305-1" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">PG</span>
+      <span class="brand-text">PG Narrate Pricing</span>
+    </div>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/help">Help</a>
+      <a href="/app">Portal</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero reveal">
+      <p class="eyebrow">Pricing + Entitlements</p>
+      <h1>Choose the exact command power your team needs.</h1>
+      <p class="lead">
+        Free and Trial start without Stripe. Paid access is sold as annual plan-plus-module SKUs.
+        The current checkout flow uses one-time Stripe prices for one year of access, then the app
+        grants the matching annual entitlement. Enterprise Custom stays quote-based so larger seat
+        counts or bigger Memory-bank quotas can be activated manually without changing the standard
+        checkout flow.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="/app">Open Secure Portal</a>
+        <a class="btn btn-ghost" href="/help#tier-commands">Tier Command Help</a>
+      </div>
+    </section>
+
+    <section class="plans reveal" id="pricingPlans">
+      <article class="plan">
+        <p class="plan-tag">Loading</p>
+        <h2>Pricing...</h2>
+        <p>Loading plan pricing.</p>
+        <ul><li>Please wait</li></ul>
+      </article>
+    </section>
+
+    <section class="sku-panel reveal">
+      <div class="sku-head">
+        <div>
+          <p class="eyebrow">Annual Checkout SKUs</p>
+          <h3>Exact paid products to create in Stripe</h3>
+        </div>
+        <p id="skuSummary" class="sku-summary">
+          Free and Trial / EDU do not need Stripe products. Create one-time annual prices for the
+          9 paid keys below and map each returned <code>price_...</code> into
+          <code>STRIPE_PRICE_MAP</code>.
+        </p>
+      </div>
+
+      <div id="skuGrid" class="sku-grid">
+        <article class="sku-card">
+          <p class="sku-tier">Loading</p>
+          <h4>Preparing pricing...</h4>
+          <p class="sku-price">Please wait</p>
+        </article>
+      </div>
+
+      <p id="skuFootnote" class="sku-footnote">
+        Current truth of the product: Stripe is used in <code>payment</code> mode, so these should
+        be one-time prices representing one year of access. True recurring or automatic per-seat
+        billing would require a backend checkout-model change.
+      </p>
+      <p class="sku-footnote currency-note">
+        Charges are set in GBP. International cards can still pay, and your bank or card provider may
+        convert the final amount into local currency on your statement.
+      </p>
+      <p class="sku-footnote currency-note">
+        Referral and affiliate codes can also be used as a promotion path: buyers get the better of £2.50 off or 10% off,
+        referral-code owners earn at least £2.00 per paid buyer, affiliate-code owners earn at least £2.50 per paid buyer,
+        and the commission rate reaches 15% after 3 paid buyers.
+      </p>
+      <p class="sku-footnote currency-note">
+        Full refund stays open for the first 5 days. Referral and affiliate payouts are intentionally held until that refund window closes to reduce fraud.
+      </p>
+    </section>
+
+    <section class="quote-panel reveal">
+      <div class="quote-copy">
+        <p class="eyebrow">Enterprise Custom</p>
+        <h3>Need more seats or bigger Memory-bank quotas?</h3>
+        <p>
+          Enterprise Custom is the safe expansion path when a standard Enterprise package is too
+          small. We agree the seat, device, and project caps first, bill it as a custom quote,
+          invoice, or manual Stripe invoice, then activate the final limits from the admin portal.
+        </p>
+      </div>
+      <div class="quote-grid">
+        <article class="quote-card">
+          <h4>Standard Enterprise</h4>
+          <p>Public self-serve pricing stays on the normal Enterprise SKU map.</p>
+          <p>Current standard limit: 50 devices per licensed user and 2,000 Memory-bank projects.</p>
+        </article>
+        <article class="quote-card">
+          <h4>Enterprise Custom Quote</h4>
+          <p>Use this when you need higher seat counts, custom team sizing, or larger Memory-bank quotas.</p>
+          <p>Typical shape: larger seat caps with manually agreed project limits instead of unlimited access.</p>
+        </article>
+        <article class="quote-card">
+          <h4>Activation Model</h4>
+          <p>No extra public Stripe SKU is required.</p>
+          <p>After payment, the team or subscription is activated through existing admin manual-grant flows.</p>
+        </article>
+      </div>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="/app">Request Through Portal</a>
+        <a class="btn btn-ghost" href="/app?tab=support&category=billing&subject=Enterprise%20Custom%20quote%20request">Contact Sales</a>
+        <a class="btn btn-ghost" href="/help#tier-commands">Review Tier Details</a>
+      </div>
+    </section>
+
+    <section class="matrix-panel reveal">
+      <div class="matrix-head">
+        <h3>Full Feature Matrix</h3>
+        <p>Live from plan policy (`/api/plans/comparison`).</p>
+      </div>
+      <div class="category-filters" id="categoryFilters">
+        <button class="chip active" data-category="all">All</button>
+        <button class="chip" data-category="core">Core</button>
+        <button class="chip" data-category="governance">Governance</button>
+        <button class="chip" data-category="policy">Policy</button>
+        <button class="chip" data-category="extension">Extension</button>
+        <button class="chip" data-category="limits">Limits</button>
+      </div>
+      <div class="table-wrap">
+        <table id="comparisonTable">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Free</th>
+              <th>Trial</th>
+              <th>Pro</th>
+              <th>Team</th>
+              <th>Enterprise</th>
+            </tr>
+          </thead>
+          <tbody id="comparisonBody">
+            <tr><td colspan="6">Loading plan comparison...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Need procurement support or custom terms? Use the secure portal support channel.</p>
+  </footer>
+
+  <script type="module" src="/assets/pricing.js?v=20260315-2"></script>
+</body>
+</html>

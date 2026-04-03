@@ -1,0 +1,9 @@
+{
+  "request_id": "c102e37a-e487-4322-b0b2-922bb5200581",
+  "action": "resume",
+  "requested_at_utc": "2026-03-19T22:20:28.5183352Z",
+  "source": "pg-cli",
+  "status": "applied",
+  "handled_at_utc": "2026-03-19T22:20:28.649Z",
+  "message": "Mandatory PG enforcement resumed for PG VSCODE-EXTENSION."
+}

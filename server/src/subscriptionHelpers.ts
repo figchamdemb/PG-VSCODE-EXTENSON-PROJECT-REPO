@@ -16,12 +16,18 @@ import {
   PaidPlanTier,
   StoreState
 } from "./types";
+import { PublicPricingCatalog } from "./pricingCatalog";
+import {
+  affiliateProgramFromCatalog,
+  computeAffiliateCommission
+} from "./affiliateProgram";
 
 export interface CreateSubscriptionHelpersDeps {
   store: StateStore;
   refundWindowDays: number;
   defaultAffiliateRateBps: number;
   stripePriceMap: Record<string, string | undefined>;
+  getPricingCatalog: () => PublicPricingCatalog;
 }
 
 type GrantByEmailInput = {
@@ -45,8 +51,8 @@ export function createSubscriptionHelpers(deps: CreateSubscriptionHelpersDeps) {
     generateCode,
     clampCommissionRate: (value: number) => clampCommissionRate(deps, value),
     recordAffiliatePaidConversion: (
-      code: string, buyerEmail: string, orderId: string, grossAmountCents: number
-    ) => recordAffiliatePaidConversion(deps, code, buyerEmail, orderId, grossAmountCents),
+      code: string, buyerEmail: string, orderId: string, grossAmountCents: number, buyerDiscountCents?: number
+    ) => recordAffiliatePaidConversion(deps, code, buyerEmail, orderId, grossAmountCents, buyerDiscountCents),
     upsertProviderPolicy: (
       scopeType: "user" | "team", scopeId: string,
       policy: EntitlementClaimPayload["provider_policy"]
@@ -146,7 +152,8 @@ async function recordAffiliatePaidConversion(
   code: string,
   buyerEmail: string,
   orderId: string,
-  grossAmountCents: number
+  grossAmountCents: number,
+  buyerDiscountCents = 0
 ): Promise<
   | { ok: true; conversionId: string; commissionAmountCents: number }
   | { ok: false; code: number; error: string }
@@ -172,43 +179,94 @@ async function recordAffiliatePaidConversion(
   let conversionId = "";
   let commissionAmountCents = 0;
   await deps.store.update((state) => {
-    let buyer = state.users.find((item) => item.email === buyerEmail);
-    if (!buyer) {
-      buyer = {
-        id: randomUUID(),
-        email: buyerEmail,
-        created_at: new Date().toISOString(),
-        last_login_at: new Date().toISOString()
-      };
-      state.users.push(buyer);
-    }
-    const currentAffiliate = state.affiliate_codes.find(
-      (item) => item.code === code && item.status === "active"
+    const buyer = getOrCreateAffiliateBuyer(state, buyerEmail);
+    const currentAffiliate = getActiveAffiliateOrThrow(state, code);
+    const conversion = buildAffiliateConversionRecord(
+      deps,
+      state,
+      currentAffiliate.user_id,
+      currentAffiliate.commission_rate_bps,
+      buyer.id,
+      code,
+      orderId,
+      grossAmountCents,
+      buyerDiscountCents
     );
-    if (!currentAffiliate) {
-      throw new Error("affiliate code not found");
-    }
-
-    conversionId = randomUUID();
-    commissionAmountCents = Math.floor(
-      (grossAmountCents * currentAffiliate.commission_rate_bps) / 10000
-    );
-    state.affiliate_conversions.push({
-      id: conversionId,
-      affiliate_user_id: currentAffiliate.user_id,
-      buyer_user_id: buyer.id,
-      ref_code: code,
-      status: "paid_confirmed",
-      order_id: orderId,
-      gross_amount_cents: grossAmountCents,
-      commission_amount_cents: commissionAmountCents,
-      confirmed_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      payout_id: null
-    });
+    conversionId = conversion.id;
+    commissionAmountCents = conversion.commission_amount_cents;
+    state.affiliate_conversions.push(conversion);
   });
 
   return { ok: true, conversionId, commissionAmountCents };
+}
+
+function getOrCreateAffiliateBuyer(state: StoreState, buyerEmail: string) {
+  let buyer = state.users.find((item) => item.email === buyerEmail);
+  if (!buyer) {
+    const nowIso = new Date().toISOString();
+    buyer = {
+      id: randomUUID(),
+      email: buyerEmail,
+      created_at: nowIso,
+      last_login_at: nowIso
+    };
+    state.users.push(buyer);
+  }
+  return buyer;
+}
+
+function getActiveAffiliateOrThrow(state: StoreState, code: string) {
+  const affiliate = state.affiliate_codes.find(
+    (item) => item.code === code && item.status === "active"
+  );
+  if (!affiliate) {
+    throw new Error("affiliate code not found");
+  }
+  return affiliate;
+}
+
+function buildAffiliateConversionRecord(
+  deps: CreateSubscriptionHelpersDeps,
+  state: StoreState,
+  affiliateUserId: string,
+  commissionRateBps: number,
+  buyerUserId: string,
+  code: string,
+  orderId: string,
+  grossAmountCents: number,
+  buyerDiscountCents: number
+) {
+  const pricingCatalog = deps.getPricingCatalog();
+  const paidReferralsCountBefore = countPaidAffiliateConversions(state, affiliateUserId);
+  const commission = computeAffiliateCommission({
+    catalog: pricingCatalog,
+    baseCommissionRateBps: commissionRateBps,
+    paidReferralsCountBefore,
+    grossAmountCents,
+    code
+  });
+  const nowIso = new Date().toISOString();
+  return {
+    id: randomUUID(),
+    affiliate_user_id: affiliateUserId,
+    buyer_user_id: buyerUserId,
+    ref_code: code,
+    status: "paid_confirmed" as const,
+    order_id: orderId,
+    gross_amount_cents: grossAmountCents,
+    buyer_discount_cents: Math.max(0, buyerDiscountCents),
+    effective_commission_rate_bps: commission.effectiveCommissionRateBps,
+    commission_amount_cents: commission.commissionAmountCents,
+    confirmed_at: nowIso,
+    created_at: nowIso,
+    payout_id: null
+  };
+}
+
+function countPaidAffiliateConversions(state: StoreState, affiliateUserId: string): number {
+  return state.affiliate_conversions.filter(
+    (item) => item.affiliate_user_id === affiliateUserId && item.status === "paid_confirmed"
+  ).length;
 }
 
 async function upsertProviderPolicy(

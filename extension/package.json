@@ -1,8 +1,9 @@
 {
   "name": "narrate-vscode-extension",
-  "displayName": "Narrate",
+  "displayName": "PG-Narrate",
   "description": "Local-first code narration with prompt handoff and incremental cache.",
-  "version": "0.1.0",
+  "icon": "resources/marketplace-icon.png",
+  "version": "0.1.1",
   "publisher": "figchamdemb",
   "license": "UNLICENSED",
   "engines": {
@@ -13,58 +14,6 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "onCommand:narrate.toggleReadingModeDev",
-    "onCommand:narrate.toggleReadingModeEdu",
-    "onCommand:narrate.setModeDev",
-    "onCommand:narrate.setModeEdu",
-    "onCommand:narrate.switchNarrationMode",
-    "onCommand:narrate.switchReadingViewMode",
-    "onCommand:narrate.switchReadingPaneMode",
-    "onCommand:narrate.switchReadingSnippetMode",
-    "onCommand:narrate.switchEduDetailLevel",
-    "onCommand:narrate.refreshReadingView",
-    "onCommand:narrate.requestChangePrompt",
-    "onCommand:narrate.exportNarrationFile",
-    "onCommand:narrate.exportNarrationWorkspace",
-    "onCommand:narrate.generateChangeReport",
-    "onCommand:narrate.generateCodebaseTour",
-    "onCommand:narrate.showCodebaseTourGraph",
-    "onCommand:narrate.pgPush",
-    "onCommand:narrate.pgGit",
-    "onCommand:narrate.governanceSyncNow",
-    "onCommand:narrate.authSignIn",
-    "onCommand:narrate.authSignInGitHub",
-    "onCommand:narrate.redeemCode",
-    "onCommand:narrate.startTrial",
-    "onCommand:narrate.refreshLicense",
-    "onCommand:narrate.licenseStatus",
-    "onCommand:narrate.upgradePlan",
-    "onCommand:narrate.activateProjectQuota",
-    "onCommand:narrate.showProjectQuota",
-    "onCommand:narrate.manageDevices",
-    "onCommand:narrate.openCommandHelp",
-    "onCommand:narrate.createDeadCodeCleanupBranch",
-    "onCommand:narrate.applySafeDeadCodeFixes",
-    "onCommand:narrate.runCommandDiagnostics",
-    "onCommand:narrate.runFlowInteractionCheck",
-    "onCommand:narrate.runDeadCodeScan",
-    "onCommand:narrate.runEnvironmentDoctor",
-    "onCommand:narrate.runApiContractValidator",
-    "onCommand:narrate.openApiCheck",
-    "onCommand:narrate.openApiFixHandoff",
-    "onCommand:narrate.runTrustWorkspaceScan",
-    "onCommand:narrate.setupValidationLibrary",
-    "onCommand:narrate.environmentDoctorQuickFixExample",
-    "onCommand:narrate.showTrustScoreReport",
-    "onCommand:narrate.refreshTrustScore",
-    "onCommand:narrate.restartTypeScriptAndRefreshTrust",
-    "onCommand:narrate.toggleTrustScore",
-    "onCommand:narrate.openTrustScorePanel",
-    "onCommand:narrate.runDbIndexCheck",
-    "onCommand:narrate.runMcpCloudScore",
-    "onCommand:narrate.runObservabilityCheck",
-    "onView:narrate.commandHelpView",
-    "onView:narrate.trustScoreView",
     "onStartupFinished"
   ],
   "contributes": {
@@ -197,6 +146,14 @@
         "title": "Narrate: Open Command Help"
       },
       {
+        "command": "narrate.openModelSettings",
+        "title": "Narrate: Open Model Settings"
+      },
+      {
+        "command": "narrate.openToggleControlPanel",
+        "title": "Narrate: Open Toggle Control Panel"
+      },
+      {
         "command": "narrate.createDeadCodeCleanupBranch",
         "title": "Narrate: Create Dead Code Cleanup Branch"
       },
@@ -211,6 +168,18 @@
       {
         "command": "narrate.runFlowInteractionCheck",
         "title": "Narrate: Run Flow Interaction Check"
+      },
+      {
+        "command": "narrate.runStartupForCurrentContext",
+        "title": "Narrate: Run Startup For Current Context"
+      },
+      {
+        "command": "narrate.stopMandatoryEnforcement",
+        "title": "Narrate: Stop PG Enforcement For Workspace"
+      },
+      {
+        "command": "narrate.resumeMandatoryEnforcement",
+        "title": "Narrate: Resume PG Enforcement For Workspace"
       },
       {
         "command": "narrate.runDeadCodeScan",
@@ -291,6 +260,11 @@
         {
           "id": "narrate.commandHelpView",
           "name": "Command Help",
+          "type": "webview"
+        },
+        {
+          "id": "narrate.toggleControlView",
+          "name": "Toggle Panel",
           "type": "webview"
         },
         {
@@ -484,6 +458,11 @@
           "default": "http://127.0.0.1:8787",
           "description": "Backend licensing API base URL used when mode is backend."
         },
+        "narrate.licensing.sessionToken": {
+          "type": "string",
+          "default": "",
+          "description": "Optional manual bearer token for backend licensing and Trust Score server evaluation. Normally this is populated by Narrate sign-in automatically; use only as a local fallback override."
+        },
         "narrate.licensing.publicKeyPem": {
           "type": "string",
           "default": "",
@@ -498,6 +477,16 @@
           "type": "string",
           "default": "unknown",
           "description": "Framework hint passed to PG enforcement checks (for example: nextjs, nestjs, spring, react)."
+        },
+        "narrate.startupGuard.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Detect PG or Memory-bank workspace context and keep local startup enforcement active until it is explicitly stopped for that workspace."
+        },
+        "narrate.startupGuard.autoRunOnContextChange": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically run .\\pg.ps1 start -Yes when Narrate enters a new repo/subrepo context, when a new UTC day begins, or when a blocked workspace is resumed."
         },
         "narrate.enforcement.postWrite.enabled": {
           "type": "boolean",
@@ -578,7 +567,7 @@
         "narrate.trustScore.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable deterministic Trust Score checks on save."
+          "description": "Enable server-backed Trust Score checks on save/editor change."
         },
         "narrate.trustScore.showStatusBar": {
           "type": "boolean",
@@ -588,7 +577,7 @@
         "narrate.trustScore.autoRefreshOnSave": {
           "type": "boolean",
           "default": true,
-          "description": "Automatically refresh Trust Score on save and editor switch. Turn off for manual refresh mode."
+          "description": "Automatically refresh Trust Score on save and editor switch. Narrate sends active file context to backend trust evaluation."
         },
         "narrate.trustScore.validationLibraryPolicy": {
           "type": "string",
@@ -598,7 +587,7 @@
             "required"
           ],
           "default": "warn",
-          "description": "Validation package policy for Trust Score on controller/route files. required blocks when no supported validation package is detected."
+          "description": "Validation package policy metadata sent with Trust Score requests for controller/route files. required blocks when no supported validation package is detected."
         },
         "narrate.trustScore.autoSuggestValidationInstall": {
           "type": "boolean",

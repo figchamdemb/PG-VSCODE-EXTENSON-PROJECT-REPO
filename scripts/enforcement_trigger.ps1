@@ -11,6 +11,7 @@ param(
     [ValidateRange(1, 2000)]
     [int]$MaxFiles = 400,
     [switch]$IncludeDevDependencies,
+    [switch]$SkipRegistryFetch,
     [switch]$SkipFunctionChecks,
     [switch]$EnableDbIndexMaintenanceCheck,
     [string]$DatabaseUrl = "",
@@ -134,8 +135,15 @@ function Invoke-DependencyCheck {
     if (-not $IncludeDevDependencies.IsPresent) {
         $args["DependenciesOnly"] = $true
     }
-    & (Join-Path $PSScriptRoot "dependency_verify.ps1") @args
-    return $LASTEXITCODE
+    if ($SkipRegistryFetch.IsPresent) {
+        $args["SkipRegistryFetch"] = $true
+    }
+    $args["Json"] = $true
+    $output = & (Join-Path $PSScriptRoot "dependency_verify.ps1") @args
+    return @{
+        exit_code = $LASTEXITCODE
+        json = Parse-MarkedJson -RawOutput ($output | Out-String) -Marker "PG_DEPENDENCY_VERIFY_JSON:"
+    }
 }
 
 function Invoke-CodingCheck {
@@ -155,8 +163,12 @@ function Invoke-CodingCheck {
     } elseif ($ScanPath -and $ScanPath.Count -gt 0) {
         $args["ScanPath"] = $ScanPath
     }
-    & (Join-Path $PSScriptRoot "coding_verify.ps1") @args
-    return $LASTEXITCODE
+    $args["Json"] = $true
+    $output = & (Join-Path $PSScriptRoot "coding_verify.ps1") @args
+    return @{
+        exit_code = $LASTEXITCODE
+        json = Parse-MarkedJson -RawOutput ($output | Out-String) -Marker "PG_CODING_VERIFY_JSON:"
+    }
 }
 
 function Invoke-DbIndexMaintenanceCheck {
@@ -168,6 +180,37 @@ function Invoke-DbIndexMaintenanceCheck {
     }
     & (Join-Path $PSScriptRoot "db_index_maintenance_check.ps1") @args
     return $LASTEXITCODE
+}
+
+function Parse-MarkedJson {
+    param(
+        [string]$RawOutput,
+        [string]$Marker
+    )
+    if ([string]::IsNullOrWhiteSpace($RawOutput) -or [string]::IsNullOrWhiteSpace($Marker)) {
+        return $null
+    }
+    $index = $RawOutput.IndexOf($Marker, [System.StringComparison]::Ordinal)
+    if ($index -lt 0) {
+        return $null
+    }
+    $jsonStart = $index + $Marker.Length
+    $lineEnd = $RawOutput.IndexOf("`n", $jsonStart, [System.StringComparison]::Ordinal)
+    $jsonText = if ($lineEnd -lt 0) {
+        $RawOutput.Substring($jsonStart).Trim()
+    }
+    else {
+        $RawOutput.Substring($jsonStart, $lineEnd - $jsonStart).Trim()
+    }
+    if ([string]::IsNullOrWhiteSpace($jsonText)) {
+        return $null
+    }
+    try {
+        return ConvertFrom-Json -InputObject $jsonText -ErrorAction Stop
+    }
+    catch {
+        return $null
+    }
 }
 
 $repoRoot = Get-RepoRoot
@@ -198,7 +241,8 @@ $hasRuntimeError = $false
 
 if ($runDependency) {
     Write-Host "- running dependency verification"
-    $depExit = Invoke-DependencyCheck -Token $token
+    $dependencyResult = Invoke-DependencyCheck -Token $token
+    $depExit = [int]$dependencyResult.exit_code
     if ($depExit -eq 2) {
         $hasBlockers = $true
     } elseif ($depExit -ne 0) {
@@ -209,7 +253,8 @@ if ($runDependency) {
 }
 
 Write-Host "- running coding standards verification"
-$codingExit = Invoke-CodingCheck -Token $token -ChangedTargets $changedTargets
+$codingResult = Invoke-CodingCheck -Token $token -ChangedTargets $changedTargets
+$codingExit = [int]$codingResult.exit_code
 if ($codingExit -eq 2) {
     $hasBlockers = $true
 } elseif ($codingExit -ne 0) {
@@ -284,9 +329,25 @@ if ($EnableDbIndexMaintenanceCheck.IsPresent) {
 
 $blockerCount = 0
 $warningCount = 0
-if ($depExit -eq 2) { $blockerCount++ }
-if ($codingExit -eq 2) { $blockerCount++ } elseif ($codingExit -ne 0) { $warningCount++ }
-if ($EnableDbIndexMaintenanceCheck.IsPresent -and $dbExit -eq 2) { $blockerCount++ }
+if ($dependencyResult -and $dependencyResult.json -and $dependencyResult.json.summary) {
+    $blockerCount += [int]$dependencyResult.json.summary.blockers
+    $warningCount += [int]$dependencyResult.json.summary.warnings
+}
+elseif ($depExit -eq 2) {
+    $blockerCount++
+}
+if ($codingResult -and $codingResult.json -and $codingResult.json.summary) {
+    $blockerCount += [int]$codingResult.json.summary.blockers
+    $warningCount += [int]$codingResult.json.summary.warnings
+}
+elseif ($codingExit -eq 2) {
+    $blockerCount++
+} elseif ($codingExit -ne 0) {
+    $warningCount++
+}
+if ($EnableDbIndexMaintenanceCheck.IsPresent -and $dbExit -eq 2) {
+    $blockerCount++
+}
 
 $auditStatus = if ($hasBlockers) { "blocked" } elseif ($hasRuntimeError) { "error" } elseif ($warningCount -gt 0) { "warn" } else { "pass" }
 $findingsSummary = "Phase=$Phase blockers=$blockerCount warnings=$warningCount checks=($($checksRun -join ','))"
@@ -307,9 +368,11 @@ function Write-JsonResult([string]$resultStatus, [int]$exitCode) {
         checks_run = $checksRun
         check_results = $checkResults
         warn_only = [bool]$WarnOnly.IsPresent
+        dependency_result = if ($runDependency) { $dependencyResult.json } else { $null }
+        coding_result = $codingResult.json
     }
-    $line = ConvertTo-Json -InputObject $result -Depth 5 -Compress
-    Write-Host "PG_ENFORCEMENT_JSON:$line"
+    $line = ConvertTo-Json -InputObject $result -Depth 12 -Compress
+    Write-Output "PG_ENFORCEMENT_JSON:$line"
 }
 
 if ($hasRuntimeError) {

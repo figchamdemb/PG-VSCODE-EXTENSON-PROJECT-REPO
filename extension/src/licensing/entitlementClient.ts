@@ -112,7 +112,9 @@ export class EntitlementClient {
     planId: "pro" | "team" | "enterprise",
     moduleScope: "narrate" | "memorybank" | "bundle",
     years: number,
-    affiliateCode?: string
+    affiliateCode?: string,
+    successUrl?: string,
+    cancelUrl?: string
   ): Promise<StripeCheckoutSessionResponse> {
     return this.request<StripeCheckoutSessionResponse>("/payments/stripe/create-checkout-session", {
       method: "POST",
@@ -121,7 +123,9 @@ export class EntitlementClient {
         plan_id: planId,
         module_scope: moduleScope,
         years,
-        affiliate_code: affiliateCode?.trim() || undefined
+        affiliate_code: affiliateCode?.trim() || undefined,
+        success_url: successUrl?.trim() || undefined,
+        cancel_url: cancelUrl?.trim() || undefined
       }
     });
   }

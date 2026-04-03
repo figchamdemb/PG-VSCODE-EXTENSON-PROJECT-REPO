@@ -71,7 +71,8 @@ export class NarrateSchemeProvider implements vscode.TextDocumentContentProvider
     const doc = await vscode.workspace.openTextDocument(uri);
     await vscode.window.showTextDocument(doc, {
       preview: false,
-      viewColumn: this.resolveViewColumn(paneMode)
+      viewColumn: this.resolveViewColumn(paneMode),
+      preserveFocus: paneMode === "sideBySide"
     });
     this.logger.info(
       `Opened narration view for ${sourceDocument.uri.fsPath} mode=${mode} viewMode=${viewMode} paneMode=${paneMode} snippetMode=${snippetMode} eduDetailLevel=${eduDetailLevel}`

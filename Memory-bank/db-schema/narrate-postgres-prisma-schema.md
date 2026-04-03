@@ -1,18 +1,19 @@
 # DB Schema - narrate-postgres-prisma
 
-LAST_UPDATED_UTC: 2026-02-27 22:25
-UPDATED_BY: codex
+LAST_UPDATED_UTC: 2026-03-18 03:54
+UPDATED_BY: copilot
 
 ## Purpose
-Document the PostgreSQL schema provisioned by Prisma for Narrate licensing domain.
+Document the canonical PostgreSQL target for the Narrate licensing domain and the Prisma-managed core tables inside it.
 
 ## Location
 - Database: `narate-enterprise`
 - Schema: `narate_enterprise` (non-`public`)
 - Provisioning command: `npm run prisma:dbpush` with `DATABASE_URL=...?...schema=narate_enterprise`
 - Prisma model source: `server/prisma/schema.prisma`
+- Legacy location `egov.narrate` is retired and must not be used for runtime or tool configuration.
 
-## Provisioned Tables (28)
+## Prisma Core Tables (28)
 - `users`
 - `auth_challenges`
 - `sessions`
@@ -43,6 +44,8 @@ Document the PostgreSQL schema provisioned by Prisma for Narrate licensing domai
 - `keys`
 
 ## Notes
+- `narate-enterprise?schema=narate_enterprise` is the only supported Postgres runtime target for this repo.
+- The dedicated enterprise schema may also contain additional runtime-managed tables created outside `schema.prisma` by the server store bootstrap path; this file tracks only the 28 Prisma models above.
 - `oauth_states.provider` supports both `github` and `google`.
 - `team_memberships.role` supports `owner|manager|member`.
 - Index hardening batch (2026-02-27) added missing Prisma-side indexes on relational FK-like fields to satisfy coding/DB policy gates:

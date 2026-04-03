@@ -2,11 +2,15 @@ import { randomUUID } from "crypto";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { AdminPermissionKeys } from "./adminRbacBootstrap";
 import { StateStore } from "./store";
-import { ModuleScope, PaidPlanTier, UserRecord } from "./types";
+import { ModuleScope, PaidPlanTier, StoreState, UserRecord } from "./types";
 import {
-  handleCreateCheckoutSession,
-  handleStripeWebhook,
-} from "./stripePaymentHandlers";
+  StripeRuntimeConfigPublicView,
+  StripeRuntimeConfigSnapshot,
+  StripeRuntimeConfigTestResult,
+  StripeRuntimeConfigUpdateInput
+} from "./stripeRuntimeConfig";
+import { PublicPricingCatalog } from "./pricingCatalog";
+import { handleCreateCheckoutSession, handleStripeWebhook } from "./stripePaymentHandlers";
 
 type AdminAccessContext = {
   mode: "db" | "key";
@@ -21,11 +25,16 @@ type AffiliatePaidConversionResult =
 
 export interface RegisterPaymentsRoutesDeps {
   requireAuth: (request: FastifyRequest, reply: FastifyReply) => { user: UserRecord } | undefined;
+  isAllowedCheckoutReturnUrl: (callbackUrl: string) => boolean;
   store: StateStore;
-  stripeSecretKey: string;
-  stripeWebhookSecret: string;
-  checkoutSuccessUrl: string;
-  checkoutCancelUrl: string;
+  getStripeRuntimeConfig: () => StripeRuntimeConfigSnapshot;
+  getStripeRuntimeConfigPublic: () => StripeRuntimeConfigPublicView;
+  getPricingCatalogPublic: () => PublicPricingCatalog;
+  updateStripeRuntimeConfig: (
+    input: StripeRuntimeConfigUpdateInput,
+    updatedBy: string | null
+  ) => Promise<StripeRuntimeConfigPublicView>;
+  testStripeRuntimeConfig: () => Promise<StripeRuntimeConfigTestResult>;
   resolveStripePriceId: (planId: PaidPlanTier, moduleScope: ModuleScope) => string | undefined;
   safeJson: (raw: string) => unknown;
   verifyStripeSignature: (payload: string, signatureHeader: string, secret: string) => boolean;
@@ -47,7 +56,8 @@ export interface RegisterPaymentsRoutesDeps {
     code: string,
     buyerEmail: string,
     orderId: string,
-    grossAmountCents: number
+    grossAmountCents: number,
+    buyerDiscountCents?: number
   ) => Promise<AffiliatePaidConversionResult>;
   addDays: (date: Date, days: number) => Date;
   offlineRefTtlDays: number;
@@ -71,8 +81,22 @@ export interface RegisterPaymentsRoutesDeps {
 }
 
 export function registerPaymentsRoutes(app: FastifyInstance, deps: RegisterPaymentsRoutesDeps): void {
+  registerPublicPricingCatalogRoute(app, deps);
+  registerStripePaymentRoutes(app, deps);
+  registerStripeAdminConfigRoutes(app, deps);
+  registerOfflinePaymentRoutes(app, deps);
+  registerRedeemRoutes(app, deps);
+}
+
+function registerPublicPricingCatalogRoute(app: FastifyInstance, deps: RegisterPaymentsRoutesDeps): void {
+  app.get("/api/pricing/catalog", async () => {
+    return { ok: true, catalog: deps.getPricingCatalogPublic() };
+  });
+}
+
+function registerStripePaymentRoutes(app: FastifyInstance, deps: RegisterPaymentsRoutesDeps): void {
   app.post<{
-    Body: { plan_id?: PaidPlanTier; module_scope?: ModuleScope; years?: number; affiliate_code?: string };
+    Body: { plan_id?: PaidPlanTier; module_scope?: ModuleScope; years?: number; affiliate_code?: string; success_url?: string; cancel_url?: string };
   }>(
     "/payments/stripe/create-checkout-session",
     (request, reply) => handleCreateCheckoutSession(request, reply, deps)
@@ -83,6 +107,9 @@ export function registerPaymentsRoutes(app: FastifyInstance, deps: RegisterPayme
     "/payments/stripe/webhook",
     (request, reply) => handleStripeWebhook(request, reply, deps)
   );
+}
+
+function registerOfflinePaymentRoutes(app: FastifyInstance, deps: RegisterPaymentsRoutesDeps): void {
   app.post<{
     Body: { email?: string; amount_cents?: number; plan_id?: PaidPlanTier; module_scope?: ModuleScope; years?: number };
   }>(
@@ -103,6 +130,112 @@ export function registerPaymentsRoutes(app: FastifyInstance, deps: RegisterPayme
     `${deps.adminRoutePrefix}/offline/reject`,
     (request, reply) => handleRejectOffline(request, reply, deps)
   );
+}
+
+function registerStripeAdminConfigRoutes(app: FastifyInstance, deps: RegisterPaymentsRoutesDeps): void {
+  registerStripeConfigReadRoute(app, deps);
+  registerStripeConfigWriteRoute(app, deps);
+  registerStripeConfigTestRoute(app, deps);
+}
+
+function registerStripeConfigReadRoute(app: FastifyInstance, deps: RegisterPaymentsRoutesDeps): void {
+  app.get(`${deps.adminRoutePrefix}/board/payments/stripe-config`, async (request, reply) => {
+    const adminAccess = await requireSuperAdminAccess(
+      request,
+      reply,
+      deps,
+      deps.adminPermissionKeys.BOARD_READ
+    );
+    if (!adminAccess) {
+      return;
+    }
+    return { ok: true, config: deps.getStripeRuntimeConfigPublic() };
+  });
+}
+
+function registerStripeConfigWriteRoute(app: FastifyInstance, deps: RegisterPaymentsRoutesDeps): void {
+  app.post<{
+    Body: {
+      stripe_secret_key?: string;
+      stripe_webhook_secret?: string;
+      stripe_publishable_key?: string;
+      stripe_price_map_raw?: string;
+      pricing_catalog_raw?: string;
+      checkout_success_url?: string;
+      checkout_cancel_url?: string;
+    };
+  }>(`${deps.adminRoutePrefix}/board/payments/stripe-config`, async (request, reply) => {
+    const adminAccess = await requireSuperAdminAccess(
+      request,
+      reply,
+      deps,
+      deps.adminPermissionKeys.BOARD_SUBSCRIPTION_WRITE
+    );
+    if (!adminAccess) {
+      return;
+    }
+    return updateStripeRuntimeConfig(request, reply, deps, adminAccess.userEmail ?? null);
+  });
+}
+
+function registerStripeConfigTestRoute(app: FastifyInstance, deps: RegisterPaymentsRoutesDeps): void {
+  app.post(`${deps.adminRoutePrefix}/board/payments/stripe-config/test`, async (request, reply) => {
+    const adminAccess = await requireSuperAdminAccess(
+      request,
+      reply,
+      deps,
+      deps.adminPermissionKeys.BOARD_SUBSCRIPTION_WRITE
+    );
+    if (!adminAccess) {
+      return;
+    }
+    const result = await deps.testStripeRuntimeConfig();
+    const statusCode = result.ok ? 200 : 400;
+    return reply.code(statusCode).send(result);
+  });
+}
+
+async function requireSuperAdminAccess(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  deps: RegisterPaymentsRoutesDeps,
+  permissionKey: string
+): Promise<AdminAccessContext | undefined> {
+  const adminAccess = await deps.requireAdminPermission(request, reply, permissionKey);
+  if (!adminAccess) {
+    return undefined;
+  }
+  if (!adminAccess.isSuperAdmin) {
+    reply.code(403).send({ error: "Super admin access is required." });
+    return undefined;
+  }
+  return adminAccess;
+}
+
+async function updateStripeRuntimeConfig(
+  request: FastifyRequest<{
+    Body: {
+      stripe_secret_key?: string;
+      stripe_webhook_secret?: string;
+      stripe_publishable_key?: string;
+      stripe_price_map_raw?: string;
+      checkout_success_url?: string;
+      checkout_cancel_url?: string;
+    };
+  }>,
+  reply: FastifyReply,
+  deps: RegisterPaymentsRoutesDeps,
+  userEmail: string | null
+) {
+  try {
+    const updated = await deps.updateStripeRuntimeConfig(request.body ?? {}, userEmail);
+    return { ok: true, config: updated };
+  } catch (error) {
+    return reply.code(400).send({ error: deps.toErrorMessage(error) });
+  }
+}
+
+function registerRedeemRoutes(app: FastifyInstance, deps: RegisterPaymentsRoutesDeps): void {
   app.post<{ Body: { code?: string } }>(
     "/redeem/apply",
     (request, reply) => handleRedeemApply(request, reply, deps)
@@ -149,11 +282,7 @@ async function handleCreateOfflineRef(
     });
   });
 
-  return {
-    ok: true,
-    ref_code: refCode,
-    expires_at: addDays(now, offlineRefTtlDays).toISOString()
-  };
+  return { ok: true, ref_code: refCode, expires_at: addDays(now, offlineRefTtlDays).toISOString() };
 }
 
 async function handleSubmitProof(
@@ -164,8 +293,8 @@ async function handleSubmitProof(
   const { store, toErrorMessage } = deps;
   const refCode = request.body?.ref_code?.trim().toUpperCase();
   const proofUrl = request.body?.proof_url?.trim() || null;
-  if (!refCode || !proofUrl) {
-    return reply.code(400).send({ error: "ref_code and proof_url are required" });
+  if (!refCode) {
+    return reply.code(400).send({ error: "ref_code is required" });
   }
 
   try {
@@ -191,7 +320,7 @@ async function handleSubmitProof(
     return reply.code(400).send({ error: toErrorMessage(error) });
   }
 
-  return { ok: true, status: "submitted" };
+  return { ok: true, status: "submitted", review_mode: "manual_bank_match", message: "Payment marked for manual review. Match the bank transfer against the reference code before approval." };
 }
 
 async function handleApproveOffline(
@@ -216,43 +345,59 @@ async function handleApproveOffline(
   let redeemCode = "";
   try {
     await store.update((state) => {
-      const ref = state.offline_payment_refs.find((item) => item.ref_code === refCode);
-      if (!ref) {
-        throw new Error("offline ref not found");
-      }
-      if (ref.status === "rejected") {
-        throw new Error("offline ref rejected");
-      }
-      if (ref.status === "approved" && ref.redeem_code) {
-        redeemCode = ref.redeem_code;
-        return;
-      }
-
-      redeemCode = generateCode("RDM");
-      ref.status = "approved";
-      ref.approved_at = new Date().toISOString();
-      ref.redeem_code = redeemCode;
-
-      state.redeem_codes.push({
-        id: randomUUID(),
-        code: redeemCode,
-        email: ref.email,
-        plan_id: ref.plan_id,
-        module_scope: ref.module_scope,
-        years: ref.years,
-        status: "unused",
-        source: "offline",
-        created_at: new Date().toISOString(),
-        used_at: null,
-        used_by_user_id: null,
-        revoked_at: null
-      });
+      redeemCode = approveOfflineReferenceAndCreateRedeemCode(state, refCode, generateCode);
     });
   } catch (error) {
     return reply.code(400).send({ error: toErrorMessage(error) });
   }
 
   return { ok: true, ref_code: refCode, redeem_code: redeemCode };
+}
+
+function approveOfflineReferenceAndCreateRedeemCode(
+  state: StoreState,
+  refCode: string,
+  generateCode: RegisterPaymentsRoutesDeps["generateCode"]
+): string {
+  const ref = state.offline_payment_refs.find((item) => item.ref_code === refCode);
+  if (!ref) {
+    throw new Error("offline ref not found");
+  }
+  if (ref.status === "rejected") {
+    throw new Error("offline ref rejected");
+  }
+  if (ref.status === "approved" && ref.redeem_code) {
+    return ref.redeem_code;
+  }
+
+  const redeemCode = generateCode("RDM");
+  const nowIso = new Date().toISOString();
+  ref.status = "approved";
+  ref.approved_at = nowIso;
+  ref.redeem_code = redeemCode;
+  state.redeem_codes.push(buildOfflineRedeemCodeRecord(ref, redeemCode, nowIso));
+  return redeemCode;
+}
+
+function buildOfflineRedeemCodeRecord(
+  ref: StoreState["offline_payment_refs"][number],
+  redeemCode: string,
+  nowIso: string
+): StoreState["redeem_codes"][number] {
+  return {
+    id: randomUUID(),
+    code: redeemCode,
+    email: ref.email,
+    plan_id: ref.plan_id,
+    module_scope: ref.module_scope,
+    years: ref.years,
+    status: "unused",
+    source: "offline",
+    created_at: nowIso,
+    used_at: null,
+    used_by_user_id: null,
+    revoked_at: null
+  };
 }
 
 async function handleRejectOffline(
@@ -344,9 +489,4 @@ async function handleRedeemApply(
     codeRecord.used_by_user_id = auth.user.id;
   });
 
-  return {
-    ok: true,
-    plan_id: redeem.plan_id,
-    module_scope: redeem.module_scope,
-    ends_at: grant.endsAt
-  };}
+  return { ok: true, plan_id: redeem.plan_id, module_scope: redeem.module_scope, ends_at: grant.endsAt };}

@@ -1,0 +1,56 @@
+name: Dependency Drift Weekly
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit-high:
+    name: "npm audit (high+) - ${{ matrix.project }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [extension, server]
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ matrix.project }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ matrix.project }}/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Fail on high/critical vulnerabilities
+        run: npm audit --audit-level=high --omit=optional
+      - name: Report outdated packages
+        run: |
+          npm outdated --json > ../${{ matrix.project }}-outdated.json || true
+          if [ -s ../${{ matrix.project }}-outdated.json ]; then
+            echo "Outdated packages detected in ${{ matrix.project }}:"
+            cat ../${{ matrix.project }}-outdated.json
+          else
+            echo "No outdated packages reported for ${{ matrix.project }}."
+          fi
+
+  policy-dependency-verify:
+    name: Policy Dependency Verify (all manifests)
+    runs-on: windows-latest
+    if: ${{ secrets.PG_API_BASE != '' && secrets.PG_ACCESS_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run workspace dependency policy verification
+        shell: pwsh
+        env:
+          PG_API_BASE: ${{ secrets.PG_API_BASE }}
+          PG_ACCESS_TOKEN: ${{ secrets.PG_ACCESS_TOKEN }}
+        run: |
+          ./scripts/dependency_verify.ps1 -ApiBase $env:PG_API_BASE -AccessToken $env:PG_ACCESS_TOKEN

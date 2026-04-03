@@ -1,18 +1,18 @@
 # Milestone Closure Check
 
-UTC: 2026-02-26T13:43:45.0896766Z
+UTC: 2026-03-19T09:23:40.0572089Z
 Mode: local-core
 Overall: PASS
 
 ## Slack Transport (10F)
-- Command: .\pg.ps1 slack-check -ApiBase http://127.0.0.1:8787 -PublicBaseUrl https://pg-ext.addresly.com -TeamKey TEAM-EXTENSON-PG -ActionKey default-handler -SyncLimit 300 -SkipPublicChecks
-- Exit Code: 0
-- PASS: 12
-- FAIL: 0
+- Command: .\pg.ps1 slack-check -ApiBase http://127.0.0.1:8787 -PublicBaseUrl https://pg-ext.addresly.com -TeamKey TEAM-EXTENSON-PG -ActionKey default-handler -SyncLimit 300
+- Exit Code: 2
+- PASS: 10
+- FAIL: 2
 - Report: C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\Memory-bank\_generated\slack-transport-check-latest.md
 
 ```text
-Added governance binding: thread=73242e12-72d9-40b4-8289-6b339c8332da action_key=default-handler one_shot=True
+Added governance binding: thread=8fcb4ac1-b483-4b6a-98f0-bcf90bc4b288 action_key=default-handler one_shot=True
 State file: C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\Memory-bank\_generated\governance-agent-state.json
 Playbook: C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\scripts\governance_action_playbook.json
 Next:
@@ -20,20 +20,20 @@ Next:
 Governance worker started.
 - api_base: http://127.0.0.1:8787
 - state_file: C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\Memory-bank\_generated\governance-agent-state.json
-- cursor: 23
+- cursor: 1
 - playbook: C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\scripts\governance_action_playbook.json
 Pulled 1 event(s).
-Processing event d3021b13-0589-4830-a275-f60d2a773eef: decision=approve, source=binding.playbook, action_key=default-handler
-Acked event d3021b13-0589-4830-a275-f60d2a773eef -> applied
-Consumed one-shot thread binding 793b53c3-7538-4bc2-9ac0-78ef6718f686
+Processing event 87f402a6-c4b4-4dfe-adb0-43096d5e490e: decision=approve, source=binding.playbook, action_key=default-handler
+Acked event 87f402a6-c4b4-4dfe-adb0-43096d5e490e -> applied
+Consumed one-shot thread binding aba97829-5605-4ab9-bd20-f905e3743a52
 Governance worker completed.
 Slack transport check:
-- pass: 12
-- fail: 0
+- pass: 10
+- fail: 2
 [PASS] Local health endpoint
 [PASS] Local Slack health endpoint
-[PASS] Public health endpoint
-[PASS] Public Slack health endpoint
+[FAIL] Public health endpoint
+[FAIL] Public Slack health endpoint
 [PASS] Governance state token
 [PASS] Account summary auth
 [PASS] Create governance thread
@@ -48,17 +48,18 @@ Report: C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\Memory-bank\_generated\slack-
 ## Narrate Flow (10G)
 - Command: .\pg.ps1 narrate-check
 - Exit Code: 0
-- PASS: 4
+- PASS: 5
 - FAIL: 0
 - Report: C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\Memory-bank\_generated\narrate-flow-check-latest.md
 
 ```text
 Narrate flow check:
-- pass: 4
+- pass: 5
 - fail: 0
 [PASS] Package command wiring
 [PASS] Extension runtime registration
 [PASS] Core flow source files
 [PASS] Extension compile
+[PASS] Runtime interaction surface
 Report: C:\Users\ebrim\Desktop\PG VSCODE-EXTENSION\Memory-bank\_generated\narrate-flow-check-latest.md
 ```

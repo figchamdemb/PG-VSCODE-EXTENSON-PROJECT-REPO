@@ -16,15 +16,20 @@ DEFAULT_KEEP_DAYS = 7
 DEFAULT_MAX_COMMITS = 5
 DEFAULT_MAX_HOURS = 12
 
-START_DOCS = [
-    "Memory-bank/daily/LATEST.md",
-    "Memory-bank/project-spec.md",
-    "Memory-bank/project-details.md",
-    "Memory-bank/structure-and-db.md",
-    "Memory-bank/tools-and-commands.md",
-    "Memory-bank/agentsGlobal-memory.md",
-    "Memory-bank/mastermind.md",
-]
+def get_start_docs() -> list[str]:
+    docs = [
+        "Memory-bank/daily/LATEST.md",
+        "Memory-bank/project-spec.md",
+        "Memory-bank/project-details.md",
+        "Memory-bank/structure-and-db.md",
+        "Memory-bank/tools-and-commands.md",
+        "Memory-bank/agentsGlobal-memory.md",
+        "Memory-bank/mastermind.md",
+    ]
+    integration_summary = ROOT / "Memory-bank" / "frontend-integration.md"
+    if integration_summary.exists():
+        docs.append("Memory-bank/frontend-integration.md")
+    return docs
 
 
 def run_git(args: list[str]) -> str:
@@ -79,8 +84,9 @@ def ensure_daily(day: str, now_utc: str) -> None:
 
 
 def confirm_read(assume_yes: bool) -> bool:
+    start_docs = get_start_docs()
     print("Read these before coding:")
-    for doc in START_DOCS:
+    for doc in start_docs:
         print(f"- {doc}")
     if assume_yes:
         return True
@@ -122,7 +128,7 @@ def main() -> int:
         "max_commits": args.max_commits,
         "max_hours": args.max_hours,
         "anchor_commit": anchor_commit,
-        "required_start_docs": START_DOCS,
+        "required_start_docs": get_start_docs(),
         "daily_keep_days": DEFAULT_KEEP_DAYS,
     }
     session_path = GENERATED_DIR / "session-state.json"

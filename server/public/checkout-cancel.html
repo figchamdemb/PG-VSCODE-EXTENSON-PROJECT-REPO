@@ -4,18 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Checkout Canceled | PG Narrate</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/assets/site.css" />
 </head>
 <body>
-  <main style="width:min(860px,calc(100% - 2rem));margin:2rem auto;">
+  <main class="checkout-shell">
     <section class="section reveal">
-      <h1 style="font-size:2rem;">Checkout Canceled</h1>
+      <h1 class="checkout-title">Checkout Canceled</h1>
       <p class="lead-sm">No charge was completed. You can retry checkout or use offline payment flow.</p>
       <div class="card">
-        <p>Return to the landing page to start checkout again with the same account.</p>
+        <p data-checkout-return-message>Return to the extension or landing page to start checkout again with the same account.</p>
+        <div class="checkout-actions">
+          <a class="btn btn-secondary hidden" data-checkout-return-button href="#">Return To Installed Editor</a>
+          <a class="btn btn-ghost" href="/">Return To Landing Page</a>
+        </div>
       </div>
-      <p class="small"><a href="/">Return to landing page</a></p>
+      <p class="small checkout-note">No billing changes were applied.</p>
     </section>
   </main>
+  <script src="/assets/checkoutReturn.js"></script>
 </body>
 </html>

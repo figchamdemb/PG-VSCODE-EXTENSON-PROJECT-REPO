@@ -1,0 +1,52 @@
+{
+  "generated_at_utc": "2026-03-28T03:03:55Z",
+  "project_root": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION",
+  "working_directory": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server",
+  "config_path": "server/playwright.config.ts",
+  "config_created": false,
+  "playwright_dependency_declared": true,
+  "dependency_install_required": false,
+  "package_json_path": "server/package.json",
+  "discovered_route_count": 10,
+  "discovered_routes": [
+    "/",
+    "/app",
+    "/checkout/cancel",
+    "/checkout/success",
+    "/help",
+    "/oauth/github/complete",
+    "/oauth/google/complete",
+    "/pricing",
+    "/privacy",
+    "/terms"
+  ],
+  "selected_routes": [
+    "/",
+    "/app",
+    "/checkout/cancel",
+    "/checkout/success",
+    "/help",
+    "/oauth/github/complete",
+    "/oauth/google/complete",
+    "/pricing",
+    "/privacy",
+    "/terms"
+  ],
+  "auth_like_routes": [],
+  "commerce_like_routes": [
+    "/checkout/cancel",
+    "/checkout/success"
+  ],
+  "managed_test_directory": "server/tests/pg-generated",
+  "generated_files": [
+    "server/tests/pg-generated/_pg.generated.helpers.ts",
+    "server/tests/pg-generated/README.md",
+    "server/tests/pg-generated/01-smoke.generated.spec.ts",
+    "server/tests/pg-generated/02-routes.generated.spec.ts",
+    "server/tests/pg-generated/03-forms.generated.spec.ts",
+    "server/tests/pg-generated/04-input-hardening.generated.spec.ts",
+    "server/tests/pg-generated/05-accessibility.generated.spec.ts",
+    "server/tests/pg-generated/07-commerce-like.generated.spec.ts"
+  ],
+  "status": "ready"
+}

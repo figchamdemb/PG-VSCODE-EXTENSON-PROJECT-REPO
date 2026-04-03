@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# --- 100% enforcement: secret-leak guard on push (always blocks, no bypass) ---
+repo_root="$(git rev-parse --show-toplevel)"
+python "$repo_root/scripts/secrets_guard.py"
+secrets_exit=$?
+if [ $secrets_exit -ne 0 ]; then
+  echo "[pre-push] BLOCKED by secrets-guard. Remove secrets before pushing."
+  exit 1
+fi
+
 if [ "${SKIP_PG_ENFORCEMENT:-0}" = "1" ]; then
   echo "[pre-push] skipped via SKIP_PG_ENFORCEMENT=1"
   exit 0
 fi
 
-repo_root="$(git rev-parse --show-toplevel)"
 if command -v pwsh >/dev/null 2>&1; then
   pwsh -NoProfile -ExecutionPolicy Bypass -File "$repo_root/scripts/enforcement_trigger.ps1" -Phase pre-push
 elif command -v powershell >/dev/null 2>&1; then

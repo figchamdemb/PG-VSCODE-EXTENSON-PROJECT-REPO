@@ -1,6 +1,6 @@
 # Structure & DB - Authoritative Snapshot
 
-LAST_UPDATED_UTC: 2026-03-01 22:30
+LAST_UPDATED_UTC: 2026-03-28 06:08
 UPDATED_BY: copilot
 PROJECT_TYPE: frontend
 
@@ -17,16 +17,95 @@ PROJECT_TYPE: frontend
 - Cache miss -> OpenAI-compatible provider call (if configured) -> validated narration.
 - Provider unavailable -> deterministic fallback narration.
 - Narration output -> `narrate://` virtual document rendering.
+- In exact view, source-editor and narration-editor selections now mirror whole-line highlight + reveal behavior bidirectionally so matching meaning lines stay visible without manual line-number matching.
 - Edu mode selection checks entitlement and auto-attempts trial start for eligible signed-in users.
-- Upgrade flow uses extension command -> backend checkout session endpoint -> browser Stripe Checkout.
+- Upgrade flow uses extension command -> backend checkout session endpoint -> browser Stripe Checkout -> hosted success/cancel page -> trusted editor return link when available.
+- Stripe checkout mode now adapts to the mapped Stripe price type instead of assuming one-time billing for every paid SKU:
+  - one-time Stripe prices continue through Checkout `mode=payment`
+  - recurring annual Stripe prices now use Checkout `mode=subscription`
+  - this keeps the repo's mixed test catalog usable while preserving compatibility with the existing one-time `pro:memorybank` test price
+- GitHub browser sign-in now uses a trusted editor callback path for VS Code-family clients:
+  - extension opens `/auth/github/start` with a signed-in install ID and an editor callback URL
+  - backend validates the callback target against allowed web origins plus trusted editor schemes/hosts
+  - browser OAuth completion returns to the installed editor, which stores the session token and refreshes the device entitlement automatically
 - Web onboarding flow uses backend-hosted landing page (`/`) -> browser auth (email/GitHub/Google) -> auth wall unlocks checkout/offline/redeem actions.
+- Local OAuth/operator testing should use a fully local callback profile when the backend is running on `127.0.0.1:8787`:
+  - `PUBLIC_BASE_URL`, `GITHUB_REDIRECT_URI`, `GOOGLE_REDIRECT_URI`, `CHECKOUT_SUCCESS_URL`, and `CHECKOUT_CANCEL_URL` should stay on `http://127.0.0.1:8787` for local GitHub/Google sign-in verification
+  - trusted editor-return settings now also include `OAUTH_CALLBACK_SCHEMES` and `OAUTH_EDITOR_CALLBACK_HOSTS`; default production-safe values allow VS Code-family schemes plus the shipped Narrate extension identifiers
+  - Cloudflare tunnel remains optional for public-hostname verification and should not be treated as a prerequisite for ordinary local provider testing
+  - local email OTP verification is also rate-limited; for hands-on local debugging, the repo now uses a looser `AUTH_VERIFY_RATE_LIMIT_MAX=50` and `AUTH_VERIFY_RATE_LIMIT_WINDOW=15 minutes` profile in `server/.env` so repeated retries do not trigger five-hour local lockouts
+- Portal sign-in cards on `/app` now treat empty-card clicks as focus shortcuts instead of dead space:
+  - clicking the email card body focuses `#emailInput`
+  - clicking the OAuth card body focuses `#tapSignSignupBtn`
+  - clicks on already-interactive descendants still use the original button/input behavior
+- Offline payment references now behave as manual bank-review claims, not proof-link submissions:
+  - `/payments/offline/create-ref` still generates the reference code and pending record
+  - `/payments/offline/submit-proof` now accepts `ref_code` alone for the customer-facing portal path and marks the record `submitted` for manual review
+  - `proof_url` remains nullable in storage for backward compatibility, but the portal no longer asks the customer to paste a URL
+  - approval remains admin-controlled after bank matching; the reference code is the identifier the payer should include in the transfer note
+- Memory-bank enforcement is no longer commit-hook-only by default:
+  - `memory_bank_guard.py` now supports `--scope working-tree` in addition to staged-file evaluation
+  - the local `pg self-check` flow writes its summary, then re-runs the Memory-bank guard against current working-tree changes in `strict` mode by default
+  - this closes the gap where agent/tool edits could avoid pre-commit enforcement simply by not staging or committing during the coding session
+- Public marketing surface now includes dedicated plan comparison and command onboarding pages:
+  - `/pricing` (home-theme light plan cards + explicit 9-SKU annual checkout catalog + live comparison table from `/api/plans/comparison`)
+  - `/help` (home-theme light command catalog with tier filtering, paid-tier visibility, troubleshooting map, and tabbed product explainers)
+- Help onboarding now includes explicit terminal first-run guidance for both PowerShell and CMD:
+  - run commands from project root containing `pg.ps1`,
+  - one-time install/start/status examples,
+  - profile-aware reminder to run `.\pg.ps1 help` for available commands,
+  - plain-language product tabs (`About Narrate`, `About Memory-bank + PG Install`) for non-technical onboarding.
+- Help onboarding now also documents the shipped frontend/backend integration workflow baseline:
+  - new installs scaffold `Memory-bank/frontend-integration.*` automatically,
+  - older repos may need one-time `./pg.ps1 integration-init` when the shared ledger is missing,
+  - `backend-start` / `frontend-start` are role-claim commands and do not replace `pg install ...` or `./pg.ps1 start -Yes`.
+  - persistent workers can now be stopped or ended cleanly with `backend-stop`, `frontend-stop`, `integration-stop`, or `integration-end` from another terminal.
+  - the integration summary generator now seeds richer backend evidence into page ledgers, beginning with login and dashboard pages.
+- Help onboarding now also documents the shipped review workflow surface:
+  - `review-init` scaffolds `Memory-bank/review-workflow*`
+  - `review-builder-start` and `review-reviewer-start` claim roles and can optionally keep local heartbeat loops running
+  - builder publishes through `review-respond`, reviewer records findings through `review-report`, and reviewer closes the page through `review-approve`
+  - local stop/end control is stored in `Memory-bank/_generated/review-workflow-runtime.json`
+  - when authenticated, the same review commands now sync through `/account/review/orchestration/*` with server-side entitlement checks, rotating worker lease enforcement, and protected audit history
+  - paid customer-visible pricing/help surfaces now explicitly mention the secure review workflow from Pro upward
+- Help command surfaces are now split more clearly by workflow family:
+  - extension help adds a workflow access map plus dedicated sections for prompt handoff, frontend/backend integration, and secure review commands
+  - extension help now also adds a quick-access jump list so operators can jump straight to prompt, integration, review, governance, Slack, and troubleshooting sections without scanning the whole page
+  - `/help` groups the command catalog into extension, prompt handoff, frontend/backend integration, secure review, governance, and enterprise sections
+  - `/help` now also exposes workflow shortcut buttons that auto-switch the tier/search view to prompt, integration, secure review, or team-governance command slices
+  - the public help catalog now matches the entitlement matrix by marking frontend/backend integration as a Pro/Team/Enterprise workflow instead of Free
+- Authenticated integration runs now also sync a protected server orchestration mirror:
+  - `/account/integration/orchestration/state`
+  - `/account/integration/orchestration/init`
+  - `/account/integration/orchestration/sync`
+  - `/account/integration/orchestration/audit`
+  - the local markdown/state files remain operator-facing, while the server stores workflow state and audit history in JSON store records.
+  - authenticated local state, page markdown, and export artifacts are now written as redacted projections; full step detail remains server-authoritative.
+  - orchestration routes now fail closed unless the signed-in user still has the frontend/backend integration entitlement.
+  - server responses issue a short-lived worker lease that must be presented on the next authenticated sync, so revoked access or copied local state stop working quickly.
+  - route transport stays in `server/src/integrationOrchestrationRoutes.ts`, while validation/state-shaping helpers live in `server/src/integrationOrchestrationSupport.ts` to keep strict coding limits compliant.
+- Help onboarding now also includes advanced explainer tabs for operator clarity:
+  - `Slack Decision Flow` (thread/vote/decide + local apply paths),
+  - `Automation + Cloud + Enterprise` (what is automatic vs manual + cloud score + enterprise value),
+  - `Providers + Handoff` (API/provider settings keys + clipboard-based handoff behavior).
 - Signed-in users can load account summary + billing history, submit support/feedback, and manage enterprise seats/policies from the same web surface.
 - Super admins/admin operators are authenticated by DB-backed RBAC (`admin_accounts` + role/permission mapping) and can monitor users, subscriptions, payments, and support queues from `/pg-global-admin/board/*`.
 - Admin APIs can optionally require Cloudflare Access JWT assertions (`cf-access-jwt-assertion`) before RBAC checks.
 - Team/enterprise users can configure governance controls (retention, vote mode, Slack toggle/add-on) through `/account/governance/settings*`.
 - Authenticated users can submit dependency manifests to `/account/policy/dependency/verify` for fail-closed dependency policy evaluation with rule-ID output.
+- Authenticated users can submit dependency warning targets to `/account/policy/dependency/review` for server-backed review guidance that returns recommendation status plus official registry/homepage/repository/release-note/changelog sources.
 - Authenticated users can submit source files to `/account/policy/coding/verify` for fail-closed coding-standards policy evaluation with profile-aware rule-ID output.
+- Authenticated users can submit active-file content + local-editor diagnostics to `/account/policy/trust/evaluate` for server-owned Trust Score evaluation (private coding-policy findings + final score/status + rule output per file).
 - Authenticated users can submit source/spec files to `/account/policy/api-contract/verify` for API contract mismatch evaluation (OpenAPI-first with backend inference fallback, blocker/warning rule output).
+- Mandatory local Playwright smoke now validates three baseline paths against a dedicated smoke-server runtime:
+  - `GET /health`
+  - `GET /`
+  - `/app` email-auth start/verify flow plus signed-in account summary confirmation
+- The hand-written smoke suite now also includes a Stripe checkout regression guard:
+  - `server/tests/smoke.stripe-checkout.spec.ts`
+  - signs in through local email auth APIs
+  - verifies all 9 paid SKU keys can create Stripe Checkout sessions against the configured sandbox or live map
+- Authenticated users can fetch plan-aware agent directives from `/account/policy/agents/profile`; the behaviour payload now also carries frontend design guardrail metadata (default design reference doc, reference surfaces, target platforms, user-guide precedence, similar-not-copy mode, native-translation requirement, and mobile/button-pattern enforcement flags for UI work).
 - Authenticated users can submit scanner metadata + cloud architecture context to `/account/policy/mcp/cloud-score` for deterministic production cloud-readiness scoring (`pass|blocked`, score/grade, findings with rule IDs).
 - Authenticated users can submit observability adapter metadata to `/account/policy/observability/check` for deterministic self-hosted adapter readiness findings (`otlp|sentry|signoz`, PG-hosted default, optional enterprise BYOC profile).
 - Architecture policy boundary is enforced:
@@ -45,8 +124,49 @@ PROJECT_TYPE: frontend
 - Finalized decisions are published to a local-first sync queue (`/account/governance/sync/pull`, `/account/governance/sync/ack`) for extension/agent consumption.
 - Local worker runtime (`pg governance-worker`) consumes pending decision events, resolves command mapping through allowlisted playbook bindings (`thread_id -> action_key`) or explicit overrides, executes local commands, and acknowledges execution outcome (`applied|conflict|skipped`) with audit note.
 - Extension runtime now includes background governance auto-sync that runs `pg governance-worker -Once` on a configurable interval, plus a manual `Narrate: Governance Sync Now` command path.
+- Extension runtime now includes startup context enforcement:
+  - resolves the nearest active `AGENTS.md` and `pg.ps1` context from the current file/workspace
+  - auto-runs `.\pg.ps1 start -Yes -EnforcementMode strict` once per context per UTC day
+  - reruns startup when the active file crosses into a different nested repo/subproject context
+  - exposes manual retry via `Narrate: Run Startup For Current Context`
+  - keeps visible pass/fail state in the extension status bar instead of silently continuing after a missed startup
+  - persists per-workspace mandatory enforcement state locally until the user explicitly stops it
+  - treats a workspace root `AGENTS.md` or `Memory-bank/` folder as local enforcement evidence even when `pg.ps1` is missing, so broken startup context no longer silently disables enforcement
+  - re-prompts on a short cooldown when startup is pending, failed, or the context has gone missing, instead of prompting only once per UTC day
+  - exposes explicit local stop/resume commands: `Narrate: Stop PG Enforcement For Workspace` and `Narrate: Resume PG Enforcement For Workspace`
+  - guarded save/workflow actions now fail closed while mandatory enforcement is unresolved
+  - terminal parity now exists through `./pg.ps1 stop-enforcement` and `./pg.ps1 resume-enforcement`, which write requests into `Memory-bank/_generated/pg-enforcement-bridge.json` for extension-side acknowledgement
+  - startup now also verifies the repo-root `AGENTS.md` integrity seal in `Memory-bank/_generated/agents-integrity.json` and restores the local read-only bit when the hash still matches the sealed copy
+  - startup now auto-refreshes stale/missing map-structure artifacts before failing the strict gate, which prevents normal Memory-bank regeneration writes from causing repeated `PG Start Failed` popups
+- Extension Trust Score runtime is now split cleanly:
+  - Narrate gathers active-file content, nearest-project validation-library metadata, and local IDE diagnostics
+  - backend route `/account/policy/trust/evaluate` owns final Trust scoring and private rule evaluation
+  - Trust auth now resolves the extension secret-storage licensing token first, with `narrate.licensing.sessionToken` kept as a manual fallback override for local testing/debugging
+  - guarded Narrate workflow commands (`Request Change Prompt`, narration export, change report) now refuse execution when backend Trust reports blockers or cannot evaluate
+- Latest self-check state now carries enforcement findings for agent handoff:
+  - `Memory-bank/_generated/self-check-latest.json` stores dependency/coding warning summaries from the most recent `pg self-check`
+  - dependency warning entries can now also include server-backed `review_results` with action/status and official source links
+  - `Narrate: Request Change Prompt` reads that state and includes current warnings, dependency review guidance, and official source URLs when freshness/maintenance findings exist
+- Integration runtime control state now also uses a generated file:
+  - `Memory-bank/_generated/frontend-integration-runtime.json` stores only per-role stop/end control signals for persistent local workers
+  - the file is now stored as a DPAPI-protected secure-string envelope instead of plaintext JSON, making local tampering and casual inspection materially harder on the current Windows profile
+  - this file is separate from the human-facing summary/page ledger so worker lifecycle control does not require extra transcript files
+- Review runtime now mirrors that same local split, with a protected server-backed control plane when authenticated:
+  - `Memory-bank/review-workflow.md` is the short summary dashboard
+  - `Memory-bank/review-workflow/state.json` holds machine-readable page/findings/role state, but becomes a redacted local projection in authenticated server-backed mode
+  - `Memory-bank/review-workflow/pages/*.md` hold per-page review discussion in structured PG form, but redact sensitive detail locally when authenticated sync is active
+  - `Memory-bank/_generated/review-workflow-runtime.json` stores only stop/end lifecycle signals for builder/reviewer workers and is now wrapped in a DPAPI-protected secure-string envelope
+  - `/account/review/orchestration/state|init|sync|audit` now store authoritative review state and audit history on the server when authenticated
+- Startup and Memory-bank enforcement scope now has two layers:
+  - healthy PG startup still resolves from the nearest detected `AGENTS.md` + `pg.ps1` project context and runs `pg start`
+  - once enforcement is active for a workspace, the extension keeps it fail-closed locally from persisted workspace state or root `AGENTS.md` / `Memory-bank` evidence until the user explicitly stops enforcement
 - Extension post-write runtime now triggers `pg enforce-trigger -Phase post-write` on debounced file-save events.
 - Extension `Narrate: PG Push` now runs `pg enforce-trigger -Phase pre-push` preflight before executing git push.
+- Reading/status controls now display explicit active selections in `[brackets]` and apply stronger visual tone tokens for quick differentiation (`Narrate Reading` critical/red tone, `Narrate View` caution/yellow tone).
+- Narrate Help sidebar now includes a dedicated non-technical `Toggle Panel` webview with color-button controls for Reading/View/Pane/Source/Explain; `Narrate: Open Toggle Control Panel` focuses this UI while existing status-bar controls remain active.
+- Local install/update verification path for normal VS Code now uses `scripts/local_extension_install.ps1` (compile -> package -> install VSIX), plus Run Task entries (`compile-extension`, `package-extension-vsix`, `local-install-extension-vsix`).
+- Extension manifest activation wiring is now leaner: redundant `onCommand:` and `onView:` activation events were removed from `extension/package.json`, leaving VS Code to auto-generate those from contributed commands/views while retaining explicit startup activation.
+- Windows local reinstall path now resolves the VS Code CLI shim (`code.cmd`) instead of the GUI executable (`Code.exe`) before running `--install-extension`, which avoids the prior local VSIX install failure on this machine.
 - Extension `Narrate: PG Push` now also evaluates Trust Score pre-push gate based on `narrate.trustScore.pgPushGateMode`:
   - `off`: no trust gate check
   - `relaxed`: warning confirmation allows continue
@@ -63,27 +183,46 @@ PROJECT_TYPE: frontend
 - Current repo workspace profile (`.vscode/settings.json`) defaults dead-code PG push gate to `strict`.
 - Local `pg prod` baseline command now hard-fails on dependency and coding policy blockers by calling both `/account/policy/dependency/verify` and `/account/policy/coding/verify` before production continuation.
 - `pg prod` now supports rollout profiles:
-  - `legacy`: dependency + coding only
-  - `standard` (default): dependency + coding + API contract + DB index maintenance
-  - `strict`: standard + Playwright smoke
+  - `legacy`: dependency + coding + Playwright smoke
+  - `standard` (default): legacy + API contract + DB index maintenance
+  - `strict`: standard + future strict-only overlays
 - Added PG lifecycle commands:
   - `pg login` (auth bootstrap + entitlement snapshot sync)
   - `pg update` (token-backed entitlement/profile refresh)
   - `pg doctor` (PATH/auth/toolchain/dev-profile diagnostics)
 - Lifecycle state now persists at `Memory-bank/_generated/pg-cli-state.json` (gitignored) and syncs local dev profile keys (`pg_cli_*`) including recommended prod profile.
+- PG scaffold upgrade now ships a first baseline for stale repos and in-place tooling refresh:
+  - `./pg.ps1 upgrade-scaffold` runs a manifest-driven preview/apply flow for the current repo
+  - `./pg.ps1 install backend --target <repo> -UpgradeScaffold` can target another repo from an updated PG root and use the same engine
+  - upgrade writes report bundles under `Memory-bank/_generated/scaffold-upgrades/<session-id>/`
+  - scaffold version detection now uses `Memory-bank/_generated/pg-scaffold-version.json`
+  - the upgrade engine preserves `Memory-bank/` history and application source by default while replacing PG-managed wrappers/scripts and flagging risky instruction-file merges for manual review
 - `pg prod` now auto-uses lifecycle `recommended_prod_profile` when `-ProdProfile` is omitted (explicit `-ProdProfile` still overrides).
 - `pg prod` profile checks map to:
   - API contract gate -> `/account/policy/api-contract/verify` via `scripts/api_contract_verify.ps1`
   - DB index maintenance gate -> `scripts/db_index_maintenance_check.ps1`
   - Playwright smoke gate -> `scripts/playwright_smoke_check.ps1`
+- `server/playwright.config.ts` now isolates smoke validation from the main local backend runtime by using dedicated port `8791`, configurable browser matrices (`minimal|desktop|full`), HTML+JSON reporters, and smoke-only auth env overrides (`STORE_BACKEND=json`, `ENABLE_EMAIL_OTP=true`, `EXPOSE_DEV_OTP_CODE=true`).
+- `scripts/playwright_smoke_check.ps1` now supports `-RunMode auto|smoke|full` and writes the latest artifact pointer to `Memory-bank/_generated/playwright-smoke/playwright-smoke-latest.json`, including HTML report path, JSON report path, retained failure artifacts, selected browser matrix, and `failures.json` / `failures.md` summaries.
+- `scripts/playwright_author_suite.ps1` + `scripts/playwright_author_suite.py` now inspect the local frontend/server project and generate a managed Playwright suite under `server/tests/pg-generated/`.
+- `scripts/playwright_full_check.ps1` now wraps authoring + full-suite execution and publishes `Memory-bank/_generated/playwright-full-check/playwright-full-check-latest.json` as the one-shot authored-workflow summary.
+- `scripts/playwright_report_summary.py` converts the Playwright JSON report into attachment-aware failure summaries that agents can use for fix loops without re-parsing the raw report.
+- `scripts/project_setup.ps1` now scaffolds a starter `playwright.config.ts` and `tests/smoke/homepage.spec.ts` baseline for Node frontend repos detected during PG project setup, then immediately runs the PG Playwright authoring step when the target is a frontend repo.
 - DB maintenance findings can now be converted into an executable SQL remediation checklist with:
   - `pg db-index-fix-plan` (or alias `pg db-index-remediate`)
   - output report: `Memory-bank/_generated/db-index-fix-plan-latest.md`.
 - Slack slash commands and interactive callbacks can submit governance actions through `/integrations/slack/commands` and `/integrations/slack/actions` with signature and replay protection.
 - Webhook verifies signature then grants entitlement and updates affiliate conversion state.
+- Referral program is now layered onto the existing affiliate flow instead of replacing it:
+  - the public pricing catalog includes `affiliate_program` config (buyer discount, minimum commission, default commission rate, milestone bonus tiers, and marketing/payout notes)
+  - checkout validates the affiliate code before session creation and, when valid, can create a discounted GBP Stripe Checkout line item from the catalog SKU rather than relying only on a fixed `price_...` mapping
+  - affiliate conversions now persist `buyer_discount_cents` and `effective_commission_rate_bps` alongside the paid conversion so the earned amount can be audited against the tiered program
+  - affiliate dashboard responses now include program metadata, paid-referral count, current effective rate, and next milestone context for the signed-in referrer
 - Backend issues signed entitlement JWTs and enforces plan/device/quota/rules.
 - Entitlement matrix v2 (`server/src/entitlementMatrix.ts`) is the single source-of-truth for per-tier feature flags, governance access, policy domain gating, extension feature gates, upgrade eligibility, and no-reinstall module merge logic. Legacy `PLAN_RULES` is re-exported from the matrix for backward compat.
-- Public plan comparison API (`/api/plans/comparison`, `/api/plans/:tier`, `/api/plans/upgrades`) exposed via `server/src/planRoutes.ts` (no auth required).
+- Plan routes are split between public comparison and protected raw access:
+  - public: `/api/plans/comparison` (JSON for page fetch, browser HTML navigation auto-redirects to `/pricing`), `/api/plans/:tier`, `/api/plans/upgrades`
+  - protected raw: `/account/plans/comparison/raw` (enterprise auth required), `${ADMIN_ROUTE_PREFIX}/board/plans/comparison/raw` (admin board-read permission)
 - Entitlement claims (v2) now include `governance`, `policy_domains`, and `extension_features` sections in signed JWT tokens; extension types accept them as optional fields for backward compat with pre-v2 tokens.
 - Enterprise offline encrypted rule pack system: `offlinePackTypes.ts` (types/constants), `offlinePackCrypto.ts` (AES-256-GCM encrypt/decrypt, PBKDF2 key derivation, machine fingerprint), `offlinePackRoutes.ts` (3 enterprise-only endpoints: activate, info, admin issue). Packs are machine-bound `.yrp` binary envelopes with tamper-proof expiry. Gated by enterprise entitlement via `resolveEffectivePlan`.
 - Team/user provider policies are injected into entitlement claims and enforced by extension provider calls.
@@ -93,7 +232,7 @@ PROJECT_TYPE: frontend
 |---|---|---:|---|
 | Local JSON narration cache (`narration-cache.json`) | extension | 1 | `Memory-bank/code-tree/narrate-extension-tree.md` |
 | Licensing backend JSON store (`server/data/store.json`) | licensing backend | 1 | `Memory-bank/db-schema/licensing-json-store-schema.md` |
-| Licensing PostgreSQL schema (`narate_enterprise.*`) via Prisma | licensing backend | 28 tables | `Memory-bank/db-schema/narrate-postgres-prisma-schema.md` |
+| Licensing PostgreSQL schema (`narate_enterprise.*`) via Prisma | licensing backend | 28 Prisma core tables | `Memory-bank/db-schema/narrate-postgres-prisma-schema.md` |
 | Memory-bank generated state (`Memory-bank/_generated/*.json`) | memory-bank tooling | 3 | `Memory-bank/README.md` |
 
 ## Licensing Store Records (Current)
@@ -129,11 +268,19 @@ PROJECT_TYPE: frontend
 - `governance_decision_events`
 - `governance_decision_acks`
 - `keys`
+- `frontend_integration_workflows`
+- `frontend_integration_audit_log`
 
 ## Notes
+- `/help` UI is now split into dedicated assets (`server/public/assets/help.css` + `help.js`) and no longer carries inline dark styling, reducing page size and aligning with the shared light theme.
 - `server/` now implements Milestone 5 + 6 + 7 core behavior.
+- `scripts/agents_integrity.ps1` now protects the repo-root `AGENTS.md` with a local SHA-256 seal plus read-only attribute; `scripts/start_memory_bank_session.ps1` verifies that seal before Memory-bank refresh and policy enforcement continue.
+- `scripts/review_workflow.ps1` now provides the builder/reviewer workflow with page generation, structured findings/replies, optional heartbeat workers, authenticated server sync, redacted local projections in server-backed mode, and protected runtime control storage.
+- `extension/src/trust/trustScoreService.ts` now bridges Trust Score auth to the same secret storage used by Narrate licensing sign-in, preventing false `TRUST-SRV-001` blockers immediately after a successful sign-in.
 - Account dashboard APIs and team self-service APIs are now available in runtime JSON-store mode.
-- PostgreSQL tables are provisioned via Prisma in schema `narate_enterprise`.
+- Canonical PostgreSQL target is the dedicated `narate-enterprise` database using schema `narate_enterprise`.
+- Legacy `egov.narrate` was verified as an empty retired subset and has been removed; local tooling/docs should continue targeting only `narate-enterprise?schema=narate_enterprise`.
+- PostgreSQL core tables are provisioned via Prisma in schema `narate_enterprise`.
 - Runtime persistence now supports:
   - `STORE_BACKEND=json` -> file-backed `server/data/store.json`
   - `STORE_BACKEND=prisma` -> table-by-table persistence in `narate_enterprise.*` (no single `runtime_state` row).
@@ -151,6 +298,7 @@ PROJECT_TYPE: frontend
 - Slack slash command set now includes `decide` so reviewers can finalize without interactive buttons when block rendering is unavailable.
 - Slack interactive button payload now uses unique `action_id` values per button (vote/decision actions) to satisfy Slack block validation and restore open-thread button rendering.
 - Slack interactive action route now always returns immediate ack (`Processing action...`) and completes auth/vote/decision work asynchronously; if Slack does not include `response_url`, follow-up response is posted with `chat.postEphemeral`.
+- Slack async command/action execution helpers are now split into `server/src/slackAsyncProcessing.ts`; `server/src/slackIntegration.ts` remains the composition factory + transport helpers, keeping strict policy limits (`COD-LIMIT-001` / `COD-FUNC-001`) clear.
 - Slack thread interaction blocks are now viewer-role-aware:
   - vote actions shown only to users who can access/vote the thread
   - finalize actions shown only to users who can finalize (owner/manager for team scope; creator for personal scope)
@@ -160,6 +308,7 @@ PROJECT_TYPE: frontend
 - Decision-ack route now dispatches Slack notification (when Slack add-on is active) after local worker ack is recorded, improving visibility that local execution completed.
 - Slack `summary` command now uses read-only user lookup (no user write/update) so routine checks avoid heavy persistence writes.
 - Prisma runtime persist now uses non-interactive sequential writes (no Prisma interactive transaction callback) to avoid `Transaction API error: Transaction not found` under the current remote Postgres connection path.
+- OAuth state persistence now uses store-level fast paths (`appendOAuthStateRecord`, `consumeOAuthStateRecord`) so `/auth/{provider}/start` and callback state-consume paths avoid full-table rewrite persistence in Prisma mode.
 - Local 10F validation run confirms:
   - signed slash command `/integrations/slack/commands` help path returns expected command list.
   - signed action callback `/integrations/slack/actions` applies vote/decision updates using payload user email fallback.
@@ -186,6 +335,8 @@ PROJECT_TYPE: frontend
   - `server/src/codingStandardsVerification.ts` (orchestration + structural/controller/function checks)
   - `server/src/codingStandardsQueryOptimization.ts` (query/index optimization checks)
   - `server/src/codingStandardsLogSafety.ts` (log-injection/log-forgery prevention checks for unsafe direct logging calls)
+  - `server/src/codingStandardsSecretSafety.ts` (hardcoded secret-like literal and private-key detection)
+  - `server/src/codingStandardsNestModuleRules.ts` (NestJS module complexity and placeholder-name checks)
   - profile-aware component LOC target/hard limits
   - controller anti-pattern checks (branching, try/catch, direct data-access references)
   - input-validation blocker checks for controller/route files when request input is handled without schema validation signal (Zod or equivalent)
@@ -239,7 +390,7 @@ PROJECT_TYPE: frontend
   - validation result: `pg db-check` / `pg db-fix` now report `pg_stat_statements: enabled` and `unused index candidates: 0`.
 - As-you-go verification orchestrator is now available via `scripts/self_check.ps1`:
   - command surface: `pg self-check` (alias `pg as-you-go-check`),
-  - runs post-write enforcement + DB maintenance check (+ optional Playwright smoke),
+  - runs post-write enforcement + DB maintenance check + mandatory Playwright smoke,
   - auto-generates DB remediation plan when DB findings are present.
 - API contract verification baseline is now active via `server/src/apiContractVerification.ts`:
   - OpenAPI-first parsing (JSON + YAML) with local `$ref` schema resolution support.
@@ -260,7 +411,7 @@ PROJECT_TYPE: frontend
   - resolves auth token (`-AccessToken` -> `PG_ACCESS_TOKEN` -> governance state file)
   - checks API health
   - runs strict dependency verification and strict coding standards verification, exiting non-zero on policy blockers.
-  - runs optional gates based on `-ProdProfile` defaults (`legacy|standard|strict`) with explicit `-Enable*` overrides.
+  - runs profile-based gates where Playwright smoke is now mandatory in every `-ProdProfile` default (`legacy|standard|strict`), with explicit `-Enable*` overrides still available for additive checks.
 - Extension command surface now includes local `PG Push` / `PG Git Push` workflow for guarded git add/commit/push execution from VS Code.
 - Extension now ships a dedicated help sidebar container (`Narrate Help`) with a command-focused webview (`narrate.commandHelpView`) for quickstart + troubleshooting guidance.
 - Extension command surface now includes `Narrate: Run Command Diagnostics` for one-click local operational checks and fix hints, with automatic markdown+JSON artifact output to `Memory-bank/_generated/command-diagnostics-latest.(md|json)` plus timestamped snapshots and quick open/copy path actions.
@@ -297,6 +448,15 @@ PROJECT_TYPE: frontend
 - Exact reading rows now use `LNN | source -> narration` formatting for clearer one-to-one mapping and easier visual scanning in side-by-side mode.
 - Section renderer now uses explicit `Source L<N>` labels to remove line-reference ambiguity.
 - Command diagnostics and governance/enforcement script runners now resolve repo root via `pg.ps1` discovery (walk-up + workspace fallback), so extension-host sessions opened at `.../extension` no longer fail with `'.\\pg.ps1' not recognized`.
+- Wrong-root command recovery is now centralized in `extension/src/commands/pgRootGuidance.ts` and wired into diagnostics/DB/cloud-score/observability/push command entrypoints. When root resolution fails, extension shows actions (`Open Fix Guide`, optional root copy/open shortcuts) instead of generic failure.
+- Spec-to-milestone enforcement is now modularized in `scripts/memory_bank_guard_milestones.py` and consumed by `scripts/memory_bank_guard.py`:
+  - requires today's session update in `project-details.md`,
+  - requires valid `Current Plan (Rolling)` rows,
+  - requires REQ-tag mapping (`project-spec.md` -> `project-details.md`) for scope-request traceability.
+- Daily retention guard is now explicitly checked by `scripts/memory_bank_guard_daily.py` (consumed from `scripts/memory_bank_guard.py`) and by `scripts/session_status.py` output:
+  - detects overflow beyond keep-days cap,
+  - warns on future-dated/non-date daily files,
+  - generator auto-prunes future-dated and oldest overflow files when `scripts/generate_memory_bank.py --keep-days N` runs.
 - EDU narration now re-processes cached lines through beginner-focused normalization (20-30 word target + simple examples), so old terse cache entries no longer bypass clearer educational output.
 - EDU narration now rewrites code-echo phrasing more aggressively and enforces deeper beginner wording (non-blank target 20-30 words with explicit `Example:` guidance).
 - EDU narration now biases to plain beginner language (less framework jargon), enforces clearer what/why phrasing, and keeps explicit beginner examples even when truncating near the 30-word cap.
@@ -312,6 +472,13 @@ PROJECT_TYPE: frontend
   - `.verificaton-before-production-folder/SCALABILITY_ARCHITECTURE_GUIDE.md`
   - intended enforcement rollout is tracked as Milestone 10N (ask-before-build discovery gate for real-time/async/comms features).
 - Local dev profile storage (`.narrate/dev-profile.local.json`) is development-only, gitignored, and not a production credential source.
+- Root wrapper hardening: top-level `pg.ps1` now emits shell-specific recovery instructions (PowerShell + CMD) when `scripts/pg.ps1` is missing, to reduce novice setup errors.
+- Legacy project mapping command is now available:
+  - `.\pg.ps1 map-structure` (aliases: `structure-map`, `scan-structure`)
+  - writes auto docs from existing code/schema artifacts to:
+    - `Memory-bank/code-tree/auto-*-tree.md`
+    - `Memory-bank/db-schema/auto-discovered-schema.md`
+    - `Memory-bank/_generated/map-structure-latest.json`
 - Log safety hardening baseline now includes centralized sanitization in both runtimes:
   - server logger wrappers sanitize control characters/newlines and structured metadata before emitting logs.
   - extension output logger sanitizes user-influenced strings before writing to OutputChannel.
@@ -332,4 +499,142 @@ PROJECT_TYPE: frontend
   - `EXPOSE_DEV_OTP_CODE` defaults to `false` in production NODE_ENV.
   - Safe logging is extracted to `server/src/safeLogging.ts` (factory pattern).
   - `ADMIN_PERMISSION_KEYS` constant is co-located with its type in `adminRbacBootstrap.ts`.
+- Provider settings UX now has one-click command `Narrate: Open Model Settings` (opens VS Code settings filtered to `narrate.model.*`).
+- Trust validation package warning flow is now scoped to Node/JS route/controller files only, avoiding false repeated "install validation library" prompts on non-Node stacks.
+- Command preflight now checks local dev profile readiness before running high-impact command paths (`runDbIndexCheck`, `runMcpCloudScore`, `runObservabilityCheck`, `PG Push`) to reduce credential/tool retry loops.
+- Memory-bank long-log retention now covers append-only files in addition to daily reports:
+  - `scripts/generate_memory_bank.py` rotates oversized `agentsGlobal-memory.md` and `mastermind.md` entries into `Memory-bank/_archive/`.
+  - `scripts/memory_bank_guard.py` warns when either file exceeds configured line limits.
+  - `scripts/session_status.py` reports current line counts and `memory_log_retention` health.
+- Start-session map gate is now surfaced end-to-end:
+  - `scripts/start_memory_bank_session.ps1` warns/blocks on stale/missing auto map docs for legacy repos.
+  - extension and hosted `/help` now document `.\pg.ps1 map-structure` as required remediation path.
+- Frontend design guardrail baseline is now enforced for UI-impacting changes:
+  - default repo guide: `docs/FRONTEND_DESIGN_GUARDRAILS.md`
+  - pre-commit helper: `scripts/memory_bank_guard_design.py`
+  - guide now includes secure mobile app pattern examples (biometric setup, approvals states, OTP reveal, vault states) plus explicit button hierarchy examples
+  - agent profile reference surfaces now include the guide doc itself in addition to existing web surface files, plus target-platform/native-translation/mobile-button metadata
+  - checks design-guide presence/references, shared token usage in changed style files, semantic layout/control naming on major UI surfaces, low inline-style usage, and clear multi-button variant naming (`primary/secondary/destructive/fab/nav`)
+  - user-supplied design guides explicitly override the repo default when present in a task
+- Agent-specific startup amplification layer is now present for extension-based tools:
+  - `AI_ENFORCEMENT_GUIDE.md` explains repo-enforceable layers vs extension/editor-native behavior
+  - `ANTIGRAVITY.md` and `GEMINI.md` now mirror the startup contract from `AGENTS.md` with explicit stop-if-startup-fails language
+  - `.agents/workflows/startup.md` provides an optional repo workflow helper for tools that support local startup workflows/slash commands
+  - actual enforcement still lives in hooks, self-checks, and Memory-bank/script guards rather than markdown alone
+- Narrate extension now adds a native startup guard on top of those docs for its own runtime:
+  - `extension/src/startup/startupContextResolver.ts`
+  - `extension/src/startup/startupContextEnforcer.ts`
+  - activation now monitors startup state on app start, active-editor changes, and workspace-folder changes
+  - this improves Narrate's own enforcement path, but unrelated third-party chat extensions still need their own integration to be truly hard-blocked
+- Start-session map gate now defaults to strict mode in both wrappers:
+  - `scripts/pg.ps1` default: `-EnforcementMode strict`
+  - `scripts/start_memory_bank_session.ps1` default: `-EnforcementMode strict`
+  - warning-only override remains available: `.\pg.ps1 start -Yes -EnforcementMode warn`
+- Frontend/backend staged integration workflow baseline is now implemented locally:
+  - command engine: `scripts/frontend_integration.ps1`
+  - router wiring and alias support: `scripts/pg.ps1`
+  - bootstrap scaffolding: `scripts/project_setup.ps1`
+  - startup read inclusion: `scripts/start_memory_bank_session.py`
+  - shared artifacts: `Memory-bank/frontend-integration.md`, `Memory-bank/frontend-integration/state.json`, `Memory-bank/frontend-integration/pages/*.md`
+  - guard enforcement: `scripts/memory_bank_guard_integration.py` + `scripts/memory_bank_guard.py`
+  - command surface includes canonical `integration-*` commands plus alias forms like `start backend`, `start frontend`, and `integration summary`
+  - integration summary is enforced as the short index/dashboard while per-page markdown files hold the detailed handoff state
+- Help surfaces now include explicit provider proof-test and enterprise package visibility:
+  - provider setup includes an Ollama test path (`http://127.0.0.1:11434/v1` + `Narrate: Toggle Reading Mode`),
+  - enterprise tab/docs now expose offline pack API paths (`/account/enterprise/offline-pack/*`, admin issue endpoint).
+- Finalize gate clarity is now explicit in docs/help:
+  - final code commits require strict `self-check` PASS summary,
+  - latest strict `self-check` must include the mandatory Playwright stage.
+- Dependency verification runtime is now retry-hardened for npm registry lookups:
+  - `server/src/dependencyVerificationSupport.ts -> lookupNpmPackage(...)`
+  - transient lookup failures now retry with bounded exponential backoff + jitter.
+  - retryable statuses/errors: `408/425/429/500/502/503/504`, abort/timeout/network fetch failures.
+  - per-attempt timeout and retry budget were increased to reduce false transient `DEP-REGISTRY-001` blockers in strict self-check flow.
+
+- Production verification payload headroom is now increased at server bootstrap:
+  - `server/src/index.ts` configures Fastify `bodyLimit` to `10 MiB`.
+  - this removes `413 FST_ERR_CTP_BODY_TOO_LARGE` failures for full-repo `coding-verify` / `pg prod` requests on the current workspace size.
+
+- Public-site CSP now matches the shipped web assets:
+  - `server/public/assets/site.css` imports Google Fonts (`fonts.googleapis.com` / `fonts.gstatic.com`).
+  - `server/src/serverRuntimeSetup.ts` now allows those font origins in CSP so `/`, `/pricing`, `/help`, and `/app` render without browser console CSP errors.
+
+- Hosted public pages now ship a shared favicon asset:
+  - `server/public/favicon.svg`
+  - linked from all hosted HTML entrypoints (`/`, `/app`, `/help`, `/pricing`, `/terms`, `/privacy`, `/checkout/*`, `/oauth/*`, governance/reviewer pages).
+  - fallback route in `server/src/index.ts`: `/favicon.ico -> /favicon.svg`
+  - result: browser favicon requests no longer produce `404` on local/public host.
+
+- CSP now also permits Cloudflare challenge bootstrap inline scripts:
+  - `server/src/serverRuntimeSetup.ts` uses `script-src 'self' 'unsafe-inline'`
+  - this was required because Cloudflare injects an inline challenge bootstrap snippet into hosted responses, and the previous strict `script-src 'self'` generated browser console errors even when the page rendered correctly.
+
+- Public ingress for `pg-ext.addresly.com` is operationally dependent on the local named Cloudflare tunnel process:
+  - config file: `%USERPROFILE%\.cloudflared\config.yml`
+  - tunnel name: `pg-ext-narrate`
+  - ingress: `pg-ext.addresly.com -> http://127.0.0.1:8787`
+  - when `cloudflared` is stopped, public routes and OAuth callbacks fail with Cloudflare `1033` / `530`; when `cloudflared tunnel run pg-ext-narrate` is active, public `/`, `/pricing`, `/help`, `/app`, `/health`, and `/health/ready` return `200`.
+
+- Stripe runtime configuration is now managed at runtime (not env-only):
+  - backend config manager: `server/src/stripeRuntimeConfig.ts`
+  - persisted local runtime file: `.narrate/stripe-runtime.local.json` (path can be overridden by `STRIPE_RUNTIME_CONFIG_PATH`)
+  - secret persistence mode is now env-or-encrypted:
+    - real Stripe test/live keys can stay in `server/.env` or deployment secret storage without being copied into runtime JSON
+    - optional `STRIPE_RUNTIME_VAULT_KEY` enables encrypted-at-rest persistence for admin-board Stripe secret updates inside `STRIPE_RUNTIME_CONFIG_PATH`
+    - browser/admin responses still expose only masked key hints rather than raw Stripe secret values
+  - runtime snapshot now drives Stripe checkout + webhook handlers:
+    - `server/src/stripePaymentHandlers.ts`
+  - runtime snapshot also stores an admin-editable `pricing_catalog_raw` document for public website/portal pricing copy
+  - public pricing catalog route:
+    - `GET /api/pricing/catalog`
+  - current checkout truth: Stripe runs in `payment` mode, so paid SKUs are modeled as one-time prices that represent one year of access rather than native recurring subscriptions
+  - customer-facing pricing copy now explicitly states that checkout is charged in GBP and that international cards may show bank/card-provider FX conversion on the buyer statement rather than in-app localized currency switching
+  - standard public checkout remains the fixed 9-key self-serve map for Pro, Team, and Enterprise annual SKUs
+  - Enterprise Custom is now documented as a quote/invoice/manual-activation path on the pricing surfaces rather than a new public checkout enum
+  - public pricing and plan comparison now explicitly call out seat, device, and Memory-bank limits, plus the frontend/backend integration workflow as a Pro, Team, and Enterprise entitlement
+  - public pricing page now also renders direct CTA buttons into `/app` billing or support flows, and `/app` honors query-string launch context (`tab`, `plan`, `module`, support subject/category) so public pricing CTAs can land users directly on checkout or quote-request surfaces
+  - server bootstrap wires manager once and injects runtime readers/updaters into payments deps:
+    - `server/src/index.ts`
+  - super-admin runtime config routes:
+    - `GET {ADMIN_ROUTE_PREFIX}/board/payments/stripe-config`
+    - `POST {ADMIN_ROUTE_PREFIX}/board/payments/stripe-config`
+    - `POST {ADMIN_ROUTE_PREFIX}/board/payments/stripe-config/test`
+  - portal admin board now includes a dedicated "Stripe Runtime Config (Super Admin)" section:
+    - `server/public/app.html`
+    - `server/public/assets/site.js`
+  - portal auth shell now also includes staged TapSign UX scaffolding:
+    - public auth card shows `Sign Up with TapSign` above GitHub/Google without changing current provider login behavior
+    - signed-in portal shows a `TapSign protection required` reminder card until future SDK-backed enrollment marks the account/device as protected
+    - current implementation is UI-only and routes operators into the existing support/request path until the TapSign SDK is supplied
+  - pricing copy editing is now field/card-first in the admin board:
+    - plan-card fields, paid-SKU cards, and note fields serialize back into the same `pricing_catalog_raw`
+    - advanced JSON remains available only as an import/debug lane instead of the default operational UI
+  - admin/runtime guidance now documents the full 9-key `STRIPE_PRICE_MAP` shape (`pro|team|enterprise` x `narrate|memorybank|bundle`) instead of a partial example
+
+- Portal runtime JS for `/app` is now split into modular assets to satisfy strict file/function policy limits:
+  - core app shell/controller: `server/public/assets/site.js`
+  - team/governance ops module: `server/public/assets/site.teamGovernanceOps.js`
+  - admin/stripe ops module: `server/public/assets/site.adminOps.js`
+  - pricing editor helper module: `server/public/assets/site.adminPricingCatalogEditor.js`
+  - app page script is now loaded as ES module (`type="module"` in `server/public/app.html`).
+- Extension packaging/runtime notes:
+  - the VS Code package now declares a real Marketplace icon via root manifest field `extension/package.json -> icon`
+  - packaged asset path: `extension/resources/marketplace-icon.png`
+  - the chosen mark is the square Narrate product icon, which fits Marketplace/package presentation better than the wide Memory Bank wordmark
+- Self-check / Playwright runtime note:
+  - `pg start`, dependency verification, coding verification, and `pg self-check` call the local backend/policy API at `http://127.0.0.1:8787` by default
+  - if logs show `127.0.0.1:8787` connection refusal, the local backend is down; Cloudflare tunnel is not the fix for that condition
+  - Cloudflare tunnel only fronts the local backend for public-hostname/OAuth/webhook/browser-access checks once the origin is already healthy
+- Local admin/dev auth test note:
+  - local-only browser or extension email sign-in can be enabled with `ENABLE_EMAIL_OTP=true` in `server/.env`
+  - the same `/app` and extension sign-in flows already support manual code entry once the operator has the OTP
+  - `EXPOSE_DEV_OTP_CODE=true` is an optional local-only shortcut that reveals `dev_code` for immediate verification in that same UI or prompt
+  - this does not change production defaults; `.env.example` still keeps both flags `false`
+  - browser `/app` and extension `Narrate: Sign In (Email)` both use the same verification path, with `dev_code` surfaced only when the backend exposes it
+  - the shipped mandatory Playwright smoke baseline remains credential-light by checking `/health` and `/` first; auth-path browser testing is a separate local opt-in lane
+- Stripe runtime implementation was split for policy compliance:
+  - public API/re-export surface remains in `server/src/stripeRuntimeConfig.ts`
+  - full manager logic remains in `server/src/stripeRuntimeManager.ts`
+  - runtime persistence/encryption helpers now live in `server/src/stripeRuntimeStorage.ts` and `server/src/secretEnvelopeCrypto.ts`.
+- Payments admin route registration for Stripe runtime config is now decomposed into smaller helpers in `server/src/paymentsRoutes.ts` for strict function-size compliance.
 

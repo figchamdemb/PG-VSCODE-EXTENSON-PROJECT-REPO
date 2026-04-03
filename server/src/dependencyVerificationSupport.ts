@@ -18,6 +18,8 @@ export type NormalizedDependency = {
 
 type NpmRegistryPackageVersion = {
   deprecated?: string;
+  homepage?: string;
+  repository?: string | { url?: string };
 };
 
 type NpmRegistryResponse = {
@@ -26,6 +28,8 @@ type NpmRegistryResponse = {
   };
   versions?: Record<string, NpmRegistryPackageVersion>;
   time?: Record<string, string>;
+  homepage?: string;
+  repository?: string | { url?: string };
 };
 
 type NpmLookupResult =
@@ -34,6 +38,9 @@ type NpmLookupResult =
       latestVersion: string;
       latestPublishedAt: string | null;
       deprecatedMessage: string | null;
+      homepageUrl: string | null;
+      repositoryUrl: string | null;
+      npmPackageUrl: string;
     }
   | {
       ok: false;
@@ -46,7 +53,11 @@ type DenyListEntry = {
 };
 
 const NPM_REGISTRY_BASE = "https://registry.npmjs.org";
-const REGISTRY_TIMEOUT_MS = 4000;
+const REGISTRY_TIMEOUT_MS = 12000;
+const REGISTRY_MAX_ATTEMPTS = 4;
+const REGISTRY_RETRY_BASE_DELAY_MS = 500;
+const REGISTRY_RETRY_MAX_DELAY_MS = 4000;
+const REGISTRY_RETRY_JITTER_MS = 300;
 
 const DENY_LIST: Record<string, DenyListEntry> = {
   "react-query": {
@@ -203,48 +214,115 @@ export function parseLooseSemver(input: string | null): ParsedSemver | null {
 
 export async function lookupNpmPackage(packageName: string): Promise<NpmLookupResult> {
   const url = buildNpmRegistryUrl(packageName);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REGISTRY_TIMEOUT_MS);
+  let lastFailureMessage = `npm lookup failed for ${packageName}.`;
 
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        accept: "application/json"
-      },
-      signal: controller.signal
-    });
-    if (!response.ok) {
-      return {
-        ok: false,
-        error: `npm registry returned ${response.status} for ${packageName}.`
-      };
+  for (let attempt = 1; attempt <= REGISTRY_MAX_ATTEMPTS; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REGISTRY_TIMEOUT_MS);
+    try {
+      const data = await fetchNpmRegistryMetadata(url, packageName, controller.signal);
+      if (!data) {
+        return {
+          ok: false,
+          error: `npm metadata for ${packageName} did not provide dist-tags.latest.`
+        };
+      }
+      return data;
+    } catch (error) {
+      const errorMessage = toErrorMessage(error);
+      const retryable = isRetryableNpmLookupError(error);
+      lastFailureMessage = `npm lookup failed for ${packageName}: ${errorMessage}`;
+      if (!retryable || attempt >= REGISTRY_MAX_ATTEMPTS) {
+        break;
+      }
+      await sleep(computeRetryDelayMs(attempt));
+    } finally {
+      clearTimeout(timeout);
     }
-    const data = (await response.json()) as NpmRegistryResponse;
-    const latestVersion = data["dist-tags"]?.latest;
-    if (!latestVersion) {
-      return {
-        ok: false,
-        error: `npm metadata for ${packageName} did not provide dist-tags.latest.`
-      };
-    }
-
-    const versionMeta = data.versions?.[latestVersion];
-    const latestPublishedAt = data.time?.[latestVersion] ?? data.time?.modified ?? null;
-    return {
-      ok: true,
-      latestVersion,
-      latestPublishedAt,
-      deprecatedMessage: versionMeta?.deprecated ?? null
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      error: `npm lookup failed for ${packageName}: ${toErrorMessage(error)}`
-    };
-  } finally {
-    clearTimeout(timeout);
   }
+
+  return {
+    ok: false,
+    error: `${lastFailureMessage} (attempts=${REGISTRY_MAX_ATTEMPTS})`
+  };
+}
+
+async function fetchNpmRegistryMetadata(
+  url: string,
+  packageName: string,
+  signal: AbortSignal
+): Promise<NpmLookupResult | null> {
+  const response = await fetch(url, {
+    method: "GET",
+    headers: { accept: "application/json" },
+    signal
+  });
+  if (!response.ok) {
+    if (isRetryableRegistryStatus(response.status)) {
+      throw new Error(`npm registry transient status ${response.status} for ${packageName}.`);
+    }
+    return { ok: false, error: `npm registry returned ${response.status} for ${packageName}.` };
+  }
+  return parseNpmRegistryLookupResponse(await response.json() as NpmRegistryResponse, packageName);
+}
+
+function isRetryableRegistryStatus(statusCode: number): boolean {
+  return statusCode === 408 || statusCode === 425 || statusCode === 429 || statusCode === 500 || statusCode === 502 || statusCode === 503 || statusCode === 504;
+}
+
+function isRetryableNpmLookupError(error: unknown): boolean {
+  if (error instanceof Error) {
+    if (error.name === "AbortError") {
+      return true;
+    }
+    const message = error.message.toLowerCase();
+    if (
+      message.includes("aborted") ||
+      message.includes("timeout") ||
+      message.includes("timed out") ||
+      message.includes("fetch failed") ||
+      message.includes("network") ||
+      message.includes("econnreset") ||
+      message.includes("eai_again") ||
+      message.includes("socket hang up") ||
+      message.includes("transient status")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function computeRetryDelayMs(attempt: number): number {
+  const exponentialDelay = REGISTRY_RETRY_BASE_DELAY_MS * (2 ** (attempt - 1));
+  const cappedDelay = Math.min(exponentialDelay, REGISTRY_RETRY_MAX_DELAY_MS);
+  const jitter = Math.floor(Math.random() * REGISTRY_RETRY_JITTER_MS);
+  return cappedDelay + jitter;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseNpmRegistryLookupResponse(
+  data: NpmRegistryResponse,
+  packageName: string
+): NpmLookupResult | null {
+  const latestVersion = data["dist-tags"]?.latest;
+  if (!latestVersion) {
+    return null;
+  }
+  const versionMeta = data.versions?.[latestVersion];
+  const latestPublishedAt = data.time?.[latestVersion] ?? data.time?.modified ?? null;
+  return {
+    ok: true,
+    latestVersion,
+    latestPublishedAt,
+    deprecatedMessage: versionMeta?.deprecated ?? null,
+    homepageUrl: normalizeHttpUrl(data.homepage ?? versionMeta?.homepage ?? null),
+    repositoryUrl: normalizeRepositoryUrl(data.repository ?? versionMeta?.repository ?? null),
+    npmPackageUrl: buildNpmPackageUrl(packageName)
+  };
 }
 
 function buildNpmRegistryUrl(packageName: string): string {
@@ -256,6 +334,40 @@ function buildNpmRegistryUrl(packageName: string): string {
     return `${NPM_REGISTRY_BASE}/${encodeURIComponent(scope)}/${encodeURIComponent(scopedName)}`;
   }
   return `${NPM_REGISTRY_BASE}/${encodeURIComponent(packageName)}`;
+}
+
+function buildNpmPackageUrl(packageName: string): string {
+  return `https://www.npmjs.com/package/${encodeURIComponent(packageName)}`;
+}
+
+function normalizeRepositoryUrl(
+  input: string | { url?: string } | null | undefined
+): string | null {
+  if (!input) {
+    return null;
+  }
+  const raw = typeof input === "string" ? input : input.url ?? "";
+  if (!raw) {
+    return null;
+  }
+  const trimmed = raw.trim()
+    .replace(/^git\+/, "")
+    .replace(/^git:\/\//, "https://")
+    .replace(/^ssh:\/\/git@github\.com\//, "https://github.com/")
+    .replace(/^git@github\.com:/, "https://github.com/")
+    .replace(/\.git$/, "");
+  return normalizeHttpUrl(trimmed);
+}
+
+function normalizeHttpUrl(input: string | null | undefined): string | null {
+  if (!input) {
+    return null;
+  }
+  const trimmed = input.trim();
+  if (!trimmed || !/^https?:\/\//i.test(trimmed)) {
+    return null;
+  }
+  return trimmed;
 }
 
 export function getPublishedAgeInMonths(isoDate: string | null): number | null {

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "backend": {
+    "stop_requested": false,
+    "final_status": "stopped",
+    "requested_at_utc": "",
+    "requested_by": ""
+  },
+  "frontend": {
+    "stop_requested": false,
+    "final_status": "stopped",
+    "requested_at_utc": "",
+    "requested_by": ""
+  }
+}

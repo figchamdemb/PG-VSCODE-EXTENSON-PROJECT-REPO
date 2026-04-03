@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mode="${1:-warn}"
+mode="${1:-strict}"
 if [[ "$mode" != "warn" && "$mode" != "strict" ]]; then
   echo "Invalid mode: $mode (allowed: warn|strict)"
   exit 1

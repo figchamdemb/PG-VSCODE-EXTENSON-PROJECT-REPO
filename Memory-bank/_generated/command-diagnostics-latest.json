@@ -1,0 +1,64 @@
+{
+  "generated_utc": "2026-03-03T20:29:46.244Z",
+  "context": {
+    "resolved_repo_root": "c:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION",
+    "resolved_pg_script": "c:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\pg.ps1",
+    "resolution_start_path": "c:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\extension\\src\\help"
+  },
+  "summary": {
+    "total": 7,
+    "passed": 6,
+    "failed": 1
+  },
+  "checks": [
+    {
+      "label": "Backend /health",
+      "category": "Infrastructure",
+      "ok": true,
+      "output": "ok=true",
+      "fix_hint": "Start backend: cd server && npm run start"
+    },
+    {
+      "label": "Slack integration health",
+      "category": "Infrastructure",
+      "ok": true,
+      "output": "ok=true commands_enabled=True",
+      "fix_hint": "Ensure SLACK_COMMANDS_ENABLED=true and server is restarted with valid Slack env."
+    },
+    {
+      "label": "Local dev profile check",
+      "category": "Infrastructure",
+      "ok": false,
+      "output": "\u001b[33;1mWARNING: Dev profile check: missing required fields.\u001b[0m\r\n- path: C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\.narrate\\dev-profile.local.json\r\n- gitignored: true\r\n  - values.db_host\r\n  - values.db_name\r\n  - values.db_user\r\n  - secret_values.db_password | Command failed: pwsh -NoProfile -ExecutionPolicy Bypass -File c:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\pg.ps1 dev-profile -DevProfileAction check",
+      "fix_hint": "Run: .\\pg.ps1 dev-profile -DevProfileAction init, then set required fields."
+    },
+    {
+      "label": "Governance worker one-shot",
+      "category": "Infrastructure",
+      "ok": true,
+      "output": "Governance worker started.\r\n- api_base: http://127.0.0.1:8787\r\n- state_file: C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\Memory-bank\\_generated\\governance-agent-state.json\r\n- cursor: 29\r\n- playbook: C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\scripts\\governance_action_playbook.json\r\nNo new governance events.\r\nGovernance worker completed.",
+      "fix_hint": "If token missing, run governance-login first. If no events, create/finalize a new thread."
+    },
+    {
+      "label": "Narrate flow baseline check",
+      "category": "Extension",
+      "ok": true,
+      "output": "Narrate flow check:\r\n- pass: 5\r\n- fail: 0\r\n[PASS] Package command wiring\r\n[PASS] Extension runtime registration\r\n[PASS] Core flow source files\r\n[PASS] Extension compile\r\n[PASS] Runtime interaction surface\r\nReport: C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\Memory-bank\\_generated\\narrate-flow-check-latest.md",
+      "fix_hint": "Run .\\pg.ps1 narrate-check for full compile + flow wiring validation report."
+    },
+    {
+      "label": "Extension TypeScript compile",
+      "category": "Extension",
+      "ok": true,
+      "output": "> narrate-vscode-extension@0.1.0 compile\r\n> npm run clean && tsc -p ./\r\n\r\n\r\n> narrate-vscode-extension@0.1.0 clean\r\n> rimraf dist",
+      "fix_hint": "Fix TypeScript errors shown in compile output, then retry."
+    },
+    {
+      "label": "DB index maintenance check",
+      "category": "Data",
+      "ok": true,
+      "output": "DB index maintenance verification status: pass\r\nChecks: 5 | blockers: 0 | warnings: 0",
+      "fix_hint": "Run .\\pg.ps1 db-index-fix-plan -DbMaxRows 5 to generate remediation SQL."
+    }
+  ]
+}

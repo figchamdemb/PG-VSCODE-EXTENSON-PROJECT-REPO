@@ -1,0 +1,758 @@
+{
+  "generated_at_utc": "2026-03-28T22:47:35Z",
+  "repo_root": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION",
+  "status": "pass",
+  "exit_code": 0,
+  "warn_only": false,
+  "enable_db_index_maintenance_check": true,
+  "enable_playwright_smoke_check": true,
+  "skip_dependency_registry_fetch": false,
+  "allow_db_index_connection_warning": false,
+  "changed_target_count": 424,
+  "check_results": {
+    "db_index_maintenance": "pass",
+    "post_write_enforcement": "pass",
+    "playwright_smoke": "pass",
+    "memory_bank_guard": "pass"
+  },
+  "command": "pg self-check",
+  "enforcement_summary": {
+    "phase": "post-write",
+    "status": "pass",
+    "blocker_count": 0,
+    "warning_count": 69,
+    "checks_run": [
+      "dependency",
+      "coding"
+    ],
+    "check_results": {
+      "dependency": "pass",
+      "coding": "pass",
+      "db-index": "skipped"
+    },
+    "warn_only": false,
+    "dependency_result": {
+      "status": "pass",
+      "summary": {
+        "manifests_checked": 2,
+        "manifests_skipped": 0,
+        "checked_dependencies": 11,
+        "blockers": 0,
+        "warnings": 2,
+        "registry_lookup_failures": 0
+      },
+      "manifests": [
+        {
+          "manifest_path": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\extension\\package.json",
+          "status": "pass",
+          "summary": {
+            "checked_dependencies": 2,
+            "blockers": 0,
+            "warnings": 0,
+            "registry_lookup_failures": 0,
+            "evaluated_at": "2026-03-28T22:45:35.738Z"
+          },
+          "blockers": [],
+          "warnings": [],
+          "review_summary": null,
+          "review_results": null
+        },
+        {
+          "manifest_path": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server\\package.json",
+          "status": "pass",
+          "summary": {
+            "checked_dependencies": 9,
+            "blockers": 0,
+            "warnings": 2,
+            "registry_lookup_failures": 0,
+            "evaluated_at": "2026-03-28T22:45:48.788Z"
+          },
+          "blockers": [],
+          "warnings": [
+            {
+              "rule_id": "DEP-MAINT-002",
+              "severity": "warning",
+              "package_name": "@fastify/cookie",
+              "message": "Package @fastify/cookie has no recent updates (about 14 months).",
+              "hint": "Check maintainer activity and issue tracker before adoption."
+            },
+            {
+              "rule_id": "DEP-FRESHNESS-001",
+              "severity": "warning",
+              "package_name": "@prisma/client",
+              "message": "Requested major (6) is behind latest major (7).",
+              "hint": "Review upgrade path to 7.6.0."
+            }
+          ],
+          "review_summary": {
+            "targets_checked": 2,
+            "review_required": 1,
+            "hold": 0,
+            "monitor": 1,
+            "evaluated_at": "2026-03-28T22:45:54.412Z"
+          },
+          "review_results": [
+            {
+              "package_name": "@fastify/cookie",
+              "warning_rule_id": "DEP-MAINT-002",
+              "warning_message": "Package @fastify/cookie has no recent updates (about 14 months).",
+              "status": "monitor",
+              "action": "monitor-package-health",
+              "requested_version": "^11.0.2",
+              "latest_version": "11.0.2",
+              "requested_major": 11,
+              "latest_major": 11,
+              "latest_published_at": "2025-01-05T16:09:07.718Z",
+              "latest_release_age_months": 14,
+              "summary_message": "No major-version jump is required for @fastify/cookie; monitor package health and maintainer activity.",
+              "policy_note": "Keep the current version unless an official vendor source shows a required upgrade path.",
+              "official_sources": [
+                {
+                  "kind": "npm-registry",
+                  "label": "npm registry",
+                  "url": "https://www.npmjs.com/package/%40fastify%2Fcookie",
+                  "official": true
+                },
+                {
+                  "kind": "homepage",
+                  "label": "homepage",
+                  "url": "https://github.com/fastify/fastify-cookie#readme",
+                  "official": true
+                },
+                {
+                  "kind": "repository",
+                  "label": "repository",
+                  "url": "https://github.com/fastify/fastify-cookie",
+                  "official": true
+                },
+                {
+                  "kind": "release-notes",
+                  "label": "release notes",
+                  "url": "https://github.com/fastify/fastify-cookie/releases",
+                  "official": true
+                },
+                {
+                  "kind": "changelog",
+                  "label": "changelog",
+                  "url": "https://github.com/fastify/fastify-cookie/blob/main/CHANGELOG.md",
+                  "official": true
+                }
+              ],
+              "checks": {
+                "latest_major_is_newer": false,
+                "has_homepage": true,
+                "has_repository": true,
+                "has_release_notes": true,
+                "has_changelog": true
+              }
+            },
+            {
+              "package_name": "@prisma/client",
+              "warning_rule_id": "DEP-FRESHNESS-001",
+              "warning_message": "Requested major (6) is behind latest major (7).",
+              "status": "review_required",
+              "action": "review-before-upgrade",
+              "requested_version": "^6.6.0",
+              "latest_version": "7.6.0",
+              "requested_major": 6,
+              "latest_major": 7,
+              "latest_published_at": "2026-03-27T14:06:43.613Z",
+              "latest_release_age_months": 0,
+              "summary_message": "Current major 6 is behind latest major 7 for @prisma/client.",
+              "policy_note": "Review official vendor docs, release notes, changelog, and compatibility guidance before proposing or applying a major upgrade.",
+              "official_sources": [
+                {
+                  "kind": "npm-registry",
+                  "label": "npm registry",
+                  "url": "https://www.npmjs.com/package/%40prisma%2Fclient",
+                  "official": true
+                },
+                {
+                  "kind": "homepage",
+                  "label": "homepage",
+                  "url": "https://www.prisma.io",
+                  "official": true
+                },
+                {
+                  "kind": "repository",
+                  "label": "repository",
+                  "url": "https://github.com/prisma/prisma",
+                  "official": true
+                },
+                {
+                  "kind": "release-notes",
+                  "label": "release notes",
+                  "url": "https://github.com/prisma/prisma/releases",
+                  "official": true
+                },
+                {
+                  "kind": "changelog",
+                  "label": "changelog",
+                  "url": "https://github.com/prisma/prisma/blob/main/CHANGELOG.md",
+                  "official": true
+                }
+              ],
+              "checks": {
+                "latest_major_is_newer": true,
+                "has_homepage": true,
+                "has_repository": true,
+                "has_release_notes": true,
+                "has_changelog": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "coding_result": {
+      "status": "pass",
+      "summary": {
+        "checked_files": 130,
+        "blockers": 0,
+        "warnings": 67,
+        "project_framework": "unknown",
+        "evaluated_at": "2026-03-28T22:45:56.056Z"
+      },
+      "blockers": [],
+      "warnings": [
+        {
+          "rule_id": "COD-FUNC-004",
+          "severity": "warning",
+          "file_path": "extension/src/cache/jsonCacheProvider.ts",
+          "component_type": "unknown",
+          "message": "Function set is above target parameter limit (4 > 3).",
+          "hint": "Prefer <=3 parameters or use a dedicated argument object."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/commands/exportNarrationFile.ts",
+          "component_type": "unknown",
+          "message": "Function anonymous is above target body limit (30 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/commands/pgRootGuidance.ts",
+          "component_type": "unknown",
+          "message": "Function showPgRootGuidance is above target body limit (26 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/commands/pgRootGuidance.ts",
+          "component_type": "unknown",
+          "message": "Function collectPgRootsFrom is above target body limit (26 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/commands/pgRootGuidance.ts",
+          "component_type": "unknown",
+          "message": "Function buildFixGuide is above target body limit (35 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/commands/requestChangePrompt.ts",
+          "component_type": "unknown",
+          "message": "Function buildChangePrompt is above target body limit (23 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/commands/setupValidationLibrary.ts",
+          "component_type": "unknown",
+          "message": "Function readInstalledValidationLibraries is above target body limit (21 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/extension.ts",
+          "component_type": "unknown",
+          "message": "Function registerMaintenanceCommands is above target body limit (24 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/governance/postWriteEnforcer.ts",
+          "component_type": "unknown",
+          "message": "Function onDidSaveTextDocument is above target body limit (26 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/help/commandHelpWorkflowSections.ts",
+          "component_type": "unknown",
+          "message": "Function renderWorkflowAccess is above target body limit (21 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/licensing/entitlementClient.ts",
+          "component_type": "unknown",
+          "message": "Function anonymous is above target body limit (22 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/licensing/featureGateActions.ts",
+          "component_type": "unknown",
+          "message": "Function runSignInWithEmail is above target body limit (25 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/licensing/featureGates.ts",
+          "component_type": "unknown",
+          "message": "Function requireBackendProFeature is above target body limit (21 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/licensing/featureGates.ts",
+          "component_type": "unknown",
+          "message": "Function requireEduViewFeature is above target body limit (34 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/licensing/featureGates.ts",
+          "component_type": "unknown",
+          "message": "Function tryStartTrialForEdu is above target body limit (21 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/readingView/narrateSchemeProvider.ts",
+          "component_type": "unknown",
+          "message": "Function tryParseNarrationUri is above target body limit (31 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/readingView/readingSelectionSyncService.ts",
+          "component_type": "service",
+          "message": "Function onDidChangeSelection is above target body limit (31 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/startup/startupContextEnforcer.ts",
+          "component_type": "unknown",
+          "message": "Function stopMandatoryEnforcementForCurrentWorkspace is above target body limit (22 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/startup/startupContextEnforcerSupport.ts",
+          "component_type": "unknown",
+          "message": "Function summarizeStartupCliMessage is above target body limit (23 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/startup/startupEnforcementBridge.ts",
+          "component_type": "unknown",
+          "message": "Function processBridgeFile is above target body limit (29 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/trust/serverPolicyBridge.ts",
+          "component_type": "unknown",
+          "message": "Function anonymous is above target body limit (40 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/trust/trustScoreAnalysisUtils.ts",
+          "component_type": "unknown",
+          "message": "Function resolveGrade is above target body limit (21 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/trust/trustScoreAnalysisUtils.ts",
+          "component_type": "unknown",
+          "message": "Function buildTrustReportMarkdown is above target body limit (23 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/trust/trustScoreAnalysisUtils.ts",
+          "component_type": "unknown",
+          "message": "Function detectComponentType is above target body limit (40 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-LIMIT-003",
+          "severity": "warning",
+          "file_path": "extension/src/trust/trustScoreService.ts",
+          "component_type": "service",
+          "message": "service file is above target size (300 > 200).",
+          "hint": "Consider extraction to keep code review and maintenance efficient."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/trust/trustScoreService.ts",
+          "component_type": "service",
+          "message": "Function ensureActionAllowed is above target body limit (38 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "extension/src/trust/trustScoreViewProvider.ts",
+          "component_type": "unknown",
+          "message": "Function getTreeItem is above target body limit (27 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-LIMIT-003",
+          "severity": "warning",
+          "file_path": "extension/src/utils/projectPackageResolver.ts",
+          "component_type": "utility",
+          "message": "utility/helper file is above target size (113 > 80).",
+          "hint": "Consider extraction to keep code review and maintenance efficient."
+        },
+        {
+          "rule_id": "COD-LIMIT-003",
+          "severity": "warning",
+          "file_path": "extension/src/utils/projectValidationResolver.ts",
+          "component_type": "utility",
+          "message": "utility/helper file is above target size (129 > 80).",
+          "hint": "Consider extraction to keep code review and maintenance efficient."
+        },
+        {
+          "rule_id": "COD-LIMIT-003",
+          "severity": "warning",
+          "file_path": "server/playwright.config.ts",
+          "component_type": "config",
+          "message": "config file is above target size (88 > 60).",
+          "hint": "Consider extraction to keep code review and maintenance efficient."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/playwright.config.ts",
+          "component_type": "config",
+          "message": "Function resolveProjects is above target body limit (22 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/public/assets/pricing.js",
+          "component_type": "unknown",
+          "message": "Function renderPlanCards is above target body limit (21 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/public/assets/pricing.js",
+          "component_type": "unknown",
+          "message": "Function renderSkuGrid is above target body limit (37 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-004",
+          "severity": "warning",
+          "file_path": "server/public/assets/site.adminOps.js",
+          "component_type": "unknown",
+          "message": "Function applyStripeValue is above target parameter limit (4 > 3).",
+          "hint": "Prefer <=3 parameters or use a dedicated argument object."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/public/assets/site.adminPricingCatalogEditor.js",
+          "component_type": "unknown",
+          "message": "Function initializePricingCatalogEditor is above target body limit (27 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/public/assets/site.adminPricingCatalogEditor.js",
+          "component_type": "unknown",
+          "message": "Function renderSkuEditor is above target body limit (22 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/public/assets/site.adminPricingCatalogEditor.js",
+          "component_type": "unknown",
+          "message": "Function collectPricingCatalogFromEditor is above target body limit (31 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/public/assets/site.adminPricingCatalogEditor.js",
+          "component_type": "unknown",
+          "message": "Function applyPricingCatalogObjectToEditor is above target body limit (21 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/public/assets/site.adminPricingCatalogEditor.js",
+          "component_type": "unknown",
+          "message": "Function normalizePricingCatalogObject is above target body limit (40 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/public/assets/site.js",
+          "component_type": "unknown",
+          "message": "Function api is above target body limit (23 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-004",
+          "severity": "warning",
+          "file_path": "server/public/assets/site.js",
+          "component_type": "unknown",
+          "message": "Function api is above target parameter limit (4 > 3).",
+          "hint": "Prefer <=3 parameters or use a dedicated argument object."
+        },
+        {
+          "rule_id": "COD-FUNC-004",
+          "severity": "warning",
+          "file_path": "server/public/assets/site.tapSignEnrollment.js",
+          "component_type": "unknown",
+          "message": "Function refreshPromptState is above target parameter limit (4 > 3).",
+          "hint": "Prefer <=3 parameters or use a dedicated argument object."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/public/assets/site.teamGovernanceOps.js",
+          "component_type": "unknown",
+          "message": "Function createMastermindThread is above target body limit (24 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/adminRoutes.ts",
+          "component_type": "unknown",
+          "message": "Function approveRefundRequest is above target body limit (31 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/adminRoutes.ts",
+          "component_type": "unknown",
+          "message": "Function anonymous is above target body limit (22 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/affiliateProgram.ts",
+          "component_type": "unknown",
+          "message": "Function computeAffiliateCommission is above target body limit (26 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/affiliateRoutes.ts",
+          "component_type": "unknown",
+          "message": "Function registerAffiliateRoutes is above target body limit (22 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/authOAuthRoutes.ts",
+          "component_type": "unknown",
+          "message": "Function async is above target body limit (28 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/authOAuthRoutes.ts",
+          "component_type": "unknown",
+          "message": "Function async is above target body limit (31 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/dependencyVerificationSupport.ts",
+          "component_type": "unknown",
+          "message": "Function lookupNpmPackage is above target body limit (26 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/index.ts",
+          "component_type": "unknown",
+          "message": "Function registerInfraRoutes is above target body limit (26 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/index.ts",
+          "component_type": "unknown",
+          "message": "Function buildPaymentsDeps is above target body limit (27 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/integrationOrchestrationRoutes.ts",
+          "component_type": "unknown",
+          "message": "Function anonymous is above target body limit (37 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/integrationOrchestrationRoutes.ts",
+          "component_type": "unknown",
+          "message": "Function anonymous is above target body limit (37 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-004",
+          "severity": "warning",
+          "file_path": "server/src/integrationOrchestrationSupport.ts",
+          "component_type": "unknown",
+          "message": "Function summarizeCounts is above target parameter limit (4 > 3).",
+          "hint": "Prefer <=3 parameters or use a dedicated argument object."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/paymentsRoutes.ts",
+          "component_type": "unknown",
+          "message": "Function registerStripeConfigWriteRoute is above target body limit (21 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/planRoutes.ts",
+          "component_type": "unknown",
+          "message": "Function buildTierResponse is above target body limit (21 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/pricingCatalog.ts",
+          "component_type": "unknown",
+          "message": "Function coerceCatalog is above target body limit (32 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/reviewOrchestrationRoutes.ts",
+          "component_type": "unknown",
+          "message": "Function anonymous is above target body limit (37 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/reviewOrchestrationRoutes.ts",
+          "component_type": "unknown",
+          "message": "Function anonymous is above target body limit (37 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-004",
+          "severity": "warning",
+          "file_path": "server/src/reviewOrchestrationSupport.ts",
+          "component_type": "unknown",
+          "message": "Function summarizeReviewCounts is above target parameter limit (4 > 3).",
+          "hint": "Prefer <=3 parameters or use a dedicated argument object."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/stripePaymentHandlers.ts",
+          "component_type": "unknown",
+          "message": "Function resolveCheckoutBillingMode is above target body limit (22 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/stripeRuntimeManager.ts",
+          "component_type": "unknown",
+          "message": "Function update is above target body limit (30 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/subscriptionHelpers.ts",
+          "component_type": "unknown",
+          "message": "Function anonymous is above target body limit (21 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/subscriptionHelpers.ts",
+          "component_type": "unknown",
+          "message": "Function anonymous is above target body limit (21 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/src/trustScoreEvaluationHelpers.ts",
+          "component_type": "unknown",
+          "message": "Function resolveGrade is above target body limit (21 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        },
+        {
+          "rule_id": "COD-FUNC-002",
+          "severity": "warning",
+          "file_path": "server/tests/smoke.stripe-checkout.spec.ts",
+          "component_type": "test",
+          "message": "Function test is above target body limit (37 > 20).",
+          "hint": "Consider extracting helper methods for readability."
+        }
+      ]
+    }
+  },
+  "playwright_smoke_summary": null
+}

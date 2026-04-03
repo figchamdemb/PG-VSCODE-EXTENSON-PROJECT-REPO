@@ -6,6 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <title>PG Reviewer</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/assets/site.css" />
   <style>
     :root { --accent: #7c5cfc; --green: #34d399; --red: #f87171; --amber: #fbbf24; --card-bg: rgba(30,30,44,0.88); }
@@ -57,9 +58,11 @@
     .badge-reject { background: rgba(248,113,113,0.15); color: var(--red); }
     .badge-needs_change { background: rgba(251,191,36,0.15); color: var(--amber); }
     .empty-state { text-align: center; padding: 40px 20px; color: #666; font-size: 0.9rem; }
+    .hidden { display: none !important; }
     .auth-gate { display: flex; flex-direction: column; align-items: center;
       justify-content: center; min-height: 80dvh; gap: 16px; padding: 20px; }
     .auth-gate h2 { color: var(--accent); }
+    .auth-subtitle { color: #888; text-align: center; }
     .auth-gate input { width: 100%; max-width: 320px; padding: 12px; border-radius: 10px;
       border: 1px solid rgba(124,92,252,0.3); background: rgba(30,30,44,0.9);
       color: #e2e2f0; font-size: 1rem; }
@@ -87,21 +90,22 @@
       border-radius: 10px; font-size: 0.85rem; z-index: 100;
       border: 1px solid rgba(124,92,252,0.2); opacity: 0; transition: opacity 0.3s; }
     .toast.show { opacity: 1; }
+    .section-gap-top { margin-top: 8px; }
   </style>
 </head>
 <body>
   <div id="toast" class="toast"></div>
 
-  <div id="authGate" class="auth-gate" style="display:none;">
+  <div id="authGate" class="auth-gate hidden">
     <h2>PG Reviewer</h2>
-    <p style="color:#888;text-align:center;">Sign in to access mobile governance reviewer panel.</p>
+    <p class="auth-subtitle">Sign in to access mobile governance reviewer panel.</p>
     <input id="authEmail" type="email" placeholder="you@company.com" />
     <button id="authSendCode" onclick="sendAuthCode()">Send Login Code</button>
-    <input id="authCode" type="text" placeholder="6-digit code" style="display:none;" />
-    <button id="authVerify" onclick="verifyAuthCode()" style="display:none;">Verify</button>
+    <input id="authCode" class="hidden" type="text" placeholder="6-digit code" />
+    <button id="authVerify" class="hidden" onclick="verifyAuthCode()">Verify</button>
   </div>
 
-  <div id="mainApp" style="display:none;">
+  <div id="mainApp" class="hidden">
     <header class="header">
       <div>
         <h1>PG Reviewer</h1>
@@ -114,7 +118,7 @@
       <div class="kpi-strip" id="kpiStrip"></div>
       <div class="section-label">Pending Review</div>
       <div class="thread-list" id="pendingList"></div>
-      <div class="section-label" style="margin-top:8px;">Recent Decisions</div>
+      <div class="section-label section-gap-top">Recent Decisions</div>
       <div class="decision-list" id="decisionList"></div>
     </div>
 
@@ -150,13 +154,13 @@
     }
 
     function showAuth() {
-      document.getElementById("authGate").style.display = "flex";
-      document.getElementById("mainApp").style.display = "none";
+      document.getElementById("authGate").classList.remove("hidden");
+      document.getElementById("mainApp").classList.add("hidden");
     }
 
     function showApp() {
-      document.getElementById("authGate").style.display = "none";
-      document.getElementById("mainApp").style.display = "block";
+      document.getElementById("authGate").classList.add("hidden");
+      document.getElementById("mainApp").classList.remove("hidden");
     }
 
     async function sendAuthCode() {
@@ -164,8 +168,8 @@
       if (!email) return;
       try {
         await api("POST", "/auth/request-code", { email });
-        document.getElementById("authCode").style.display = "";
-        document.getElementById("authVerify").style.display = "";
+        document.getElementById("authCode").classList.remove("hidden");
+        document.getElementById("authVerify").classList.remove("hidden");
         toast("Code sent to " + email);
       } catch { toast("Failed to send code"); }
     }

@@ -127,25 +127,30 @@ export function buildAccountTeamSummaries(snapshot: StoreState, userId: string):
     (item) => item.user_id === userId && item.status === "active" && item.revoked_at === null
   );
   return activeMemberships
-    .map((membership) => {
-      const team = snapshot.teams.find((item) => item.id === membership.team_id);
-      if (!team) {
-        return null;
-      }
-      const seatsUsed = snapshot.team_memberships.filter(
-        (item) => item.team_id === team.id && item.status === "active"
-      ).length;
-      return {
-        team_key: team.team_key,
-        plan_id: team.plan_id,
-        module_scope: team.module_scope,
-        role: membership.role,
-        seat_limit: team.seat_limit,
-        seats_used: seatsUsed,
-        seats_remaining: Math.max(0, team.seat_limit - seatsUsed)
-      };
-    })
+    .map((membership) => toAccountTeamSummary(snapshot, membership))
     .filter((item): item is AccountTeamSummary => item !== null);
+}
+
+function toAccountTeamSummary(
+  snapshot: StoreState,
+  membership: StoreState["team_memberships"][number]
+): AccountTeamSummary | null {
+  const team = snapshot.teams.find((item) => item.id === membership.team_id);
+  if (!team) {
+    return null;
+  }
+  const seatsUsed = snapshot.team_memberships.filter(
+    (item) => item.team_id === team.id && item.status === "active"
+  ).length;
+  return {
+    team_key: team.team_key,
+    plan_id: team.plan_id,
+    module_scope: team.module_scope,
+    role: membership.role,
+    seat_limit: team.seat_limit,
+    seats_used: seatsUsed,
+    seats_remaining: Math.max(0, team.seat_limit - seatsUsed)
+  };
 }
 
 export function buildAccountBillingSnapshot(snapshot: StoreState, userId: string): AccountBillingSnapshot {

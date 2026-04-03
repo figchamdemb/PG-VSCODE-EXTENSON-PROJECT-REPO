@@ -7,7 +7,8 @@ param(
     [string]$ProjectFramework = "unknown",
     [string]$NodeVersion = "",
     [switch]$DependenciesOnly,
-    [switch]$SkipRegistryFetch
+    [switch]$SkipRegistryFetch,
+    [switch]$Json
 )
 
 $ErrorActionPreference = "Stop"
@@ -316,6 +317,83 @@ function Write-DependencyFindings {
     }
 }
 
+function Find-RequestedVersionForPackage {
+    param(
+        [array]$Candidates,
+        [string]$PackageName
+    )
+    foreach ($candidate in $Candidates) {
+        if ($candidate.name -eq $PackageName) {
+            return [string]$candidate.requested_version
+        }
+    }
+    return $null
+}
+
+function Get-DependencyReviewTargets {
+    param(
+        [object]$Response,
+        [array]$Candidates
+    )
+    $targets = New-Object System.Collections.Generic.List[object]
+    foreach ($item in @($Response.warnings)) {
+        $ruleId = [string]$item.rule_id
+        if ($ruleId -notlike "DEP-FRESHNESS-*" -and $ruleId -notlike "DEP-MAINT-*") {
+            continue
+        }
+        $packageName = [string]$item.package_name
+        if ([string]::IsNullOrWhiteSpace($packageName)) {
+            continue
+        }
+        $targets.Add([ordered]@{
+                package_name = $packageName
+                requested_version = Find-RequestedVersionForPackage -Candidates $Candidates -PackageName $packageName
+                warning_rule_id = $ruleId
+                warning_message = [string]$item.message
+            }) | Out-Null
+    }
+    return $targets.ToArray()
+}
+
+function Invoke-DependencyReview {
+    param(
+        [string]$ResolvedApiBase,
+        [hashtable]$ResolvedHeaders,
+        [array]$Targets
+    )
+    if (-not $Targets -or $Targets.Count -eq 0) {
+        return $null
+    }
+    $body = @{
+        package_manager = $PackageManager
+        targets = $Targets
+    }
+    return Invoke-RestMethod `
+        -Method Post `
+        -Uri "$ResolvedApiBase/account/policy/dependency/review" `
+        -Headers $ResolvedHeaders `
+        -Body ($body | ConvertTo-Json -Depth 12)
+}
+
+function Write-DependencyReviewFindings {
+    param(
+        [object]$ReviewResponse
+    )
+    if (-not $ReviewResponse -or -not $ReviewResponse.results) {
+        return
+    }
+    Write-Host ""
+    Write-Host "Review guidance:"
+    foreach ($item in @($ReviewResponse.results)) {
+        Write-Host "- $($item.package_name) -> $($item.action) [$($item.status)]"
+        Write-Host "  reason: $($item.summary_message)"
+        $sourceUrls = @($item.official_sources | Select-Object -First 2 | ForEach-Object { $_.url })
+        if ($sourceUrls.Count -gt 0) {
+            Write-Host "  official_sources: $($sourceUrls -join ' | ')"
+        }
+    }
+}
+
 if (-not $AccessToken) {
     if ($env:PG_ACCESS_TOKEN) {
         $AccessToken = $env:PG_ACCESS_TOKEN
@@ -342,6 +420,7 @@ $totalBlockers = 0
 $totalWarnings = 0
 $totalRegistryLookupFailures = 0
 $hasBlockedManifest = $false
+$manifestReports = New-Object System.Collections.Generic.List[object]
 
 foreach ($currentManifestPath in $manifestPaths) {
     Write-Host ""
@@ -384,6 +463,8 @@ foreach ($currentManifestPath in $manifestPaths) {
         -Uri "$ApiBase/account/policy/dependency/verify" `
         -Headers $headers `
         -Body ($body | ConvertTo-Json -Depth 12)
+    $reviewTargets = Get-DependencyReviewTargets -Response $response -Candidates $candidates
+    $reviewResponse = Invoke-DependencyReview -ResolvedApiBase $ApiBase -ResolvedHeaders $headers -Targets $reviewTargets
 
     $checkedManifests += 1
     $totalDependencies += [int]$response.summary.checked_dependencies
@@ -393,10 +474,20 @@ foreach ($currentManifestPath in $manifestPaths) {
     if ($response.status -eq "blocked") {
         $hasBlockedManifest = $true
     }
+    $manifestReports.Add([ordered]@{
+            manifest_path = $currentManifestPath
+            status = $response.status
+            summary = $response.summary
+            blockers = @($response.blockers)
+            warnings = @($response.warnings)
+            review_summary = if ($reviewResponse) { $reviewResponse.summary } else { $null }
+            review_results = if ($reviewResponse) { $reviewResponse.results } else { @() }
+        }) | Out-Null
 
     Write-Host "Dependency verification status: $($response.status)"
     Write-Host "Checked: $($response.summary.checked_dependencies) | blockers: $($response.summary.blockers) | warnings: $($response.summary.warnings)"
     Write-DependencyFindings -Response $response
+    Write-DependencyReviewFindings -ReviewResponse $reviewResponse
 }
 
 if ($checkedManifests -eq 0) {
@@ -407,6 +498,22 @@ Write-Host ""
 $aggregateStatus = if ($hasBlockedManifest) { "blocked" } else { "pass" }
 Write-Host "Dependency verification aggregate status: $aggregateStatus"
 Write-Host "Manifests checked: $checkedManifests | skipped: $skippedManifests | dependencies checked: $totalDependencies | blockers: $totalBlockers | warnings: $totalWarnings | registry failures: $totalRegistryLookupFailures"
+
+if ($Json.IsPresent) {
+    $jsonPayload = [ordered]@{
+        status = $aggregateStatus
+        summary = [ordered]@{
+            manifests_checked = $checkedManifests
+            manifests_skipped = $skippedManifests
+            checked_dependencies = $totalDependencies
+            blockers = $totalBlockers
+            warnings = $totalWarnings
+            registry_lookup_failures = $totalRegistryLookupFailures
+        }
+        manifests = $manifestReports.ToArray()
+    }
+    Write-Output ("PG_DEPENDENCY_VERIFY_JSON:{0}" -f ($jsonPayload | ConvertTo-Json -Depth 20 -Compress))
+}
 
 if ($hasBlockedManifest) {
     exit 2

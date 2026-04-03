@@ -4,17 +4,28 @@ import * as path from "path";
 import { FeatureGateService } from "../licensing/featureGates";
 import { NarrationEngine } from "../narration/narrationEngine";
 import { renderNarrationDocument } from "../readingView/renderNarration";
+import { StartupContextEnforcer } from "../startup/startupContextEnforcer";
+import { TrustScoreService } from "../trust/trustScoreService";
 import { getCurrentMode } from "./modeState";
 import { resolveExportBaseDir, sanitizePathSegment } from "./exportUtils";
 
 export function registerExportNarrationFileCommand(
   context: vscode.ExtensionContext,
   narrationEngine: NarrationEngine,
-  gates: FeatureGateService
+  gates: FeatureGateService,
+  trustScoreService: TrustScoreService,
+  startupContextEnforcer: StartupContextEnforcer
 ): vscode.Disposable {
   return vscode.commands.registerCommand("narrate.exportNarrationFile", async () => {
+    const activeUri = vscode.window.activeTextEditor?.document.uri;
+    if (!(await startupContextEnforcer.ensureWorkspaceReadyForAction("exporting file narration", activeUri))) {
+      return;
+    }
     const allowed = await gates.requireProFeature("Export Narration (Current File)");
     if (!allowed) {
+      return;
+    }
+    if (!(await trustScoreService.ensureActionAllowed("Export Narration (Current File)"))) {
       return;
     }
 

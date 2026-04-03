@@ -19,6 +19,8 @@ import { registerGovernanceSyncNowCommand } from "./commands/governanceSyncNow";
 import { registerLicenseStatusCommand } from "./commands/licenseStatus";
 import { registerManageDevicesCommand } from "./commands/manageDevices";
 import { registerOpenCommandHelpCommand } from "./commands/openCommandHelp";
+import { registerOpenModelSettingsCommand } from "./commands/openModelSettings";
+import { registerOpenToggleControlPanelCommand } from "./commands/openToggleControlPanel";
 import { registerPgPushCommands } from "./commands/pgPush";
 import { registerRefreshLicenseCommand } from "./commands/refreshLicense";
 import { registerRedeemCodeCommand } from "./commands/redeemCode";
@@ -52,12 +54,16 @@ import { OpenAICompatibleProvider } from "./llm/openAICompatibleProvider";
 import { NarrationEngine } from "./narration/narrationEngine";
 import { CommandHelpViewProvider } from "./help/commandHelpViewProvider";
 import { NarrateSchemeProvider } from "./readingView/narrateSchemeProvider";
+import { ReadingSelectionSyncService } from "./readingView/readingSelectionSyncService";
+import { ToggleControlViewProvider } from "./ui/toggleControlViewProvider";
 import { TrustScoreService } from "./trust/trustScoreService";
 import {
   openTrustFindingLocation,
   TrustScoreViewProvider
 } from "./trust/trustScoreViewProvider";
 import { Logger } from "./utils/logger";
+import { StartupContextEnforcer } from "./startup/startupContextEnforcer";
+import { StartupEnforcementBridge } from "./startup/startupEnforcementBridge";
 
 let cacheProvider: JsonCacheProvider | undefined;
 
@@ -69,8 +75,12 @@ type ActivationServices = {
   trustScoreService: TrustScoreService;
   trustScoreViewProvider: TrustScoreViewProvider;
   postWriteEnforcer: PostWriteEnforcer;
+  startupContextEnforcer: StartupContextEnforcer;
+  startupEnforcementBridge: StartupEnforcementBridge;
+  readingSelectionSyncService: ReadingSelectionSyncService;
   governanceDecisionSyncWorker: GovernanceDecisionSyncWorker;
   commandHelpViewProvider: CommandHelpViewProvider;
+  toggleControlViewProvider: ToggleControlViewProvider;
 };
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -78,11 +88,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const services = await createActivationServices(context, logger);
   const statusBars = createStatusBarItems(context);
   const refreshers = createStatusRefreshers(context, services.featureGates, statusBars);
+  services.toggleControlViewProvider.setOnStateChanged(refreshers.refreshAllStatusBars);
 
   registerCoreRuntimeSubscriptions(context, services);
   registerStatusSubscriptions(context, services, refreshers);
   registerAllCommands(context, services, refreshers);
 
+  await services.startupContextEnforcer.initialize();
+  await services.startupEnforcementBridge.initialize();
   refreshers.refreshAllStatusBars();
   void services.trustScoreService.refreshNow();
   logger.info("Narrate extension activated.");
@@ -101,12 +114,21 @@ async function createActivationServices(
   const llmProvider = new OpenAICompatibleProvider(logger, featureGates);
   const narrationEngine = new NarrationEngine(cacheProvider, llmProvider, logger);
   const schemeProvider = new NarrateSchemeProvider(narrationEngine, logger);
+  const readingSelectionSyncService = new ReadingSelectionSyncService(logger);
   const trustScoreService = new TrustScoreService(context, logger);
   const trustScoreViewProvider = new TrustScoreViewProvider(trustScoreService);
-  const postWriteEnforcer = new PostWriteEnforcer(logger);
+  const startupContextEnforcer = new StartupContextEnforcer(context, logger);
+  const startupEnforcementBridge = new StartupEnforcementBridge(startupContextEnforcer, logger);
+  const postWriteEnforcer = new PostWriteEnforcer(logger, startupContextEnforcer);
   const governanceDecisionSyncWorker = new GovernanceDecisionSyncWorker(logger);
   governanceDecisionSyncWorker.start();
   const commandHelpViewProvider = new CommandHelpViewProvider(logger);
+  const toggleControlViewProvider = new ToggleControlViewProvider(
+    context,
+    schemeProvider,
+    featureGates,
+    logger
+  );
 
   return {
     logger,
@@ -116,8 +138,12 @@ async function createActivationServices(
     trustScoreService,
     trustScoreViewProvider,
     postWriteEnforcer,
+    startupContextEnforcer,
+    startupEnforcementBridge,
+    readingSelectionSyncService,
     governanceDecisionSyncWorker,
-    commandHelpViewProvider
+    commandHelpViewProvider,
+    toggleControlViewProvider
   };
 }
 
@@ -129,24 +155,42 @@ function registerCoreRuntimeSubscriptions(
     services.logger,
     services.trustScoreService,
     services.postWriteEnforcer,
+    services.startupContextEnforcer,
+    services.startupEnforcementBridge,
+    services.readingSelectionSyncService,
     services.governanceDecisionSyncWorker,
     vscode.window.registerWebviewViewProvider(
       CommandHelpViewProvider.viewType,
       services.commandHelpViewProvider
+    ),
+    vscode.window.registerWebviewViewProvider(
+      ToggleControlViewProvider.viewType,
+      services.toggleControlViewProvider
     ),
     vscode.window.registerTreeDataProvider(
       TrustScoreViewProvider.viewId,
       services.trustScoreViewProvider
     ),
     services.trustScoreViewProvider,
+    services.featureGates.getLicensingCallbackHandler(),
+    vscode.window.registerUriHandler(services.featureGates.getLicensingCallbackHandler()),
     services.schemeProvider,
     vscode.workspace.registerTextDocumentContentProvider("narrate", services.schemeProvider),
     vscode.workspace.onDidSaveTextDocument((document) => {
       void services.trustScoreService.onDidSaveTextDocument(document);
       void services.postWriteEnforcer.onDidSaveTextDocument(document);
     }),
-    vscode.window.onDidChangeActiveTextEditor(() => {
+    vscode.window.onDidChangeTextEditorSelection((event) => {
+      void services.readingSelectionSyncService.onDidChangeSelection(event);
+    }),
+    vscode.window.onDidChangeActiveTextEditor((editor) => {
+      void services.startupContextEnforcer.onDidChangeActiveEditor(editor);
       void services.trustScoreService.onDidChangeActiveEditor();
+      void services.readingSelectionSyncService.syncFromActiveEditor();
+    }),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      void services.startupContextEnforcer.onDidChangeWorkspaceFolders();
+      void services.startupEnforcementBridge.onDidChangeWorkspaceFolders();
     })
   );
 }
@@ -159,6 +203,7 @@ function registerStatusSubscriptions(
   context.subscriptions.push(
     services.featureGates.onDidChangeStatus(() => {
       refreshers.refreshAllStatusBars();
+      services.toggleControlViewProvider.refresh();
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
       handleConfigurationChanged(event, services, refreshers);
@@ -174,8 +219,10 @@ function handleConfigurationChanged(
   if (affectsStatusBarConfiguration(event)) {
     void services.featureGates.handleConfigurationChanged();
     refreshers.refreshAllStatusBars();
+    services.toggleControlViewProvider.refresh();
   }
   void services.trustScoreService.handleConfigurationChanged(event);
+  void services.startupContextEnforcer.handleConfigurationChanged(event);
   services.governanceDecisionSyncWorker.handleConfigurationChanged(event);
 }
 
@@ -291,26 +338,44 @@ function registerWorkflowCommands(
   services: ActivationServices
 ): vscode.Disposable[] {
   return [
-    registerRequestChangePromptCommand(context, services.narrationEngine),
+    registerRequestChangePromptCommand(
+      context,
+      services.narrationEngine,
+      services.trustScoreService,
+      services.startupContextEnforcer
+    ),
     registerExportNarrationFileCommand(
       context,
       services.narrationEngine,
-      services.featureGates
+      services.featureGates,
+      services.trustScoreService,
+      services.startupContextEnforcer
     ),
     registerExportNarrationWorkspaceCommand(
       context,
       services.narrationEngine,
-      services.featureGates
+      services.featureGates,
+      services.trustScoreService,
+      services.startupContextEnforcer
     ),
     registerGenerateChangeReportCommand(
       context,
       services.narrationEngine,
-      services.featureGates
+      services.featureGates,
+      services.trustScoreService,
+      services.startupContextEnforcer
     ),
-    registerGenerateCodebaseTourCommand(services.logger),
+    registerGenerateCodebaseTourCommand(
+      services.logger,
+      services.startupContextEnforcer
+    ),
     registerCodebaseTourGraphCommand(services.logger),
-    registerPgPushCommands(services.trustScoreService),
+    registerPgPushCommands(
+      services.trustScoreService,
+      services.startupContextEnforcer
+    ),
     registerGovernanceSyncNowCommand(services.governanceDecisionSyncWorker),
+    registerOpenToggleControlPanelCommand(),
     registerRunFlowInteractionCheckCommand(
       context,
       services.narrationEngine,
@@ -332,12 +397,22 @@ function registerLicensingCommands(featureGates: FeatureGateService): vscode.Dis
     registerActivateProjectQuotaCommand(featureGates),
     registerShowProjectQuotaCommand(featureGates),
     registerManageDevicesCommand(featureGates),
-    registerOpenCommandHelpCommand()
+    registerOpenCommandHelpCommand(),
+    registerOpenModelSettingsCommand()
   ];
 }
 
 function registerMaintenanceCommands(services: ActivationServices): vscode.Disposable[] {
   return [
+    vscode.commands.registerCommand("narrate.runStartupForCurrentContext", async () => {
+      await services.startupContextEnforcer.runStartupForCurrentContext();
+    }),
+    vscode.commands.registerCommand("narrate.stopMandatoryEnforcement", async () => {
+      await services.startupContextEnforcer.stopMandatoryEnforcementForCurrentWorkspace();
+    }),
+    vscode.commands.registerCommand("narrate.resumeMandatoryEnforcement", async () => {
+      await services.startupContextEnforcer.resumeMandatoryEnforcementForCurrentWorkspace();
+    }),
     registerCreateDeadCodeCleanupBranchCommand(services.logger),
     registerApplySafeDeadCodeFixesCommand(services.logger),
     registerRunCommandDiagnosticsCommand(services.logger),

@@ -5,17 +5,27 @@ import datetime as dt
 import json
 import os
 import re
-import subprocess
 import sys
 from pathlib import Path
 
+from memory_bank_guard_git import changed_files, run_git
+from memory_bank_guard_daily import validate_daily_retention
+from memory_bank_guard_design import validate_frontend_design_policy
+from memory_bank_guard_integration import validate_frontend_integration_artifacts
+from memory_bank_guard_milestones import validate_milestone_alignment
+from memory_bank_guard_self_check import validate_self_check
+from secrets_guard import scan_files as scan_secrets_all_files
+
 ROOT = Path(__file__).resolve().parents[1]
 MEMORY_BANK = ROOT / "Memory-bank"
-DEFAULT_MODE = "warn"
+DEFAULT_MODE = "strict"
 DEFAULT_PROFILE = "frontend"
 SESSION_STATE = MEMORY_BANK / "_generated" / "session-state.json"
+SELF_CHECK_SUMMARY = MEMORY_BANK / "_generated" / "self-check-latest.json"
 DEFAULT_MAX_SESSION_COMMITS = 5
 DEFAULT_MAX_SESSION_HOURS = 12
+DEFAULT_AGENTS_GLOBAL_MAX_LINES = 2500
+DEFAULT_MASTERMIND_MAX_LINES = 1800
 
 COMMON_CODE_EXT = {
     ".java", ".kt", ".kts", ".xml", ".yml", ".yaml", ".properties", ".sql",
@@ -62,41 +72,6 @@ ASSIGNMENT_SECRET_RE = re.compile(
 )
 DATABASE_URL_SECRET_RE = re.compile(r"(?i)\bpostgres(?:ql)?://[^:@/\s]+:([^@/\s]+)@")
 PRIVATE_KEY_BLOCK_RE = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")
-
-
-def run_git(args: list[str]) -> str:
-    result = subprocess.run(
-        ["git", *args],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        return ""
-    return result.stdout.strip()
-
-
-def staged_files() -> list[str]:
-    out = run_git(["diff", "--cached", "--name-only", "--diff-filter=ACMR"])
-    if not out:
-        return []
-    prefix = run_git(["rev-parse", "--show-prefix"]).strip().replace("\\", "/")
-    if prefix and not prefix.endswith("/"):
-        prefix += "/"
-    staged: list[str] = []
-    for raw in out.splitlines():
-        path = raw.strip().replace("\\", "/")
-        if not path:
-            continue
-        if prefix:
-            if not path.startswith(prefix):
-                continue
-            path = path[len(prefix):]
-        if path.startswith("../") or not path:
-            continue
-        staged.append(path)
-    return staged
 
 
 def is_code_change(path: str) -> bool:
@@ -207,7 +182,7 @@ def parse_mode(cli_mode: str | None) -> str:
     env_mode = os.getenv("MB_ENFORCEMENT_MODE", "").strip().lower()
     if env_mode in {"warn", "strict"}:
         return env_mode
-    git_mode = run_git(["config", "--get", "memorybank.mode"]).strip().lower()
+    git_mode = run_git(ROOT, ["config", "--get", "memorybank.mode"]).strip().lower()
     if git_mode in {"warn", "strict"}:
         return git_mode
     return DEFAULT_MODE
@@ -249,17 +224,39 @@ def parse_positive_int(value: object, default: int) -> int:
     return parsed
 
 
+def validate_long_memory_files() -> list[str]:
+    warnings: list[str] = []
+    targets = [
+        ("Memory-bank/agentsGlobal-memory.md", DEFAULT_AGENTS_GLOBAL_MAX_LINES, "MEMORY_BANK_AGENTS_GLOBAL_MAX_LINES"),
+        ("Memory-bank/mastermind.md", DEFAULT_MASTERMIND_MAX_LINES, "MEMORY_BANK_MASTERMIND_MAX_LINES"),
+    ]
+    for relative_path, default_limit, env_key in targets:
+        limit = parse_positive_int(os.getenv(env_key), default_limit)
+        absolute = ROOT / relative_path
+        if not absolute.exists():
+            continue
+        lines = line_count(absolute)
+        if lines <= limit:
+            continue
+        warnings.append(
+            f"{relative_path} is {lines} lines (limit {limit}). Run "
+            f"'python scripts/generate_memory_bank.py --profile frontend --keep-days 7' "
+            "to archive older entries from append-only memory logs."
+        )
+    return warnings
+
+
 def commits_since_anchor(anchor: str) -> int | None:
     if not anchor:
         return 0
-    head = run_git(["rev-parse", "HEAD"]).strip()
+    head = run_git(ROOT, ["rev-parse", "HEAD"]).strip()
     if not head:
         return 0
     if head == anchor:
         return 0
-    if not run_git(["rev-parse", "--verify", anchor]).strip():
+    if not run_git(ROOT, ["rev-parse", "--verify", anchor]).strip():
         return None
-    out = run_git(["rev-list", "--count", f"{anchor}..HEAD"]).strip()
+    out = run_git(ROOT, ["rev-list", "--count", f"{anchor}..HEAD"]).strip()
     if not out:
         return None
     try:
@@ -316,6 +313,7 @@ def validate_session() -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Memory-bank pre-commit guard")
     parser.add_argument("--mode", choices=("warn", "strict"), default=None)
+    parser.add_argument("--scope", choices=("staged", "working-tree"), default="staged")
     args = parser.parse_args()
 
     mode = parse_mode(args.mode)
@@ -331,47 +329,84 @@ def main() -> int:
         print(f"{message} WARN mode allows commit.")
         return 0
 
-    staged = staged_files()
-    if not staged:
+    changed = changed_files(ROOT, args.scope)
+    if not changed:
         return 0
 
-    code_changes = [p for p in staged if is_code_change(p)]
+    code_changes = [p for p in changed if is_code_change(p)]
     if not code_changes:
         return 0
 
-    migration_changes = [p for p in staged if is_migration_change(p)]
-    tooling_changes = [p for p in staged if is_tooling_change(p)]
+    migration_changes = [p for p in changed if is_migration_change(p)]
+    tooling_changes = [p for p in changed if is_tooling_change(p)]
     errors: list[str] = []
     warnings: list[str] = []
     session_errors = validate_session()
     errors.extend(session_errors)
-    errors.extend(scan_doc_secrets(staged))
+    self_check_errors, self_check_warnings = validate_self_check(
+        repo_root=ROOT,
+        summary_path=SELF_CHECK_SUMMARY,
+        staged=changed,
+        code_changes=code_changes,
+    )
+    errors.extend(self_check_errors)
+    warnings.extend(self_check_warnings)
+    errors.extend(scan_doc_secrets(changed))
 
-    if not any(p.startswith("Memory-bank/") for p in staged):
-        errors.append("Code changed but no Memory-bank file is staged.")
+    # --- 100% enforcement: full-repo secrets scan (always blocks) ---
+    secret_findings = scan_secrets_all_files(changed, ROOT)
+    for sf in secret_findings:
+        errors.append(str(sf).strip())
+    milestone_errors, milestone_warnings = validate_milestone_alignment(
+        repo_root=ROOT,
+        today=today_utc(),
+        staged=changed,
+        code_changes=code_changes,
+    )
+    errors.extend(milestone_errors)
+    warnings.extend(milestone_warnings)
+    retention_errors, retention_warnings = validate_daily_retention(
+        repo_root=ROOT,
+        today=today_utc(),
+    )
+    errors.extend(retention_errors)
+    warnings.extend(retention_warnings)
+    design_errors, design_warnings = validate_frontend_design_policy(
+        repo_root=ROOT,
+        code_changes=code_changes,
+    )
+    errors.extend(design_errors)
+    warnings.extend(design_warnings)
+    integration_errors, integration_warnings = validate_frontend_integration_artifacts(repo_root=ROOT)
+    errors.extend(integration_errors)
+    warnings.extend(integration_warnings)
+    warnings.extend(validate_long_memory_files())
+
+    if not any(p.startswith("Memory-bank/") for p in changed):
+        errors.append("Code changed but no Memory-bank file was updated.")
 
     if migration_changes and not any(
-        p.startswith("Memory-bank/db-schema/") and p.endswith(".md") for p in staged
+        p.startswith("Memory-bank/db-schema/") and p.endswith(".md") for p in changed
     ):
-        errors.append("Migration changed but no db-schema markdown file is staged.")
+        errors.append("Migration changed but no db-schema markdown file was updated.")
 
-    if "Memory-bank/agentsGlobal-memory.md" not in staged:
-        errors.append("Missing staged update: Memory-bank/agentsGlobal-memory.md")
+    if "Memory-bank/agentsGlobal-memory.md" not in changed:
+        errors.append("Missing required update: Memory-bank/agentsGlobal-memory.md")
 
     today = today_utc()
-    if f"Memory-bank/daily/{today}.md" not in staged:
-        errors.append(f"Missing staged update: Memory-bank/daily/{today}.md")
-    if "Memory-bank/daily/LATEST.md" not in staged:
-        errors.append("Missing staged update: Memory-bank/daily/LATEST.md")
+    if f"Memory-bank/daily/{today}.md" not in changed:
+        errors.append(f"Missing required update: Memory-bank/daily/{today}.md")
+    if "Memory-bank/daily/LATEST.md" not in changed:
+        errors.append("Missing required update: Memory-bank/daily/LATEST.md")
 
-    if "Memory-bank/project-details.md" not in staged:
+    if "Memory-bank/project-details.md" not in changed:
         errors.append(
-            "Missing staged update: Memory-bank/project-details.md "
+            "Missing required update: Memory-bank/project-details.md "
             "(track plan/feature status or note 'no plan changes')."
         )
 
-    if tooling_changes and "Memory-bank/tools-and-commands.md" not in staged:
-        errors.append("Tooling/runtime/start-command changes detected but Memory-bank/tools-and-commands.md is not staged.")
+    if tooling_changes and "Memory-bank/tools-and-commands.md" not in changed:
+        errors.append("Tooling/runtime/start-command changes detected but Memory-bank/tools-and-commands.md was not updated.")
 
     oversized_screen_files: list[tuple[str, int]] = []
     for path in code_changes:
@@ -404,12 +439,13 @@ def main() -> int:
 
     print("\nQuick fix:")
     print("0) .\\pg.ps1 start -Yes")
+    print("0.1) If scope changed, add REQ tags in Memory-bank/project-spec.md (e.g., [REQ-YYYY-MM-DD-01]) and reference same tags in project-details milestones.")
     print("1) python scripts/build_frontend_summary.py")
     print("2) python scripts/generate_memory_bank.py --profile frontend --keep-days 7")
     print("3) stage Memory-bank updates and commit again")
 
-    if session_errors:
-        print("Session policy is blocking in all modes. Start a fresh session first.")
+    if session_errors or self_check_errors:
+        print("Session/self-check policy is blocking in all modes. Resolve required checks first.")
         return 1
 
     if mode == "strict":

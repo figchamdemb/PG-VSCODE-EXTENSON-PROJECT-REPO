@@ -56,21 +56,39 @@ export interface GovernanceHelpersDeps {
 // ---------------------------------------------------------------------------
 export function createGovernanceHelpers(deps: GovernanceHelpersDeps) {
   const settingsHelpers = createGovernanceSettingsHelpers(deps);
+  return createGovernanceHelperSurface(deps, settingsHelpers);
+}
 
+// ---------------------------------------------------------------------------
+// Settings sub-factory result type (used by module-level functions).
+// ---------------------------------------------------------------------------
+type SettingsHelpers = ReturnType<typeof createGovernanceSettingsHelpers>;
+
+function createGovernanceHelperSurface(deps: GovernanceHelpersDeps, settingsHelpers: SettingsHelpers) {
   return {
     ...settingsHelpers,
-    supportsGovernancePlan: (plan: PlanTier) =>
-      supportsGovernancePlan(deps, plan),
+    ...createGovernanceAccessSurface(deps, settingsHelpers),
+    ...GOVERNANCE_NORMALIZATION_SURFACE,
+    ...createGovernanceDecisionSurface(deps, settingsHelpers)
+  };
+}
+
+const GOVERNANCE_NORMALIZATION_SURFACE = {
+  normalizeGovernanceVoteMode,
+  normalizeMastermindEntryType,
+  normalizeMastermindDecision,
+  normalizeStringList,
+  normalizeIsoDateOrNull,
+  parseMastermindOptionsInput,
+  normalizeMastermindOptionKey
+};
+
+function createGovernanceAccessSurface(deps: GovernanceHelpersDeps, settingsHelpers: SettingsHelpers) {
+  return {
+    supportsGovernancePlan: (plan: PlanTier) => supportsGovernancePlan(deps, plan),
     resolveGovernanceContextForUser: (
       state: StoreState, userId: string, teamKey: string | undefined, requireManage: boolean
     ) => resolveGovernanceContextForUser(deps, state, userId, teamKey, requireManage),
-    normalizeGovernanceVoteMode,
-    normalizeMastermindEntryType,
-    normalizeMastermindDecision,
-    normalizeStringList,
-    normalizeIsoDateOrNull,
-    parseMastermindOptionsInput,
-    normalizeMastermindOptionKey,
     canAccessGovernanceThread: (
       state: StoreState, thread: StoreState["mastermind_threads"][number], userId: string
     ) => canAccessGovernanceThread(deps, state, thread, userId),
@@ -79,11 +97,14 @@ export function createGovernanceHelpers(deps: GovernanceHelpersDeps) {
     ) => canFinalizeGovernanceThread(deps, state, thread, userId),
     resolveGovernanceSettingsForThread: (
       state: StoreState, thread: StoreState["mastermind_threads"][number], fallbackUserId: string
-    ) => resolveGovernanceSettingsForThread(settingsHelpers, state, thread, fallbackUserId),
-    buildMastermindVoteTally: (state: StoreState, threadId: string) =>
-      buildMastermindVoteTally(state, threadId),
-    chooseWinningOptionFromVotes: (state: StoreState, threadId: string) =>
-      chooseWinningOptionFromVotes(state, threadId),
+    ) => resolveGovernanceSettingsForThread(settingsHelpers, state, thread, fallbackUserId)
+  };
+}
+
+function createGovernanceDecisionSurface(deps: GovernanceHelpersDeps, settingsHelpers: SettingsHelpers) {
+  return {
+    buildMastermindVoteTally: (state: StoreState, threadId: string) => buildMastermindVoteTally(state, threadId),
+    chooseWinningOptionFromVotes: (state: StoreState, threadId: string) => chooseWinningOptionFromVotes(state, threadId),
     buildMastermindThreadDetail: (
       state: StoreState, thread: StoreState["mastermind_threads"][number]
     ) => buildMastermindThreadDetail(state, thread),
@@ -91,15 +112,9 @@ export function createGovernanceHelpers(deps: GovernanceHelpersDeps) {
       state: StoreState, thread: StoreState["mastermind_threads"][number],
       outcome: StoreState["mastermind_outcomes"][number], retentionDays: number
     ) => createGovernanceDecisionEvent(deps, state, thread, outcome, retentionDays),
-    pruneGovernanceState: (state: StoreState) =>
-      pruneGovernanceState(deps, settingsHelpers, state),
+    pruneGovernanceState: (state: StoreState) => pruneGovernanceState(deps, settingsHelpers, state)
   };
 }
-
-// ---------------------------------------------------------------------------
-// Settings sub-factory result type (used by module-level functions).
-// ---------------------------------------------------------------------------
-type SettingsHelpers = ReturnType<typeof createGovernanceSettingsHelpers>;
 
 // ---------------------------------------------------------------------------
 // Implementation functions (module-level).

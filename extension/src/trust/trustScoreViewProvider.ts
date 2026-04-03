@@ -4,6 +4,7 @@ import {
   TrustReport,
   TrustScoreService
 } from "./trustScoreService";
+import { isAuthenticationRequiredReport } from "./trustScoreHelpers";
 
 type TrustTreeNode =
   | { kind: "summary"; report: TrustReport | undefined; enabled: boolean; auto: boolean }
@@ -139,6 +140,25 @@ export class TrustScoreViewProvider
       );
       item.tooltip =
         "No Trust Score report yet. Save a file (auto mode) or click refresh (manual mode).";
+      return item;
+    }
+
+    if (isAuthenticationRequiredReport(report)) {
+      const item = new vscode.TreeItem(
+        "Trust Score: Sign-in required",
+        vscode.TreeItemCollapsibleState.None
+      );
+      item.description = "server auth";
+      item.iconPath = new vscode.ThemeIcon(
+        "key",
+        new vscode.ThemeColor("testing.iconQueued")
+      );
+      item.tooltip =
+        "Server-backed trust evaluation requires a valid Narrate sign-in session. Open the trust report for the exact authentication requirement.";
+      item.command = {
+        title: "Show Trust Score Report",
+        command: "narrate.showTrustScoreReport"
+      };
       return item;
     }
 

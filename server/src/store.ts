@@ -1,13 +1,18 @@
 import { generateKeyPairSync } from "crypto";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { StoreState } from "./types";
+import { OAuthStateRecord, StoreState } from "./types";
 
 export interface StateStore {
   initialize(): Promise<void>;
   checkReady(): Promise<boolean>;
   snapshot(): StoreState;
   update(mutator: (state: StoreState) => void): Promise<void>;
+  appendOAuthStateRecord?(record: OAuthStateRecord): Promise<void>;
+  consumeOAuthStateRecord?(
+    provider: "github" | "google",
+    stateToken: string
+  ): Promise<OAuthStateRecord | undefined>;
 }
 
 export class JsonStore implements StateStore {
@@ -42,6 +47,35 @@ export class JsonStore implements StateStore {
     this.state.updated_at = new Date().toISOString();
     this.writeChain = this.writeChain.then(() => this.persist());
     await this.writeChain;
+  }
+
+  async appendOAuthStateRecord(record: OAuthStateRecord): Promise<void> {
+    await this.update((state) => {
+      state.oauth_states.push(record);
+    });
+  }
+
+  async consumeOAuthStateRecord(
+    provider: "github" | "google",
+    stateToken: string
+  ): Promise<OAuthStateRecord | undefined> {
+    let consumed: OAuthStateRecord | undefined;
+    const now = Date.now();
+    await this.update((state) => {
+      const record = state.oauth_states.find(
+        (item) =>
+          item.provider === provider &&
+          item.state === stateToken &&
+          item.consumed_at === null &&
+          new Date(item.expires_at).getTime() > now
+      );
+      if (!record) {
+        return;
+      }
+      record.consumed_at = new Date().toISOString();
+      consumed = { ...record };
+    });
+    return consumed;
   }
 
   private async persist(): Promise<void> {
@@ -84,7 +118,11 @@ const DEFAULT_ARRAY_COLLECTIONS: Omit<StoreState, "keys" | "updated_at"> = {
   governance_decision_acks: [],
   policy_tenant_overlays: [],
   enforcement_audit_log: [],
-  reviewer_automation_policies: []
+  reviewer_automation_policies: [],
+  frontend_integration_workflows: [],
+  frontend_integration_audit_log: [],
+  review_workflows: [],
+  review_workflow_audit_log: []
 };
 
 const ARRAY_STATE_KEYS = Object.keys(DEFAULT_ARRAY_COLLECTIONS) as Array<

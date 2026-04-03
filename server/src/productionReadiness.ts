@@ -13,6 +13,7 @@ export interface ProductionReadinessOptions {
   adminKey: string;
   stripeSecretKey: string;
   stripeWebhookSecret: string;
+  stripeRuntimeVaultKeyConfigured: boolean;
   githubClientId: string;
   githubClientSecret: string;
   googleClientId: string;
@@ -85,6 +86,13 @@ export function validateProductionReadiness(
     !opts.stripeWebhookSecret,
     "STRIPE_WEBHOOK_SECRET is empty – webhooks unverified",
     isProd,
+    errors,
+    warnings
+  );
+  addCheck(
+    !opts.stripeRuntimeVaultKeyConfigured,
+    "STRIPE_RUNTIME_VAULT_KEY is empty – admin-entered Stripe secret changes will not persist encrypted; keep keys in env or external vault.",
+    false,
     errors,
     warnings
   );

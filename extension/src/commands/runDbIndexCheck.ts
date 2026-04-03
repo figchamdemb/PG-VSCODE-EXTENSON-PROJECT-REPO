@@ -5,6 +5,8 @@ import * as vscode from "vscode";
 import { runPowerShellCommand } from "../governance/powerShellRunner";
 import { RepoRootResolution, resolveRepoRoot } from "../utils/repoRootResolver";
 import { Logger } from "../utils/logger";
+import { showPgRootGuidance } from "./pgRootGuidance";
+import { ensureDevProfileReady } from "./devProfilePreflight";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -58,9 +60,11 @@ export function registerRunDbIndexCheckCommand(
 async function runDbIndexCheck(logger: Logger): Promise<void> {
   const repo = resolveRepoRoot();
   if (!repo) {
-    vscode.window.showWarningMessage(
-      "Narrate: open a workspace with pg.ps1 before running DB index check."
-    );
+    await showPgRootGuidance("DB index check");
+    return;
+  }
+  const canContinue = await ensureDevProfileReady(repo, "DB index check");
+  if (!canContinue) {
     return;
   }
 

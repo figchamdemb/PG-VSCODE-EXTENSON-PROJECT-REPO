@@ -2,6 +2,7 @@ import { execFile } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+import { getValidationLibraryState } from "../trust/trustScoreAnalysisUtils";
 
 type ValidationLibraryOption = {
   id: string;
@@ -62,6 +63,21 @@ const SUPPORTED_VALIDATION_LIBRARIES = new Set(
 );
 
 const COMMAND_MAX_BUFFER_BYTES = 1024 * 1024 * 16;
+const SPRING_VALIDATION_DOCS_URL =
+  "https://docs.spring.io/spring-framework/reference/core/validation/beanvalidation.html";
+
+const MAVEN_VALIDATION_SNIPPET = [
+  "<dependency>",
+  "  <groupId>org.springframework.boot</groupId>",
+  "  <artifactId>spring-boot-starter-validation</artifactId>",
+  "</dependency>"
+].join("\n");
+
+const GRADLE_VALIDATION_SNIPPET =
+  "implementation 'org.springframework.boot:spring-boot-starter-validation'";
+
+const GRADLE_KTS_VALIDATION_SNIPPET =
+  "implementation(\"org.springframework.boot:spring-boot-starter-validation\")";
 
 export function registerSetupValidationLibraryCommand(): vscode.Disposable {
   return vscode.commands.registerCommand(
@@ -73,12 +89,15 @@ export function registerSetupValidationLibraryCommand(): vscode.Disposable {
 async function runSetupValidationLibraryCommand(
   args?: SetupValidationLibraryArgs
 ): Promise<void> {
-  const workspaceRoot = resolveWorkspaceRoot();
-  if (!workspaceRoot) {
+  const validationState = getValidationLibraryState();
+  if (validationState.kind !== "node" || !validationState.manifestPath || !validationState.projectRoot) {
+    await handleNonNodeValidationWorkspace(validationState.kind, validationState.manifestPath);
     return;
   }
 
-  const installed = readInstalledValidationLibraries(workspaceRoot);
+  const packageJsonPath = validationState.manifestPath;
+  const projectRoot = validationState.projectRoot;
+  const installed = readInstalledValidationLibraries(packageJsonPath);
   const selected = await resolveSelectedLibrary(args, installed);
   if (!selected) {
     return;
@@ -87,24 +106,17 @@ async function runSetupValidationLibraryCommand(
     return;
   }
 
-  const packageManager = detectPackageManager(workspaceRoot);
+  const packageManager = detectPackageManager(projectRoot);
   if (!(await confirmLibraryInstall(selected.packageName, packageManager))) {
     return;
   }
 
-  await installLibraryWithProgress(selected.packageName, packageManager, workspaceRoot);
-  await handleInstallSuccess(selected);
-}
-
-function resolveWorkspaceRoot(): string | undefined {
-  const workspace = vscode.workspace.workspaceFolders?.[0];
-  if (!workspace) {
-    void vscode.window.showWarningMessage(
-      "Narrate: open a workspace folder before installing a validation library."
-    );
-    return undefined;
+  try {
+    await installLibraryWithProgress(selected.packageName, packageManager, projectRoot);
+    await handleInstallSuccess(selected, projectRoot);
+  } catch (error) {
+    await handleInstallFailure(selected, projectRoot, packageManager, error);
   }
-  return workspace.uri.fsPath;
 }
 
 async function resolveSelectedLibrary(
@@ -167,9 +179,13 @@ async function installLibraryWithProgress(
   );
 }
 
-async function handleInstallSuccess(selected: ValidationLibraryOption): Promise<void> {
+async function handleInstallSuccess(
+  selected: ValidationLibraryOption,
+  projectRoot: string
+): Promise<void> {
+  const projectLabel = path.basename(projectRoot) || projectRoot;
   const resultAction = await vscode.window.showInformationMessage(
-    `Narrate: installed latest ${selected.packageName}.`,
+    `Narrate: installed latest ${selected.packageName} in ${projectLabel}.`,
     "Open Docs",
     "Refresh Trust Score"
   );
@@ -179,8 +195,77 @@ async function handleInstallSuccess(selected: ValidationLibraryOption): Promise<
   await vscode.commands.executeCommand("narrate.refreshTrustScore");
 }
 
-function readInstalledValidationLibraries(workspaceRoot: string): string[] {
-  const packageJsonPath = path.join(workspaceRoot, "package.json");
+async function handleInstallFailure(
+  selected: ValidationLibraryOption,
+  projectRoot: string,
+  packageManager: PackageManager,
+  error: unknown
+): Promise<void> {
+  const projectLabel = path.basename(projectRoot) || projectRoot;
+  const message = error instanceof Error ? error.message : String(error);
+  const action = await vscode.window.showErrorMessage(
+    `Narrate: failed to install ${selected.packageName} in ${projectLabel}. ${message}`,
+    "Open Docs",
+    "Copy Install Command"
+  );
+  if (action === "Open Docs") {
+    await vscode.env.openExternal(vscode.Uri.parse(selected.docsUrl));
+    return;
+  }
+  if (action === "Copy Install Command") {
+    const command = `${packageManager} ${buildInstallCommand(packageManager, selected.packageName).args.join(" ")}`;
+    await vscode.env.clipboard.writeText(command);
+    void vscode.window.showInformationMessage(
+      `Narrate: copied install command for ${selected.packageName}.`
+    );
+  }
+}
+
+async function handleNonNodeValidationWorkspace(
+  kind: "node" | "java" | "unknown",
+  manifestPath: string | null
+): Promise<void> {
+  if (kind === "java") {
+    const primaryAction = await vscode.window.showInformationMessage(
+      "Narrate: this workspace looks like Java. Zod is for Node/TypeScript, so Narrate will not install it here. Use Spring/Jakarta validation instead.",
+      "Copy Maven Snippet",
+      "Copy Gradle Snippet",
+      "Open Docs"
+    );
+
+    if (primaryAction === "Copy Maven Snippet") {
+      await vscode.env.clipboard.writeText(MAVEN_VALIDATION_SNIPPET);
+      void vscode.window.showInformationMessage(
+        "Narrate: copied Maven validation dependency."
+      );
+      return;
+    }
+    if (primaryAction === "Copy Gradle Snippet") {
+      const snippet = manifestPath?.endsWith(".kts")
+        ? GRADLE_KTS_VALIDATION_SNIPPET
+        : GRADLE_VALIDATION_SNIPPET;
+      await vscode.env.clipboard.writeText(snippet);
+      void vscode.window.showInformationMessage(
+        "Narrate: copied Gradle validation dependency."
+      );
+      return;
+    }
+    if (primaryAction === "Open Docs") {
+      await vscode.env.openExternal(vscode.Uri.parse(SPRING_VALIDATION_DOCS_URL));
+    }
+    return;
+  }
+
+  const action = await vscode.window.showWarningMessage(
+    "Narrate: no Node package.json was found near the current file, so automatic validation-library install cannot run here.",
+    "Open Zod Docs"
+  );
+  if (action === "Open Zod Docs") {
+    await vscode.env.openExternal(vscode.Uri.parse("https://zod.dev/"));
+  }
+}
+
+function readInstalledValidationLibraries(packageJsonPath: string): string[] {
   if (!fs.existsSync(packageJsonPath)) {
     return [];
   }

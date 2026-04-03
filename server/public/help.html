@@ -1,229 +1,567 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Narrate — Command Help</title>
-  <style>
-    :root { --bg: #1e1e2e; --fg: #cdd6f4; --muted: #a6adc8; --border: #45475a; --surface: #313244; --accent: #89b4fa; --red: #f38ba8; --green: #a6e3a1; --yellow: #f9e2af; }
-    *, *::before, *::after { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background: var(--bg); color: var(--fg); margin: 0; padding: 0; line-height: 1.55; }
-    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 18px 24px; }
-    header h1 { margin: 0; font-size: 1.35rem; font-weight: 600; }
-    header p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
-    main { max-width: 960px; margin: 0 auto; padding: 24px 20px 60px; }
-    .note { border-left: 3px solid var(--accent); padding: 10px 14px; background: var(--surface); border-radius: 4px; margin-bottom: 20px; font-size: 0.92rem; }
-    .filter-bar { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
-    .filter-bar input { flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--fg); font-size: 0.92rem; }
-    .filter-bar input::placeholder { color: var(--muted); }
-    .filter-bar input:focus { outline: none; border-color: var(--accent); }
-    .tab-bar { display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 18px; flex-wrap: wrap; }
-    .tab-bar button { padding: 8px 16px; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 0.88rem; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: color 0.15s, border-color 0.15s; }
-    .tab-bar button:hover { color: var(--fg); }
-    .tab-bar button.active { color: var(--accent); border-bottom-color: var(--accent); }
-    section { margin-bottom: 28px; }
-    h2 { font-size: 1.1rem; margin: 0 0 10px; color: var(--accent); }
-    h3 { font-size: 1rem; margin: 16px 0 8px; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-bottom: 12px; }
-    th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
-    th { background: var(--surface); color: var(--muted); font-weight: 600; white-space: nowrap; }
-    td code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; background: var(--surface); padding: 2px 5px; border-radius: 3px; font-size: 0.84rem; word-break: break-word; }
-    tr.hidden { display: none; }
-    .small { font-size: 0.85rem; color: var(--muted); margin-top: 24px; }
-    footer { text-align: center; padding: 18px; font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--border); }
-    @media (max-width: 640px) {
-      main { padding: 14px 10px 40px; }
-      table { font-size: 0.82rem; }
-      th, td { padding: 6px 7px; }
-    }
-  </style>
+  <title>PG Narrate Help Center</title>
+  <meta
+    name="description"
+    content="PG Narrate command reference with free/pro/team/enterprise tier filtering and troubleshooting."
+  />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/assets/site.css?v=20260305-1" />
+  <link rel="stylesheet" href="/assets/help.css?v=20260305-1" />
 </head>
 <body>
-  <header>
-    <h1>Narrate — Command Help Center</h1>
-    <p>Full command reference, troubleshooting, and diagnostics guide.</p>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">PG</span>
+      <span class="brand-text">Narrate Help Center</span>
+    </div>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/app">Portal</a>
+    </nav>
   </header>
   <main>
-    <div class="note">
-      Decision flow only: the <code>/pg</code> Slack channel is for <strong>thread / vote / decide</strong> governance actions, not general chat.
-      Use real IDs and quoted values — do not paste placeholder values like <code>&lt;THREAD_ID&gt;</code>.
-    </div>
-
-    <div class="filter-bar">
-      <input id="search" type="text" placeholder="Filter commands… (e.g. push, trust, dead code)" autocomplete="off" />
-    </div>
-
-    <div class="tab-bar" id="tabs">
-      <button class="active" data-tab="all">All</button>
-      <button data-tab="quickstart">PG Quickstart</button>
-      <button data-tab="governance">Governance</button>
-      <button data-tab="narration">Narration UI</button>
-      <button data-tab="slack">Slack</button>
-      <button data-tab="diagnostics">Diagnostics</button>
-      <button data-tab="troubleshooting">Troubleshooting</button>
-    </div>
-
-    <!-- PG Quickstart -->
-    <section data-section="quickstart">
-      <h2>PG Quickstart</h2>
-      <table>
-        <thead><tr><th style="width:46%">Command</th><th>Expected Result</th></tr></thead>
-        <tbody id="tbl-quickstart">
-          <tr><td><code>.\pg.ps1 start -Yes</code></td><td>Session bootstrap complete + health checks run.</td></tr>
-          <tr><td><code>.\pg.ps1 dev-profile -DevProfileAction init</code></td><td>Creates local dev-only profile (gitignored).</td></tr>
-          <tr><td><code>.\pg.ps1 dev-profile -DevProfileAction check</code></td><td>Shows missing fields and local-only policy state.</td></tr>
-          <tr><td><code>.\pg.ps1 status</code></td><td>Displays Memory-bank session status.</td></tr>
-          <tr><td><code>.\pg.ps1 login -Email "you@example.com"</code></td><td>Authenticates CLI state and syncs entitlement profile.</td></tr>
-          <tr><td><code>.\pg.ps1 update</code></td><td>Refreshes entitlement snapshot without re-running OTP flow.</td></tr>
-          <tr><td><code>.\pg.ps1 doctor</code></td><td>Runs PG CLI diagnostics (PATH, token, backend health, tools, dev-profile).</td></tr>
-          <tr><td><code>.\pg.ps1 narrate-check</code></td><td>Runs Narrate flow PASS/FAIL check and writes markdown report.</td></tr>
-          <tr><td><code>.\pg.ps1 self-check -WarnOnly -EnableDbIndexMaintenanceCheck</code></td><td>Agent-first as-you-go verification: post-write enforcement + DB diagnostics.</td></tr>
-          <tr><td><code>.\pg.ps1 self-check -EnableDbIndexMaintenanceCheck</code></td><td>Strict final self-check before task completion (no warn mode).</td></tr>
-          <tr><td><code>.\pg.ps1 prod</code></td><td>Production baseline with standard rollout: dependency + coding + API contract + DB index.</td></tr>
-          <tr><td><code>.\pg.ps1 prod -ProdProfile strict</code></td><td>Strict rollout: standard checks plus Playwright smoke verification.</td></tr>
-          <tr><td><code>.\pg.ps1 mcp-cloud-score -WorkloadSensitivity regulated</code></td><td>Runs scanner set, submits metadata to MCP cloud scorer, returns readiness score.</td></tr>
-          <tr><td><code>.\pg.ps1 observability-check</code></td><td>Checks self-hosted observability adapter readiness.</td></tr>
-          <tr><td><code>.\pg.ps1 db-index-check</code></td><td>Runs DB index maintenance diagnostics.</td></tr>
-          <tr><td><code>.\pg.ps1 db-index-fix-plan -DbMaxRows 5</code></td><td>Generates copy/paste SQL plan for index maintenance.</td></tr>
-          <tr><td><code>Narrate: Generate Codebase Tour</code></td><td>Scans workspace and opens onboarding architecture map.</td></tr>
-          <tr><td><code>Narrate: Run Dead Code Scan</code></td><td>Generates confidence-tiered dead-code report.</td></tr>
-          <tr><td><code>Narrate: Apply Safe Dead Code Fixes</code></td><td>Applies organize-imports + prefix fixes on high-confidence files.</td></tr>
-          <tr><td><code>Narrate: Run Environment Doctor</code></td><td>Scans env usage vs .env/.env.example, opens report.</td></tr>
-          <tr><td><code>Narrate: Run API Contract Validator</code></td><td>Runs OpenAPI-first contract checks, reports mismatches.</td></tr>
-          <tr><td><code>Narrate: OpenAPI Fix Handoff Prompt</code></td><td>Copies mismatch-fix prompt to clipboard for LLM patching.</td></tr>
-          <tr><td><code>Narrate: Show Trust Score Report</code></td><td>Opens latest deterministic trust report.</td></tr>
-          <tr><td><code>Narrate: PG Push (Git Add/Commit/Push)</code></td><td>Runs enforcement + trust/dead-code/commit-quality gates before push.</td></tr>
-        </tbody>
-      </table>
+    <section class="help-hero reveal">
+      <h1>Command Help + Tier Visibility</h1>
+      <p>
+        Pick a plan tier to see exactly which commands and workflows are available for that tier.
+      </p>
+      <p class="note">
+        This page is tier-aware for command visibility. Paid-only command rows are hidden until you
+        select Pro, Team, or Enterprise.
+      </p>
     </section>
-
-    <!-- Governance -->
-    <section data-section="governance">
-      <h2>Decision Sync (Local Worker)</h2>
-      <table>
-        <thead><tr><th style="width:46%">Command</th><th>Expected Result</th></tr></thead>
-        <tbody id="tbl-governance">
-          <tr><td><code>.\pg.ps1 governance-login -ApiBase "http://127.0.0.1:8787" -Email "you@example.com"</code></td><td>Writes local worker token/state.</td></tr>
-          <tr><td><code>.\pg.ps1 governance-bind -ThreadId "UUID" -ActionKey default-handler</code></td><td>Maps thread decision to local action handler.</td></tr>
-          <tr><td><code>.\pg.ps1 governance-worker -Once</code></td><td>Pulls pending decisions, executes local action, sends ack.</td></tr>
-          <tr><td><code>.\pg.ps1 governance-bind -List</code></td><td>Shows action keys and active bindings.</td></tr>
-          <tr><td><code>.\pg.ps1 governance-digest</code></td><td>Fetches scoped reviewer digest with thread KPIs.</td></tr>
-        </tbody>
-      </table>
+    <section class="help-tabs reveal">
+      <button class="help-tab btn-nav active" data-help-panel="commands" type="button">Command Help</button>
+      <button class="help-tab btn-nav" data-help-panel="about-narrate" type="button">About Narrate</button>
+      <button class="help-tab btn-nav" data-help-panel="about-memory-bank" type="button">About Memory-bank + PG Install</button>
+      <button class="help-tab btn-nav" data-help-panel="slack-flow" type="button">Slack Decision Flow</button>
+      <button class="help-tab btn-nav" data-help-panel="automation-cloud" type="button">Automation + Cloud + Enterprise</button>
+      <button class="help-tab btn-nav" data-help-panel="providers-handoff" type="button">Providers + Handoff</button>
     </section>
-
-    <!-- Narration UI -->
-    <section data-section="narration">
-      <h2>Narrate Reading UI Toggles</h2>
-      <table>
-        <thead><tr><th style="width:46%">Command</th><th>Expected Result</th></tr></thead>
-        <tbody id="tbl-narration">
-          <tr><td><code>Narrate: Switch Reading View Mode (Exact/Section)</code></td><td>Toggles between strict 1:1 lines and grouped section summaries.</td></tr>
-          <tr><td><code>Narrate: Switch Reading Pane Mode (Split/Full)</code></td><td>Moves narration output beside code or into current full tab.</td></tr>
-          <tr><td><code>Narrate: Toggle Source Snippet (Code/Meaning)</code></td><td>In exact mode, choose code+meaning or meaning-only lines.</td></tr>
-          <tr><td><code>Narrate: Toggle EDU Detail Level</code></td><td>Cycles explanation depth: concise → beginner → full beginner.</td></tr>
-        </tbody>
-      </table>
+    <section class="help-tab-panel active" data-help-panel="commands">
+      <section class="help-quickstart reveal">
+        <article class="help-panel">
+          <h2>Terminal First-Run (No Guessing)</h2>
+          <p class="sub">
+            Always run PG commands in the project root (the folder that contains <code>pg.ps1</code>).
+          </p>
+          <div class="quickstart-grid">
+            <div class="quick-card">
+              <p class="mini-head">PowerShell</p>
+              <code>Set-Location "C:\real\project\root"</code>
+              <code>pg install backend --target "."</code>
+              <code># or: pg install frontend --target "."</code>
+              <code>.\pg.ps1 start -Yes</code>
+              <code>.\pg.ps1 map-structure</code>
+              <code>.\pg.ps1 integration-init  # existing/legacy repo only when missing</code>
+              <code>.\pg.ps1 backend-start</code>
+              <code>.\pg.ps1 frontend-start</code>
+              <code>.\pg.ps1 status</code>
+            </div>
+            <div class="quick-card">
+              <p class="mini-head">CMD</p>
+              <code>cd /d "C:\real\project\root"</code>
+              <code>pg install backend --target "."</code>
+              <code>REM or: pg install frontend --target "."</code>
+              <code>powershell -ExecutionPolicy Bypass -File ".\pg.ps1" start -Yes</code>
+              <code>powershell -ExecutionPolicy Bypass -File ".\pg.ps1" map-structure</code>
+              <code>powershell -ExecutionPolicy Bypass -File ".\pg.ps1" integration-init</code>
+              <code>powershell -ExecutionPolicy Bypass -File ".\pg.ps1" backend-start</code>
+              <code>powershell -ExecutionPolicy Bypass -File ".\pg.ps1" frontend-start</code>
+              <code>powershell -ExecutionPolicy Bypass -File ".\pg.ps1" status</code>
+            </div>
+          </div>
+          <p class="sub"><strong>Start gate:</strong> legacy/half-built repos now block session start by default when map docs are missing or stale. Run <code>.\pg.ps1 map-structure</code>.</p>
+          <p class="sub"><strong>Integration ledger bootstrap:</strong> new PG installs now scaffold the shared frontend/backend integration files automatically. Older repos may need a one-time <code>.\pg.ps1 integration-init</code> if <code>Memory-bank/frontend-integration.md</code> does not exist yet.</p>
+          <p class="sub"><strong>Important:</strong> <code>backend-start</code> and <code>frontend-start</code> do not replace <code>pg install</code> or <code>.\pg.ps1 start</code>. They only claim roles inside an already bootstrapped project root.</p>
+          <p class="sub"><strong>Plan routing:</strong> the frontend/backend integration workflow and secure review workflow are paid workflow surfaces for <code>Pro</code>, <code>Team</code>, and <code>Enterprise</code>.</p>
+          <p class="sub"><strong>Warning-only override:</strong> <code>.\pg.ps1 start -Yes -EnforcementMode warn</code></p>
+          <p class="sub"><strong>Narrate startup guard:</strong> the extension now detects the nearest <code>AGENTS.md</code>/<code>pg.ps1</code> context, auto-runs startup once per context per UTC day, and reruns when you move into a new nested repo. Manual retry: <code>Narrate: Run Startup For Current Context</code>.</p>
+          <p class="sub">Tip: run <code>.\pg.ps1 help</code> to see the exact command set available in that project profile.</p>
+          <p class="sub">`.\pg.ps1 update` is profile-dependent. Use it only when `help` lists `update`.</p>
+          <p class="sub">Planning rule: when scope changes, add a REQ tag in <code>Memory-bank/project-spec.md</code> and map it to milestones in <code>Memory-bank/project-details.md</code>.</p>
+        </article>
+      </section>
+      <section class="help-grid reveal" id="tier-commands">
+        <article class="help-panel">
+          <h2>Command Catalog By Plan Tier</h2>
+          <p class="sub">Includes VS Code, CLI, portal, and Slack command surfaces. The table is grouped into Extension commands, prompt handoff, frontend/backend integration, secure review workflow, governance, and enterprise controls.</p>
+          <div class="workflow-shortcuts" aria-label="Workflow quick access">
+            <button class="workflow-shortcut btn-secondary" data-help-tier="free" data-help-search="Request Change Prompt OpenAPI Fix Handoff Prompt" type="button">
+              <span class="mini-head">Extension Prompts</span>
+              <span>Jump to prompt and handoff commands.</span>
+            </button>
+            <button class="workflow-shortcut btn-secondary" data-help-tier="pro" data-help-search="integration backend-start frontend-start integration-report integration-respond" type="button">
+              <span class="mini-head">Frontend + Backend</span>
+              <span>Switch straight to the Pro+ integration workflow commands.</span>
+            </button>
+            <button class="workflow-shortcut btn-secondary" data-help-tier="pro" data-help-search="review-init review-builder-start review-reviewer-start review-report review-respond review-approve" type="button">
+              <span class="mini-head">Secure Review</span>
+              <span>Open the builder and reviewer workflow command set.</span>
+            </button>
+            <button class="workflow-shortcut btn-secondary" data-help-tier="team" data-help-search="governance governance-worker /pg thread /pg vote /pg decide" type="button">
+              <span class="mini-head">Team Governance</span>
+              <span>Show the team and enterprise decision-sync controls.</span>
+            </button>
+          </div>
+          <div class="quickstart-grid surface-map">
+            <div class="quick-card">
+              <p class="mini-head">Extension</p>
+              <p class="sub">Free keeps core Narrate commands and <code>Narrate: Request Change Prompt</code>. Pro unlocks extra prompt, export, report, and validation commands.</p>
+            </div>
+            <div class="quick-card">
+              <p class="mini-head">Frontend + Backend</p>
+              <p class="sub"><code>integration-*</code>, <code>backend-start</code>, and <code>frontend-start</code> are routed to Pro, Team, and Enterprise.</p>
+            </div>
+            <div class="quick-card">
+              <p class="mini-head">Secure Review</p>
+              <p class="sub"><code>review-*</code> is Pro+; Team shares the same workflow with collaborative operations, and Enterprise adds reviewer automation policy.</p>
+            </div>
+            <div class="quick-card">
+              <p class="mini-head">Team + Enterprise</p>
+              <p class="sub">Governance sync, Slack decision commands, seat controls, and enterprise-only policy-pack or reviewer automation controls stay in the paid governance tiers.</p>
+            </div>
+          </div>
+          <div class="tier-row" id="tierButtons">
+            <button class="tier-btn btn-nav active" data-tier="free">Free</button>
+            <button class="tier-btn btn-nav" data-tier="trial">Trial</button>
+            <button class="tier-btn btn-nav" data-tier="pro">Pro</button>
+            <button class="tier-btn btn-nav" data-tier="team">Team</button>
+            <button class="tier-btn btn-nav" data-tier="enterprise">Enterprise</button>
+          </div>
+          <div class="search-wrap">
+            <input
+              id="commandSearch"
+              type="text"
+              placeholder="Search commands (export, push, trust, governance...)"
+            />
+          </div>
+          <div class="table-wrap">
+            <table class="help-table">
+              <thead>
+                <tr>
+                  <th class="help-col-command">Command</th>
+                  <th class="help-col-description">What It Does</th>
+                  <th class="help-col-surface">Surface</th>
+                  <th class="help-col-tier">Tier</th>
+                </tr>
+              </thead>
+              <tbody id="commandRows"></tbody>
+            </table>
+          </div>
+          <p class="mini-head">Paid Tier Deep Dive</p>
+          <div class="deep-dive" id="deepDiveCards"></div>
+          <div class="command-bottom-links">
+            <button class="tier-btn btn-nav" data-help-tier="free" data-help-search="" type="button">Show All Free</button>
+            <button class="tier-btn btn-nav" data-help-tier="pro" data-help-search="integration review" type="button">Show Pro Workflows</button>
+            <button class="tier-btn btn-nav" data-help-tier="team" data-help-search="governance review integration" type="button">Show Team Workflows</button>
+            <button class="tier-btn btn-nav" data-help-tier="enterprise" data-help-search="reviewer-policy offline-pack governance review integration" type="button">Show Enterprise Controls</button>
+          </div>
+        </article>
+        <aside class="help-panel">
+          <h2>Troubleshooting Quick Fixes</h2>
+          <p class="sub">Common issues and exact fix direction.</p>
+          <div class="table-wrap">
+            <table class="help-table">
+              <thead>
+                <tr>
+                  <th>Issue</th>
+                  <th>Fix</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Missing command in UI</td>
+                  <td>Select a higher tier filter or check extension activation.</td>
+                </tr>
+                <tr>
+                  <td>Wrong project root</td>
+                  <td>Run commands in the folder that contains <code>pg.ps1</code>. In extension prompts, choose <strong>Open Fix Guide</strong>.</td>
+                </tr>
+                <tr>
+                  <td>Export/report missing</td>
+                  <td>These are Pro+ commands; verify plan in status bar and portal summary.</td>
+                </tr>
+                <tr>
+                  <td>PG Push blocked</td>
+                  <td>Run trust/dead-code fixes, then retry push with a compliant commit message.</td>
+                </tr>
+                <tr>
+                  <td>Slack command timeout</td>
+                  <td>Check backend health and tunnel status, then retry signed /pg command.</td>
+                </tr>
+                <tr>
+                  <td>DB check runtime error</td>
+                  <td>Confirm DATABASE_URL connectivity and DB reachability before self-check.</td>
+                </tr>
+                <tr>
+                  <td>Missing frontend integration summary</td>
+                  <td>Run <code>.\pg.ps1 integration-init</code> once in the project root. New installs scaffold it automatically; older repos may not have it yet.</td>
+                </tr>
+                <tr>
+                  <td><code>backend-start</code> or <code>frontend-start</code> feels like install/startup</td>
+                  <td>They are role-claim commands only. First run <code>pg install ...</code> if needed, then <code>.\pg.ps1 start -Yes</code>, then the integration role command.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mini-head">Plan + Feature Matrix</p>
+          <p class="sub">Open the full comparison page for complete free/trial/pro/team/enterprise ticks.</p>
+          <p class="plan-links">
+            <a href="/pricing">Open Pricing Matrix</a>
+          </p>
+        </aside>
+      </section>
     </section>
-
-    <!-- Slack -->
-    <section data-section="slack">
-      <h2>Slack Decision Commands</h2>
-      <table>
-        <thead><tr><th style="width:46%">Command</th><th>Expected Result</th></tr></thead>
-        <tbody id="tbl-slack">
-          <tr><td><code>/pg thread Live check :: Question? :: opt1|opt2|opt3</code></td><td>Creates decision thread, returns Thread ID + option keys.</td></tr>
-          <tr><td><code>/pg vote UUID opt1</code></td><td>Records vote for selected option key.</td></tr>
-          <tr><td><code>/pg decide UUID approve opt1 final-go</code></td><td>Finalizes decision (owner/manager role required).</td></tr>
-          <tr><td><code>/pg summary</code></td><td>Shows account + team roles + module access.</td></tr>
-        </tbody>
-      </table>
+    <section class="help-tab-panel" data-help-panel="about-narrate">
+      <section class="help-grid about-grid reveal">
+        <article class="help-panel">
+          <h2>What Narrate Is</h2>
+          <p class="sub">
+            Narrate is the VS Code product layer. It gives reading/toggle UX, quality gates, export/report tools,
+            and guided policy checks. It helps developers and students understand code and ship safely.
+          </p>
+          <p class="mini-head">Core Narrate Areas</p>
+          <ul class="plain-list">
+            <li><strong>Reading UX:</strong> Dev/Edu reading modes, exact/section view, split/full pane, source toggles.</li>
+            <li><strong>Quality UX:</strong> Trust Score, Environment Doctor, Dead Code Scan, Commit Quality, PG Push gates.</li>
+            <li><strong>Validation UX:</strong> API contract checks, codebase tour, cloud/observability checks.</li>
+            <li><strong>Commercial UX:</strong> plan-aware command visibility and gated paid features.</li>
+          </ul>
+        </article>
+        <article class="help-panel">
+          <h2>Narrate: Local vs Server</h2>
+          <div class="table-wrap">
+            <table class="help-table">
+              <thead>
+                <tr><th>Area</th><th>Where It Runs</th><th>Why</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Status bar toggles, reading UI, local reports</td>
+                  <td>Local extension runtime</td>
+                  <td>Fast and works in local-first workflow.</td>
+                </tr>
+                <tr>
+                  <td>Policy scoring, entitlement, governance authority</td>
+                  <td>Server-side APIs</td>
+                  <td>Central rule control and secure plan/policy enforcement.</td>
+                </tr>
+                <tr>
+                  <td>AI narration provider calls</td>
+                  <td>Local extension provider path</td>
+                  <td>Optional. If no provider key, local fallback narration still works.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="sub">
+            Narrate works without mandatory AI for core controls. AI is optional for richer narration output.
+          </p>
+        </article>
+      </section>
     </section>
-
-    <!-- Diagnostics -->
-    <section data-section="diagnostics">
-      <h2>One-Click Diagnostics</h2>
-      <p>Run <code>Narrate: Run Command Diagnostics</code> from Command Palette to check:</p>
-      <table>
-        <thead><tr><th>Check</th><th>What It Tests</th></tr></thead>
-        <tbody id="tbl-diagnostics">
-          <tr><td>Backend health</td><td>GET /health — confirms server is running.</td></tr>
-          <tr><td>Slack health</td><td>GET /integrations/slack/health — Slack wiring OK.</td></tr>
-          <tr><td>Dev-profile</td><td>Local dev-profile readiness (missing fields).</td></tr>
-          <tr><td>Governance worker</td><td>One-shot pull/apply path — worker token OK.</td></tr>
-          <tr><td>Narrate flow</td><td>Core narrate flow PASS/FAIL baseline check.</td></tr>
-          <tr><td>Extension compile</td><td>TypeScript compile — detects build errors.</td></tr>
-          <tr><td>Trust Score snapshot</td><td>Current trust grade from active editor file.</td></tr>
-          <tr><td>DB index maintenance</td><td>Runs db-index-check for blocker/warning findings.</td></tr>
-        </tbody>
-      </table>
-      <p>Reports saved to <code>Memory-bank/_generated/command-diagnostics-latest.md</code> + <code>.json</code> with timestamped snapshots.</p>
-      <p>After run, use toast quick actions: <strong>Open Latest Report</strong>, <strong>Open Diagnostics Folder</strong>, or <strong>Copy Latest Path</strong>.</p>
+    <section class="help-tab-panel" data-help-panel="about-memory-bank">
+      <section class="help-grid about-grid reveal">
+        <article class="help-panel">
+          <h2>What PG Install + Memory-bank Do</h2>
+          <p class="sub">
+            <code>pg install backend|frontend --target "."</code> is a scaffold command. It creates workflow docs,
+            scripts, hooks, and Memory-bank structure for that project root.
+          </p>
+          <ul class="plain-list">
+            <li><strong>New/empty project:</strong> creates required governance/memory scaffolding, not your app business code.</li>
+            <li><strong>Existing project:</strong> adds missing PG/Memory-bank files and keeps using your existing source tree.</li>
+            <li><strong>Legacy/half-built project:</strong> run <code>.\pg.ps1 map-structure</code> after install/start to aggressively map current code tree + DB schema artifacts into Memory-bank docs.</li>
+            <li><strong>Multiple projects:</strong> run install separately in each root (frontend and backend each keep independent state).</li>
+          </ul>
+          <p class="mini-head">Frontend/Backend Integration Workflow</p>
+          <ul class="plain-list">
+            <li><strong>Shared ledger:</strong> the workflow writes to <code>Memory-bank/frontend-integration.md</code>, <code>Memory-bank/frontend-integration/state.json</code>, and page files under <code>Memory-bank/frontend-integration/pages/</code>.</li>
+            <li><strong>New installs:</strong> current PG bootstrap scaffolds these files automatically.</li>
+            <li><strong>Existing/legacy repos:</strong> if the ledger is missing, run <code>.\pg.ps1 integration-init</code> once after <code>start</code>/<code>map-structure</code>.</li>
+            <li><strong>Role start:</strong> use <code>.\pg.ps1 backend-start</code> and <code>.\pg.ps1 frontend-start</code> only after the project root is already bootstrapped and the Memory-bank session is active.</li>
+            <li><strong>Enforcement:</strong> guards require the integration summary/state/page artifacts and keep integration page files at <code>&lt;=500</code> lines.</li>
+          </ul>
+          <p class="sub">
+            Scaffold generation is script-driven (PowerShell/Python), not an AI call.
+          </p>
+          <p class="mini-head">What Files `pg install` Adds (Core)</p>
+          <div class="table-wrap">
+            <table class="help-table">
+              <thead>
+                <tr><th>Path</th><th>Purpose</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>pg.ps1</code>, <code>scripts/pg.ps1</code>, <code>pg.cmd</code></td><td>Project command entrypoints (PowerShell/CMD).</td></tr>
+                <tr><td><code>Memory-bank/project-spec.md</code></td><td>Requirements/spec source of truth (REQ tags).</td></tr>
+                <tr><td><code>Memory-bank/project-details.md</code></td><td>Rolling milestone plan and session updates.</td></tr>
+                <tr><td><code>Memory-bank/structure-and-db.md</code></td><td>Architecture and data-layer summary.</td></tr>
+                <tr><td><code>Memory-bank/tools-and-commands.md</code></td><td>Runbook for runtime, shells, and command usage.</td></tr>
+                <tr><td><code>Memory-bank/coding-security-standards.md</code></td><td>Coding/security rules used by checks (applies to frontend and backend).</td></tr>
+                <tr><td><code>Memory-bank/agentsGlobal-memory.md</code></td><td>Append-only implementation memory log.</td></tr>
+                <tr><td><code>Memory-bank/mastermind.md</code></td><td>Decision/voting rationale ledger.</td></tr>
+                <tr><td><code>.githooks/pre-commit</code></td><td>Local guard for Memory-bank/session policy checks.</td></tr>
+                <tr><td><code>scripts/generate_memory_bank.py</code></td><td>Daily generation + retention cleanup entrypoint.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+        <article class="help-panel">
+          <h2>How Enforcement Works</h2>
+          <div class="table-wrap">
+            <table class="help-table">
+              <thead>
+                <tr><th>Control</th><th>Mechanism</th><th>Outcome</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Local memory workflow enforcement</td>
+                  <td><code>pg.ps1 start</code>, git hooks, local guard scripts</td>
+                  <td>Forces session/docs/plan updates before clean commit flow.</td>
+                </tr>
+                <tr>
+                  <td>Spec to milestone mapping</td>
+                  <td>REQ tags in spec + milestone/session mapping checks</td>
+                  <td>Scope changes must be tracked in project plan docs.</td>
+                </tr>
+                <tr>
+                  <td>Plan-aware policy strictness</td>
+                  <td>Server profile endpoint + entitlement/policy routes</td>
+                  <td>Centralized control for paid-tier governance behavior.</td>
+                </tr>
+                <tr>
+                  <td>Daily report retention</td>
+                  <td><code>generate_memory_bank.py --keep-days 7</code></td>
+                  <td>Keeps only configured latest daily files and prunes old ones.</td>
+                </tr>
+                <tr>
+                  <td>Long log retention</td>
+                  <td><code>generate_memory_bank.py</code> archive rotation</td>
+                  <td>Archives older sections from <code>agentsGlobal-memory.md</code> and <code>mastermind.md</code> when line limits are exceeded.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mini-head">Recommended Commands</p>
+          <code class="inline-code">Set-Location "C:\real\project\root"</code>
+          <code class="inline-code">pg install backend --target "."</code>
+          <code class="inline-code">.\pg.ps1 help</code>
+          <code class="inline-code">.\pg.ps1 start -Yes</code>
+          <code class="inline-code">Narrate: Run Startup For Current Context</code>
+          <code class="inline-code">.\pg.ps1 map-structure</code>
+          <code class="inline-code">.\pg.ps1 integration-init   # one-time for older repos when ledger is missing</code>
+          <code class="inline-code">.\pg.ps1 backend-start</code>
+          <code class="inline-code">.\pg.ps1 frontend-start</code>
+          <code class="inline-code">.\pg.ps1 integration-summary</code>
+          <code class="inline-code">.\pg.ps1 self-check -EnableDbIndexMaintenanceCheck</code>
+          <code class="inline-code">.\pg.ps1 self-check -EnableDbIndexMaintenanceCheck -EnablePlaywrightSmokeCheck  # for UI/frontend changes</code>
+          <code class="inline-code">.\pg.ps1 status</code>
+          <code class="inline-code">python scripts/generate_memory_bank.py --profile frontend --keep-days 7</code>
+        </article>
+      </section>
     </section>
-
-    <!-- Troubleshooting -->
-    <section data-section="troubleshooting">
-      <h2>Troubleshooting</h2>
-      <table>
-        <thead><tr><th style="width:28%">Symptom</th><th style="width:30%">Likely Cause</th><th>What To Do</th></tr></thead>
-        <tbody id="tbl-troubleshooting">
-          <tr><td>ParserError: '&lt;' operator is reserved</td><td>Pasted placeholder like &lt;THREAD_ID&gt; literally.</td><td>Use the real UUID in quotes.</td></tr>
-          <tr><td>Cannot validate argument 'db-index-check'</td><td>PATH resolved global pg CLI, not repo script.</td><td>Use <code>.\pg.ps1 db-index-check</code> with local prefix.</td></tr>
-          <tr><td>The term '.\pg.ps1' is not recognized</td><td>Terminal is not in repo root directory.</td><td><code>cd</code> to project root, then retry.</td></tr>
-          <tr><td>PG Self Check reports blockers</td><td>Post-write policy found gating findings.</td><td>Fix blockers using rule IDs, rerun strict self-check.</td></tr>
-          <tr><td>SHOW: The term 'SHOW' is not recognized</td><td>SQL typed directly into PowerShell.</td><td>Run SQL in psql/pgAdmin, not shell.</td></tr>
-          <tr><td>Terminal stuck on '>>'</td><td>PowerShell multiline continuation mode.</td><td>Press Ctrl+C, rerun full command on one line.</td></tr>
-          <tr><td>No connection could be made (127.0.0.1:8787)</td><td>Backend is not running.</td><td><code>cd server && npm run start</code></td></tr>
-          <tr><td>invalid bearer token</td><td>Missing/expired token in worker state.</td><td>Run governance-login again.</td></tr>
-          <tr><td>No access token available</td><td>PG CLI lifecycle state missing/expired.</td><td><code>.\pg.ps1 login</code> then retry.</td></tr>
-          <tr><td>Slack thread not found</td><td>Thread ID or option key is stale.</td><td>Create fresh /pg thread, copy exact ID.</td></tr>
-          <tr><td>Operation timed out (3 seconds)</td><td>Slack didn't receive fast ack.</td><td>Check /health and tunnel, then retry.</td></tr>
-          <tr><td>/pg dispatch_failed</td><td>Slack couldn't process response in time.</td><td>Check /health + /integrations/slack/health.</td></tr>
-          <tr><td>/pg not triggering from composer</td><td>Slash command not first token.</td><td>Start message with <code>/pg ...</code> exactly.</td></tr>
-          <tr><td>TS errors stay after compile passes</td><td>TS language service is stale.</td><td>Run <code>Narrate: Restart TypeScript + Refresh Trust Score</code>.</td></tr>
-          <tr><td>PG Push blocks commit message</td><td>Generic or non-conventional message.</td><td>Use <code>type(scope): summary</code> format.</td></tr>
-          <tr><td>PG Push blocked by Dead Code Gate</td><td>High-confidence unused code detected.</td><td>Use "Apply Safe Fixes + Recheck" in gate prompt.</td></tr>
-          <tr><td>No new governance events</td><td>Nothing pending (not an error).</td><td>Create/finalize a thread, rerun worker.</td></tr>
-        </tbody>
-      </table>
+    <section class="help-tab-panel" data-help-panel="slack-flow">
+      <section class="help-grid about-grid reveal">
+        <article class="help-panel">
+          <h2>Slack Voting + Decision Workflow</h2>
+          <p class="sub">
+            This flow is for Team/Enterprise governance. It is separate from normal chat.
+          </p>
+          <div class="table-wrap">
+            <table class="help-table">
+              <thead>
+                <tr><th>Step</th><th>Command</th><th>Result</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1. Create thread</td>
+                  <td><code>/pg thread Release gate :: approve|needs-change|reject</code></td>
+                  <td>Creates governance thread and option keys (for example: opt1, opt2, opt3).</td>
+                </tr>
+                <tr>
+                  <td>2. Team vote</td>
+                  <td><code>/pg vote &lt;THREAD_ID&gt; opt1</code></td>
+                  <td>Records vote with auditable actor + timestamp.</td>
+                </tr>
+                <tr>
+                  <td>3. Final decision</td>
+                  <td><code>/pg decide &lt;THREAD_ID&gt; approve opt1 final-go</code></td>
+                  <td>Finalizes decision (owner/manager role policy).</td>
+                </tr>
+                <tr>
+                  <td>4. Pull to local</td>
+                  <td><code>.\pg.ps1 governance-worker -Once</code></td>
+                  <td>Applies pending decisions locally and acknowledges back to backend.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mini-head">Slack Transport Prerequisites</p>
+          <ul class="plain-list">
+            <li><code>SLACK_COMMANDS_ENABLED=true</code></li>
+            <li><code>SLACK_SIGNING_SECRET</code>, <code>SLACK_BOT_TOKEN</code>, and (optional) <code>SLACK_WEBHOOK_URL</code></li>
+            <li><code>SLACK_ALLOWED_TEAM_IDS</code> and/or <code>SLACK_ALLOWED_EMAILS</code> for access control</li>
+            <li>Public callback URL reachable by Slack (tunnel/domain + correct signature age window)</li>
+          </ul>
+        </article>
+        <article class="help-panel">
+          <h2>Always-On Decision Sync</h2>
+          <p class="sub">
+            You have two ways to keep local state synced with Slack decisions:
+          </p>
+          <div class="quickstart-grid">
+            <div class="quick-card">
+              <p class="mini-head">From VS Code Extension</p>
+              <code>narrate.governance.autoSync.enabled = true</code>
+              <code>narrate.governance.autoSync.intervalSeconds = 30</code>
+              <code>narrate.governance.autoSync.requireBackendMode = true</code>
+              <p class="sub">Runs while VS Code is open.</p>
+            </div>
+            <div class="quick-card">
+              <p class="mini-head">From CLI Worker</p>
+              <code>.\pg.ps1 governance-worker -PollSeconds 15 -ApproveCommand "&amp; '.\scripts\governance_action_handler.ps1'"</code>
+              <p class="sub">Runs continuously while terminal process is alive.</p>
+            </div>
+          </div>
+          <p class="mini-head">Troubleshoot Fast</p>
+          <ul class="plain-list">
+            <li><strong>dispatch_failed / timeout:</strong> verify <code>/health</code>, tunnel status, and Slack signature setup.</li>
+            <li><strong>invalid bearer token:</strong> rerun <code>.\pg.ps1 governance-login</code>.</li>
+            <li><strong>No new governance events:</strong> not an error, means queue is currently empty.</li>
+          </ul>
+        </article>
+      </section>
     </section>
-
-    <p class="small">Security: local dev profile is for dev/test only and stays gitignored. Production secrets remain in .env or vault.</p>
+    <section class="help-tab-panel" data-help-panel="automation-cloud">
+      <section class="help-grid about-grid reveal">
+        <article class="help-panel">
+          <h2>Automation Model (What Runs Automatically)</h2>
+          <div class="table-wrap">
+            <table class="help-table">
+              <thead>
+                <tr><th>Capability</th><th>Auto While VS Code Is Open</th><th>Manual/CI Trigger</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Governance decision sync</td>
+                  <td>Yes (if <code>narrate.governance.autoSync.enabled=true</code>)</td>
+                  <td><code>.\pg.ps1 governance-worker -Once</code></td>
+                </tr>
+                <tr>
+                  <td>Trust Score on save</td>
+                  <td>Yes (if <code>narrate.trustScore.autoRefreshOnSave=true</code>)</td>
+                  <td><code>Narrate: Refresh Trust Score</code></td>
+                </tr>
+                <tr>
+                  <td>Post-write policy checks</td>
+                  <td>Yes (if <code>narrate.enforcement.postWrite.enabled=true</code>)</td>
+                  <td><code>.\pg.ps1 self-check -WarnOnly -EnableDbIndexMaintenanceCheck</code></td>
+                </tr>
+                <tr>
+                  <td>Playwright smoke + release gates</td>
+                  <td>Required for UI/frontend changes before final Memory-bank update</td>
+                  <td><code>.\pg.ps1 self-check -EnableDbIndexMaintenanceCheck -EnablePlaywrightSmokeCheck</code></td>
+                </tr>
+                <tr>
+                  <td>Final strict release check</td>
+                  <td>Required before final Memory-bank update/commit</td>
+                  <td><code>.\pg.ps1 self-check -EnableDbIndexMaintenanceCheck</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="sub">
+            Narrate does not silently auto-edit your app code in background loops. It runs checks and guidance; actions are explicit and auditable.
+          </p>
+          <p class="sub"><strong>Guard rule:</strong> code commits are blocked unless latest strict self-check passed; UI-impacting changes must include Playwright smoke.</p>
+        </article>
+        <article class="help-panel">
+          <h2>Cloud Score + Enterprise Value</h2>
+          <p class="sub">
+            <strong>MCP Cloud Score</strong> is metadata-only readiness scoring (dependency, coding standard, API contract, cloud controls). It does not upload source code bodies.
+          </p>
+          <code class="inline-code">.\pg.ps1 mcp-cloud-score -WorkloadSensitivity regulated</code>
+          <code class="inline-code">.\pg.ps1 mcp-cloud-score -WorkloadSensitivity regulated -ControlCloudflareTunnel pass -ControlSecretsManager pass -ControlDbPortNotPublic pass</code>
+          <p class="mini-head">Why Enterprise Tier</p>
+          <ul class="plain-list">
+            <li>Reviewer automation policy and enterprise escalation workflows.</li>
+            <li>Strict org-wide provider controls and governance domains.</li>
+            <li>Offline policy-pack lifecycle (issue/rotate) for high-control environments.</li>
+            <li>Expanded seat/governance operations with stronger audit posture.</li>
+          </ul>
+          <p class="sub"><strong>Enterprise package APIs:</strong> <code>GET /account/enterprise/offline-pack/info</code>, <code>POST /account/enterprise/offline-pack/activate</code>, <code>POST /pg-global-admin/board/enterprise/offline-pack/issue</code>.</p>
+          <p class="mini-head">Release-to-Slack Recommended Sequence</p>
+          <code class="inline-code">.\pg.ps1 self-check -WarnOnly -EnableDbIndexMaintenanceCheck -EnablePlaywrightSmokeCheck</code>
+          <code class="inline-code">.\pg.ps1 closure-check -ClosureMode local-core -ApiBase "http://127.0.0.1:8787" -PublicBaseUrl "https://pg-ext.addresly.com"</code>
+          <code class="inline-code">.\pg.ps1 governance-digest -ApiBase "http://127.0.0.1:8787" -TeamKey "your-team"</code>
+        </article>
+      </section>
+    </section>
+    <section class="help-tab-panel" data-help-panel="providers-handoff">
+      <section class="help-grid about-grid reveal">
+        <article class="help-panel">
+          <h2>AI Provider Setup (VS Code Settings)</h2>
+          <p class="sub">Run <code>Narrate: Open Model Settings</code> for one-click jump, or open Settings and search <code>narrate.model</code>.</p>
+          <div class="table-wrap">
+            <table class="help-table">
+              <thead>
+                <tr><th>Setting Key</th><th>Purpose</th><th>Example</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>narrate.model.baseUrl</code></td>
+                  <td>OpenAI-compatible endpoint.</td>
+                  <td><code>https://api.openai.com/v1</code> or <code>http://127.0.0.1:11434/v1</code></td>
+                </tr>
+                <tr>
+                  <td><code>narrate.model.modelId</code></td>
+                  <td>Model name sent to provider.</td>
+                  <td><code>gpt-4o-mini</code>, <code>llama3.1</code>, <code>qwen2.5-coder</code></td>
+                </tr>
+                <tr>
+                  <td><code>narrate.model.apiKey</code></td>
+                  <td>Provider API key if required.</td>
+                  <td><code>sk-...</code> (leave empty for local fallback narration path)</td>
+                </tr>
+                <tr>
+                  <td><code>narrate.model.timeoutMs</code></td>
+                  <td>Provider request timeout.</td>
+                  <td><code>25000</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="sub">
+            For backend-side integration and governance flows, use server env in <code>server/.env</code> and keep secrets out of git.
+          </p>
+          <p class="sub"><strong>Quick provider test:</strong> set model keys, then run <code>Narrate: Toggle Reading Mode (Dev)</code> on any code file; Ollama example base URL is <code>http://127.0.0.1:11434/v1</code>.</p>
+        </article>
+        <article class="help-panel">
+          <h2>Handoff + Clipboard Behavior</h2>
+          <p class="sub">
+            Handoff commands generate prompts and copy them to clipboard. Some chat providers expose their own direct context actions, while others rely on manual paste.
+          </p>
+          <ul class="plain-list">
+            <li><code>Narrate: Request Change Prompt</code> asks for your intent, then opens a markdown prompt + copies it.</li>
+            <li><code>Narrate: OpenAPI Fix Handoff Prompt</code> builds API mismatch fix prompt + copies it.</li>
+            <li>Use <strong>Ctrl+V</strong> (or right-click Paste) in your target chat/editor.</li>
+            <li>From editor selection, use VS Code context menu: <strong>Add Selection to Chat</strong>.</li>
+            <li>If your provider extension shows actions like <strong>Add to ...</strong> or <strong>Explain with ...</strong>, those can push selection directly into that provider's chat input.</li>
+          </ul>
+          <p class="mini-head">Why You Did Not See Auto-Paste</p>
+          <p class="sub">
+            Direct chat insertion is provider-specific. Narrate keeps a provider-agnostic clipboard handoff path so the flow still works even when a provider does not expose direct insertion actions.
+          </p>
+        </article>
+      </section>
+    </section>
   </main>
-  <footer>Narrate &copy; 2026 &mdash; Command Help Center</footer>
-
-  <script>
-    (function() {
-      var tabs = document.querySelectorAll('#tabs button');
-      var sections = document.querySelectorAll('main > section');
-      var searchInput = document.getElementById('search');
-
-      tabs.forEach(function(btn) {
-        btn.addEventListener('click', function() {
-          tabs.forEach(function(b){ b.classList.remove('active'); });
-          btn.classList.add('active');
-          var tab = btn.getAttribute('data-tab');
-          sections.forEach(function(s) {
-            s.style.display = (tab === 'all' || s.getAttribute('data-section') === tab) ? '' : 'none';
-          });
-          applyFilter();
-        });
-      });
-
-      searchInput.addEventListener('input', applyFilter);
-
-      function applyFilter() {
-        var q = searchInput.value.toLowerCase().trim();
-        sections.forEach(function(s) {
-          if (s.style.display === 'none') return;
-          var rows = s.querySelectorAll('tbody tr');
-          rows.forEach(function(row) {
-            var text = row.textContent.toLowerCase();
-            row.classList.toggle('hidden', q.length > 0 && text.indexOf(q) === -1);
-          });
-        });
-      }
-    })();
-  </script>
+  <script src="/assets/help.js?v=20260305-1"></script>
 </body>
 </html>

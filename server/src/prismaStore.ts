@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { createDefaultState, normalizeLoadedState, StateStore } from "./store";
-import { StoreState } from "./types";
+import { OAuthStateRecord, StoreState } from "./types";
 
 const TABLE_KEY_MAP: Array<{ table: string; key: keyof StoreState }> = [
   { table: "users", key: "users" },
@@ -235,6 +235,43 @@ export class PrismaStateStore implements StateStore {
     await this.writeChain;
   }
 
+  async appendOAuthStateRecord(record: OAuthStateRecord): Promise<void> {
+    assertState(this.state);
+    this.writeChain = this.writeChain.then(async () => {
+      await this.prisma.$executeRawUnsafe(
+        `INSERT INTO "oauth_states" (
+          "id", "state", "provider", "install_id", "callback_url", "created_at", "expires_at", "consumed_at"
+        ) VALUES ($1::uuid, $2, $3::"OAuthProvider", $4, $5, $6::timestamptz, $7::timestamptz, $8::timestamptz)`,
+        record.id,
+        record.state,
+        record.provider,
+        record.install_id,
+        record.callback_url,
+        record.created_at,
+        record.expires_at,
+        record.consumed_at
+      );
+      this.state!.oauth_states.push(record);
+      this.state!.updated_at = new Date().toISOString();
+    });
+    await this.writeChain;
+  }
+
+  async consumeOAuthStateRecord(
+    provider: "github" | "google",
+    stateToken: string
+  ): Promise<OAuthStateRecord | undefined> {
+    assertState(this.state);
+    let consumed: OAuthStateRecord | undefined;
+    this.writeChain = this.writeChain.then(async () => {
+      consumed = await consumeOAuthStateFromDb(this.prisma, provider, stateToken);
+      syncConsumedOAuthStateInMemory(this.state!, consumed);
+      this.state!.updated_at = new Date().toISOString();
+    });
+    await this.writeChain;
+    return consumed;
+  }
+
   private async persist(): Promise<void> {
     assertState(this.state);
     for (const item of TABLE_KEY_MAP) {
@@ -387,4 +424,41 @@ function normalizeDbValue(value: unknown): unknown {
 
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, "\"\"")}"`;
+}
+
+async function consumeOAuthStateFromDb(
+  prisma: PrismaClient,
+  provider: "github" | "google",
+  stateToken: string
+): Promise<OAuthStateRecord | undefined> {
+  const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
+    `UPDATE "oauth_states"
+        SET "consumed_at" = NOW()
+      WHERE "provider" = $1::"OAuthProvider"
+        AND "state" = $2
+        AND "consumed_at" IS NULL
+        AND "expires_at" > NOW()
+    RETURNING "id", "state", "provider", "install_id", "callback_url", "created_at", "expires_at", "consumed_at"`,
+    provider,
+    stateToken
+  );
+  if (rows.length === 0) {
+    return undefined;
+  }
+  return normalizeDbObject(rows[0]) as unknown as OAuthStateRecord;
+}
+
+function syncConsumedOAuthStateInMemory(
+  state: StoreState,
+  consumed: OAuthStateRecord | undefined
+): void {
+  if (!consumed) {
+    return;
+  }
+  const mutable = state.oauth_states.find((item) => item.id === consumed.id);
+  if (mutable) {
+    mutable.consumed_at = consumed.consumed_at;
+    return;
+  }
+  state.oauth_states.push(consumed);
 }

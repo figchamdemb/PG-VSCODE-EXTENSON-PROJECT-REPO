@@ -1,0 +1,203 @@
+{
+  "workflow": {
+    "status": "active",
+    "current_page_id": "04-direct-live-server-review-20260320-032420",
+    "next_actor": "",
+    "latest_activity_utc": "2026-03-20T04:11:31Z",
+    "completion_note": ""
+  },
+  "roles": {
+    "builder": {
+      "role": "builder",
+      "status": "active",
+      "agent_id": "builder-copilot-gpt-5-4",
+      "agent_family": "copilot",
+      "model_name": "GPT-5.4",
+      "session_mode": "interactive",
+      "started_at_utc": "2026-03-20T02:26:12Z",
+      "last_heartbeat_utc": "2026-03-20T03:25:00Z",
+      "last_message": "builder update recorded"
+    },
+    "reviewer": {
+      "role": "reviewer",
+      "status": "active",
+      "agent_id": "reviewer-copilot-gpt-5-4",
+      "agent_family": "copilot",
+      "model_name": "GPT-5.4",
+      "session_mode": "interactive",
+      "started_at_utc": "2026-03-20T02:26:16Z",
+      "last_heartbeat_utc": "2026-03-20T03:25:07Z",
+      "last_message": "approval recorded"
+    }
+  },
+  "summary": {
+    "total_pages": 4,
+    "approved_pages": 2,
+    "open_findings": 1,
+    "local_detail_mode": "redacted"
+  },
+  "pages": [
+    {
+      "page_index": 1,
+      "page_id": "01-review-workflow-baseline",
+      "page_title": "Review Workflow Baseline",
+      "page_file": "Memory-bank/review-workflow/pages/01-review-workflow-baseline.md",
+      "status": "changes_requested",
+      "next_actor": "builder",
+      "current_round": 1,
+      "details": "Protected in authenticated server-backed mode. Use authenticated review commands while connected to the local server to refresh or act on this detail.",
+      "changed_paths": "Protected changed path count: 1",
+      "findings": [
+        {
+          "finding_id": "F01-01",
+          "round": 1,
+          "severity": "medium",
+          "status": "open",
+          "title": "Protected reviewer finding",
+          "evidence": "Protected in authenticated server-backed mode. Use authenticated review commands while connected to the local server to refresh or act on this detail.",
+          "reported_by": "reviewer",
+          "created_at_utc": "2026-03-20T02:26:16Z",
+          "builder_reply": "",
+          "changed_paths": "Protected finding path count: 1"
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "R01",
+          "response_type": "review_ready_update",
+          "resolution": "ready_for_review",
+          "details": "Protected in authenticated server-backed mode. Use authenticated review commands while connected to the local server to refresh or act on this detail.",
+          "actor": "builder",
+          "created_at_utc": "2026-03-20T02:26:12Z",
+          "changed_paths": "Protected response path count: 1"
+        }
+      ],
+      "approvals": [],
+      "timestamps": {
+        "created_at_utc": "2026-03-20T02:26:06Z",
+        "updated_at_utc": "2026-03-20T02:26:16Z",
+        "ready_for_review_at_utc": "2026-03-20T02:26:12Z",
+        "approved_at_utc": ""
+      }
+    },
+    {
+      "page_index": 2,
+      "page_id": "02-live-auth-review-smoke-20260320-032031",
+      "page_title": "live-auth-review-smoke-20260320-032031",
+      "page_file": "Memory-bank/review-workflow/pages/02-live-auth-review-smoke-20260320-032031.md",
+      "status": "approved",
+      "next_actor": "",
+      "current_round": 1,
+      "details": "Protected in authenticated server-backed mode. Use authenticated review commands while connected to the local server to refresh or act on this detail.",
+      "changed_paths": "Protected changed path count: 1",
+      "findings": [
+        {
+          "finding_id": "F01-01",
+          "round": 1,
+          "severity": "medium",
+          "status": "verified",
+          "title": "Protected reviewer finding",
+          "evidence": "Protected in authenticated server-backed mode. Use authenticated review commands while connected to the local server to refresh or act on this detail.",
+          "reported_by": "reviewer",
+          "created_at_utc": "2026-03-20T03:20:40Z",
+          "builder_reply": "Protected in authenticated server-backed mode. Use authenticated review commands while connected to the local server to refresh or act on this detail.",
+          "changed_paths": "Protected finding path count: 1"
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "R01",
+          "response_type": "builder_response",
+          "resolution": "fixed",
+          "details": "Protected in authenticated server-backed mode. Use authenticated review commands while connected to the local server to refresh or act on this detail.",
+          "actor": "builder",
+          "created_at_utc": "2026-03-20T03:20:43Z",
+          "changed_paths": "Protected response path count: 1"
+        }
+      ],
+      "approvals": [
+        {
+          "actor": "reviewer",
+          "notes": "Protected in authenticated server-backed mode. Use authenticated review commands while connected to the local server to refresh or act on this detail.",
+          "created_at_utc": "2026-03-20T03:20:45Z"
+        }
+      ],
+      "timestamps": {
+        "created_at_utc": "2026-03-20T03:20:33Z",
+        "updated_at_utc": "2026-03-20T03:20:45Z",
+        "ready_for_review_at_utc": "",
+        "approved_at_utc": "2026-03-20T03:20:45Z"
+      }
+    },
+    {
+      "page_index": 3,
+      "page_id": "03-direct-live-review-json-check",
+      "page_title": "direct-live-review-json-check",
+      "page_file": "Memory-bank/review-workflow/pages/03-direct-live-review-json-check.md",
+      "status": "builder_in_progress",
+      "next_actor": "builder",
+      "current_round": 0,
+      "details": "Protected in authenticated server-backed mode. Use authenticated review commands while connected to the local server to refresh or act on this detail.",
+      "changed_paths": null,
+      "findings": [],
+      "responses": [],
+      "approvals": [],
+      "timestamps": {
+        "created_at_utc": "2026-03-20T03:23:56Z",
+        "updated_at_utc": "2026-03-20T03:23:56Z",
+        "ready_for_review_at_utc": "",
+        "approved_at_utc": ""
+      }
+    },
+    {
+      "page_index": 4,
+      "page_id": "04-direct-live-server-review-20260320-032420",
+      "page_title": "direct-live-server-review-20260320-032420",
+      "page_file": "Memory-bank/review-workflow/pages/04-direct-live-server-review-20260320-032420.md",
+      "status": "approved",
+      "next_actor": "",
+      "current_round": 1,
+      "details": "Protected in authenticated server-backed mode. Use authenticated review commands while connected to the local server to refresh or act on this detail.",
+      "changed_paths": null,
+      "findings": [
+        {
+          "finding_id": "F01-01",
+          "round": 1,
+          "severity": "medium",
+          "status": "verified",
+          "title": "Protected reviewer finding",
+          "evidence": "Protected in authenticated server-backed mode. Use authenticated review commands while connected to the local server to refresh or act on this detail.",
+          "reported_by": "reviewer",
+          "created_at_utc": "2026-03-20T03:24:42Z",
+          "builder_reply": "Protected in authenticated server-backed mode. Use authenticated review commands while connected to the local server to refresh or act on this detail.",
+          "changed_paths": null
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "R01",
+          "response_type": "builder_response",
+          "resolution": "fixed",
+          "details": "Protected in authenticated server-backed mode. Use authenticated review commands while connected to the local server to refresh or act on this detail.",
+          "actor": "builder",
+          "created_at_utc": "2026-03-20T03:25:00Z",
+          "changed_paths": null
+        }
+      ],
+      "approvals": [
+        {
+          "actor": "reviewer",
+          "notes": "Protected in authenticated server-backed mode. Use authenticated review commands while connected to the local server to refresh or act on this detail.",
+          "created_at_utc": "2026-03-20T03:25:07Z"
+        }
+      ],
+      "timestamps": {
+        "created_at_utc": "2026-03-20T03:24:25Z",
+        "updated_at_utc": "2026-03-20T03:25:07Z",
+        "ready_for_review_at_utc": "",
+        "approved_at_utc": "2026-03-20T03:25:07Z"
+      }
+    }
+  ],
+  "project_root": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION"
+}

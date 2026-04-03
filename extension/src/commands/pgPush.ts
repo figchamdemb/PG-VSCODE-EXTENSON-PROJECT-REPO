@@ -19,8 +19,11 @@ import {
   showTrustBlockedActions,
   writeTrustGateReport
 } from "./pgPushTrustGate";
+import { showPgRootGuidance } from "./pgRootGuidance";
+import { StartupContextEnforcer } from "../startup/startupContextEnforcer";
 import { TrustScoreService } from "../trust/trustScoreService";
 import { RepoRootResolution, resolveRepoRoot } from "../utils/repoRootResolver";
+import { ensureDevProfileReady } from "./devProfilePreflight";
 
 const GIT_BUFFER_BYTES = 1024 * 1024 * 4;
 
@@ -38,11 +41,12 @@ type PgPushFlowContext = {
 };
 
 export function registerPgPushCommands(
-  trustScoreService: TrustScoreService
+  trustScoreService: TrustScoreService,
+  startupContextEnforcer: StartupContextEnforcer
 ): vscode.Disposable {
   const runner = async (): Promise<void> => {
     try {
-      await runPgPushFlow(trustScoreService);
+      await runPgPushFlow(trustScoreService, startupContextEnforcer);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       vscode.window.showErrorMessage(`Narrate: PG push failed. ${message}`);
@@ -55,7 +59,7 @@ export function registerPgPushCommands(
   );
 }
 
-function validatePgPushPrereqs(): { workspace: vscode.WorkspaceFolder; repo: RepoRootResolution } | null {
+async function validatePgPushPrereqs(): Promise<{ workspace: vscode.WorkspaceFolder; repo: RepoRootResolution } | null> {
   const workspace = vscode.workspace.workspaceFolders?.[0];
   if (!workspace) {
     vscode.window.showWarningMessage("Narrate: open a workspace folder before PG push.");
@@ -63,16 +67,25 @@ function validatePgPushPrereqs(): { workspace: vscode.WorkspaceFolder; repo: Rep
   }
   const repo = resolveRepoRoot({ seedPath: workspace.uri.fsPath });
   if (!repo) {
-    vscode.window.showWarningMessage("Narrate: unable to resolve repository root (pg.ps1) for PG push.");
+    await showPgRootGuidance("PG push");
     return null;
   }
   return { workspace, repo };
 }
 
-async function runPgPushFlow(trustScoreService: TrustScoreService): Promise<void> {
-  const prereqs = validatePgPushPrereqs();
+async function runPgPushFlow(
+  trustScoreService: TrustScoreService,
+  startupContextEnforcer: StartupContextEnforcer
+): Promise<void> {
+  const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+  if (!(await startupContextEnforcer.ensureWorkspaceReadyForAction("running PG push", workspaceUri))) {
+    return;
+  }
+  const prereqs = await validatePgPushPrereqs();
   if (!prereqs) return;
   const { workspace, repo } = prereqs;
+  const canContinue = await ensureDevProfileReady(repo, "PG push");
+  if (!canContinue) return;
 
   await ensureGitWorkspace(repo.repoRoot);
   const initialChanges = await collectCommitFileChanges(repo.repoRoot);

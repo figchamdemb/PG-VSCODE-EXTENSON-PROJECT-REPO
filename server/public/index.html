@@ -8,6 +8,7 @@
     name="description"
     content="PG Narrate SDK delivers local-first code understanding, memory-bank discipline, and enterprise governance for teams using modern coding agents."
   />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/assets/site.css" />
 </head>
 <body>
@@ -22,6 +23,7 @@
     <nav>
       <a href="#features">Features</a>
       <a href="#pricing">Pricing</a>
+      <a href="/help">Help</a>
       <a href="#security">Security</a>
       <a href="#portal">Portal</a>
     </nav>
@@ -88,31 +90,30 @@
     </section>
 
     <section id="pricing" class="section reveal">
-      <h2>Pricing Overview</h2>
-      <div class="cards four">
+      <h2>Annual Pricing That Scales From Solo to Enterprise</h2>
+      <p class="lead-sm">
+        Free users can start immediately. Trial / EDU remains view-only. Paid access is sold as
+        annual plan-plus-module SKUs: Narrate only, Memory-bank only, or Bundle for individuals,
+        teams, and enterprise buyers.
+      </p>
+      <div id="homePricingCards" class="cards five pricing-cards">
         <article class="card pricing">
-          <h3>Free</h3>
-          <p class="price">$0</p>
-          <p>Dev reading mode, prompt handoff, and starter project usage.</p>
-        </article>
-        <article class="card pricing">
-          <h3>Student Pilot</h3>
-          <p class="price">Verified</p>
-          <p>Manual student verification with redeem-code activation.</p>
-        </article>
-        <article class="card pricing">
-          <h3>Pro</h3>
-          <p class="price">Annual</p>
-          <p>Edu mode, timeline report, export controls, and expanded quota.</p>
-        </article>
-        <article class="card pricing">
-          <h3>Team / Enterprise</h3>
-          <p class="price">Seats + Policy</p>
-          <p>Delegated team management, policy governance, and full commercial controls.</p>
+          <h3>Loading</h3>
+          <p class="price">Pricing...</p>
+          <p>Loading current plan guide.</p>
+          <ul class="pricing-points">
+            <li>Please wait</li>
+          </ul>
         </article>
       </div>
-      <p class="small">
-        Secure account operations, billing history, support, and team administration are handled inside the portal.
+      <div class="pricing-actions">
+        <a class="btn btn-primary" href="/pricing">Open Full Pricing Matrix</a>
+        <a class="btn btn-ghost" href="/help#tier-commands">Open Tier Command Help</a>
+      </div>
+      <p id="homePricingFootnote" class="small">
+        Free and Trial / EDU do not need Stripe prices. Paid plans currently use one-time Stripe
+        checkout for one year of access; true recurring or automatic per-seat billing is a future
+        payment-model upgrade.
       </p>
     </section>
 
@@ -166,5 +167,6 @@
       <a href="/privacy">Privacy</a>
     </div>
   </footer>
+  <script type="module" src="/assets/landingPricing.js?v=20260315-2"></script>
 </body>
 </html>

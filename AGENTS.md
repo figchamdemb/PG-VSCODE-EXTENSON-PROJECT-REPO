@@ -36,18 +36,36 @@ If these steps are not complete, the task is incomplete.
   - `.\pg.ps1 self-check -WarnOnly -EnableDbIndexMaintenanceCheck`
 - For web/UI-impacting tasks, also run:
   - `.\pg.ps1 self-check -WarnOnly -EnableDbIndexMaintenanceCheck -EnablePlaywrightSmokeCheck`
+- For frontend/UI tasks, read `docs/FRONTEND_DESIGN_GUARDRAILS.md` before editing.
+  - if the user provides a design guide, screenshot, prompt, or component reference, treat that user-supplied input as the primary design source.
+  - otherwise follow the repo guide and keep new work in the same product family as the existing portal/help/pricing/dashboard surfaces.
+  - copy the pattern language, not the exact design: preserve shell/card/button/dropdown/section hierarchy and control flow without cloning external references one-to-one.
+  - for secure mobile/authenticator work, preserve the guide's state-led card shell and explicit button grammar (`primary`, `secondary`, `destructive`, `fab`, `nav`) across Kotlin/Compose and React-based surfaces.
+  - treat the approved references as selectable pattern families; pick the closest fit for the current surface instead of forcing every screen to reuse every motif.
 - Before declaring a task complete, run strict final self-check (no warn mode):
   - `.\pg.ps1 self-check -EnableDbIndexMaintenanceCheck`
 - Agent behavior requirement:
   - run these checks proactively from terminal and resolve issues directly when possible.
   - only ask user for manual input when credentials/platform restarts are truly required.
+- Spec-to-milestone requirement (mandatory when scope changes):
+  - if user adds or changes scope, add/update `Memory-bank/project-spec.md` with a request tag like `[REQ-YYYY-MM-DD-01]`.
+  - map each REQ tag into `Memory-bank/project-details.md` (Current Plan milestone row and/or today's Session Update).
+  - do not implement scope changes without milestone tracking updates.
 
 ## Enforcement
 - Local hook: `.githooks/pre-commit` runs `scripts/memory_bank_guard.py`.
 - Mode is `warn` or `strict` (current default: `warn`).
+- Session-start enforcement defaults to `strict` for map-structure gate checks (legacy repos must run `.\pg.ps1 map-structure` when stale/missing).
 - CI guard: `.github/workflows/memory-bank-guard.yml`.
 - Screen/Page file size guard:
   - max 500 lines for `screen/page` files (warn in warn mode, fail in strict mode).
+- UI design guard:
+  - UI-impacting changes require `docs/FRONTEND_DESIGN_GUARDRAILS.md` to stay present and referenced from policy docs.
+  - changed UI files should use semantic layout/control patterns and shared design tokens rather than ad-hoc inline styling.
+- Planning guardrails enforced by `memory_bank_guard.py` on code changes:
+  - `project-details.md` must include today's `Session Update` section,
+  - `Current Plan (Rolling)` must have valid plan rows,
+  - REQ IDs from `project-spec.md` must be mapped in `project-details.md`.
 
 ## Server Policy Profile
 Plan-aware agent directives are resolved server-side via
@@ -56,6 +74,7 @@ Plan-aware agent directives are resolved server-side via
 - Auto-fix capability per domain
 - Production checklist gate requirements
 - Offline pack support flag
+- Frontend design guardrail requirements, default reference docs, and user-guide precedence for UI work
 Local directives in this file define **workflow** (memory-bank, checks);
 server profile defines **policy strictness** per plan tier.
 

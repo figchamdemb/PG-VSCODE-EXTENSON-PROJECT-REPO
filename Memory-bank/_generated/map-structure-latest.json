@@ -1,0 +1,20 @@
+{
+  "generated_at_utc": "2026-03-28 22:31",
+  "profile": "frontend",
+  "component_count": 3,
+  "components": [
+    ".",
+    "extension",
+    "server"
+  ],
+  "code_tree_files": [
+    "Memory-bank/code-tree/auto-root-tree.md",
+    "Memory-bank/code-tree/auto-extension-tree.md",
+    "Memory-bank/code-tree/auto-server-tree.md"
+  ],
+  "db_schema_file": "Memory-bank/db-schema/auto-discovered-schema.md",
+  "detected_tables": 28,
+  "max_depth": 4,
+  "max_entries": 1400,
+  "max_components": 12
+}

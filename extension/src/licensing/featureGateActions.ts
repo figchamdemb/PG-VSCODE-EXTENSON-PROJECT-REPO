@@ -1,8 +1,7 @@
 import * as vscode from "vscode";
-import { AddressInfo } from "net";
-import { createServer, IncomingMessage, ServerResponse } from "http";
 import { Logger } from "../utils/logger";
 import { EntitlementClient } from "./entitlementClient";
+import { LicensingCallbackHandler } from "./licensingCallbackHandler";
 import { buildCurrentWorkspaceFingerprint } from "./projectQuota";
 import { LicensingSecretStorage } from "./secretStorage";
 import { EntitlementClaims } from "./types";
@@ -22,6 +21,7 @@ type RefreshSource = "startup" | "manual" | "signin" | "trial-start";
 export interface FeatureGateActionContext {
   logger: Logger;
   storage: LicensingSecretStorage;
+  callbackHandler: LicensingCallbackHandler;
   getApiBaseUrl: () => string;
   getClient: () => EntitlementClient;
   refreshLicense: (source: RefreshSource) => Promise<void>;
@@ -68,13 +68,11 @@ export async function runSignInWithEmail(context: FeatureGateActionContext): Pro
 
 export async function runSignInWithGitHub(context: FeatureGateActionContext): Promise<void> {
   const installId = await context.storage.getOrCreateInstallId();
-  const { accessToken, userId } = await waitForGitHubLoopbackToken(context, installId);
+  const { accessToken, userId } = await waitForGitHubCallback(context, installId);
   if (!accessToken) {
     return;
   }
 
-  await context.storage.setAccessToken(accessToken);
-  await context.refreshLicense("signin");
   vscode.window.showInformationMessage(
     `Narrate: signed in with GitHub${userId ? ` (user ${userId})` : ""} and license refreshed.`
   );
@@ -254,89 +252,32 @@ export function evaluateProviderAccess(
   return { allowed: true };
 }
 
-async function waitForGitHubLoopbackToken(
+async function waitForGitHubCallback(
   context: FeatureGateActionContext,
   installId: string
 ): Promise<{ accessToken?: string; userId?: string }> {
   const timeoutMs = 5 * 60 * 1000;
-  let resolvePromise: ((value: { accessToken?: string; userId?: string }) => void) | undefined;
-  let rejectPromise: ((error: Error) => void) | undefined;
-  const resultPromise = new Promise<{ accessToken?: string; userId?: string }>(
-    (resolve, reject) => {
-      resolvePromise = resolve;
-      rejectPromise = reject;
-    }
-  );
-
-  const server = createServer((req, res) => {
-    handleGitHubLoopbackRequest(req, res, resolvePromise);
-  });
-
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", (error) =>
-      reject(error instanceof Error ? error : new Error(String(error)))
-    );
-    server.listen(0, "127.0.0.1", () => resolve());
-  });
-
-  const address = server.address() as AddressInfo | null;
-  if (!address || typeof address.port !== "number") {
-    server.close();
-    throw new Error("Unable to start local OAuth callback listener.");
-  }
-
-  const callbackUrl = `http://127.0.0.1:${address.port}/callback`;
+  const callbackUrl = context.callbackHandler.createAuthCallbackUrl();
   const startUrl = new URL("/auth/github/start", context.getApiBaseUrl());
   startUrl.searchParams.set("install_id", installId);
   startUrl.searchParams.set("callback_url", callbackUrl);
-
-  const timeout = setTimeout(() => {
-    rejectPromise?.(new Error("GitHub sign-in timed out."));
-  }, timeoutMs);
+  const resultPromise = context.callbackHandler.waitForAuthCallback(timeoutMs);
 
   try {
-    await vscode.env.openExternal(vscode.Uri.parse(startUrl.toString()));
+    const opened = await vscode.env.openExternal(vscode.Uri.parse(startUrl.toString()));
+    if (!opened) {
+      context.callbackHandler.abortPendingAuth("Unable to open the GitHub sign-in page in your browser.");
+      throw new Error("Unable to open the GitHub sign-in page in your browser.");
+    }
     return await resultPromise;
-  } finally {
-    clearTimeout(timeout);
-    server.close();
+  } catch (error) {
+    if (!(error instanceof Error && /pendingAuthRequest/.test(error.message))) {
+      context.callbackHandler.abortPendingAuth(
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+    throw error;
   }
-}
-
-function handleGitHubLoopbackRequest(
-  req: IncomingMessage,
-  res: ServerResponse<IncomingMessage>,
-  resolvePromise: ((value: { accessToken?: string; userId?: string }) => void) | undefined
-): void {
-  const requestUrl = req.url ? new URL(req.url, "http://127.0.0.1") : undefined;
-  if (!requestUrl || requestUrl.pathname !== "/callback") {
-    res.statusCode = 404;
-    res.end("Not found.");
-    return;
-  }
-
-  const status = requestUrl.searchParams.get("status") || "error";
-  const accessToken = requestUrl.searchParams.get("access_token") || undefined;
-  const userId = requestUrl.searchParams.get("user_id") || undefined;
-  const message = requestUrl.searchParams.get("message") || "";
-
-  res.statusCode = 200;
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  if (status === "ok" && accessToken) {
-    res.end(
-      "<html><body><h3>Narrate GitHub sign-in complete.</h3><p>You can close this window.</p></body></html>"
-    );
-    resolvePromise?.({ accessToken, userId });
-    return;
-  }
-
-  res.end(
-    "<html><body><h3>Narrate GitHub sign-in failed.</h3><p>You can close this window.</p></body></html>"
-  );
-  void vscode.window.showErrorMessage(
-    `Narrate: GitHub sign-in failed. ${message || "Unknown error."}`
-  );
-  resolvePromise?.({});
 }
 
 async function ensureCheckoutAccessToken(
@@ -426,15 +367,20 @@ async function openCheckoutSession(
   accessToken: string,
   selection: CheckoutSelection
 ): Promise<void> {
+  const returnUrls = context.callbackHandler.createCheckoutReturnUrls();
   const session = await context.getClient().createStripeCheckoutSession(
     accessToken,
     selection.plan,
     selection.module,
     selection.years,
-    selection.affiliateCode
+    selection.affiliateCode,
+    returnUrls.successUrl,
+    returnUrls.cancelUrl
   );
   await vscode.env.openExternal(vscode.Uri.parse(session.url));
-  vscode.window.showInformationMessage("Narrate: checkout opened in your browser.");
+  vscode.window.showInformationMessage(
+    "Narrate: checkout opened in your browser. After payment, Narrate will try to return here and refresh the license."
+  );
 }
 
 async function pickDeviceToRevoke(

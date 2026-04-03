@@ -1,0 +1,479 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server\\playwright.config.ts",
+    "rootDir": "C:/Users/ebrim/Desktop/PG VSCODE-EXTENSION/server/tests",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 1,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/ebrim/Desktop/PG VSCODE-EXTENSION/Memory-bank/_generated/playwright-smoke/20260328T224605Z/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/Users/ebrim/Desktop/PG VSCODE-EXTENSION/server/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "line",
+        null
+      ],
+      [
+        "html",
+        {
+          "open": "never",
+          "outputFolder": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\Memory-bank\\_generated\\playwright-smoke\\20260328T224605Z\\html-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\Memory-bank\\_generated\\playwright-smoke\\20260328T224605Z\\report.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.58.2",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev",
+      "cwd": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server",
+      "url": "http://127.0.0.1:8787/health",
+      "timeout": 120000,
+      "reuseExistingServer": true,
+      "env": {
+        "AES_SECRET_KEY": "Vw4Q5b8Tg7Yp9Xz2Kc6Rf1Lu0Jh3Dn8A",
+        "ALLUSERSPROFILE": "C:\\ProgramData",
+        "APPDATA": "C:\\Users\\ebrim\\AppData\\Roaming",
+        "APP_CORS_ALLOWED_ORIGINS": "http://localhost:3000",
+        "APP_FIREBASE_ENABLED": "true",
+        "APP_JWT_SECRET": " 0PI0uPlhTdE3Op6TUeNCzvHQkOMUsVQHwgEgjPJnJfQLCsWE286e+NdnYaVo9FnexYv5ucc9QbKOEAoTskjlxw==",
+        "BUNDLED_DEBUGPY_PATH": "c:\\Users\\ebrim\\.vscode\\extensions\\ms-python.debugpy-2025.18.0-win32-x64\\bundled\\libs\\debugpy",
+        "ChocolateyInstall": "C:\\ProgramData\\chocolatey",
+        "ChocolateyLastPathUpdate": "134056492514518792",
+        "CHROME_CRASHPAD_PIPE_NAME": "\\\\.\\pipe\\crashpad_12032_LQJYKJJUPIPNLIQH",
+        "CLAUDE_CODE_SSE_PORT": "64544",
+        "COLOR": "0",
+        "COLORTERM": "truecolor",
+        "CommonProgramFiles": "C:\\Program Files\\Common Files",
+        "CommonProgramFiles(x86)": "C:\\Program Files (x86)\\Common Files",
+        "CommonProgramW6432": "C:\\Program Files\\Common Files",
+        "COMMUNICATION_SERVICE_BASE_URL": "http://localhost:8088/api/communication",
+        "COMMUNICATION_SERVICE_URL": "http://localhost:8088",
+        "COMPUTERNAME": "CHAM-DEMBA",
+        "ComSpec": "C:\\windows\\system32\\cmd.exe",
+        "CORE_PLATFORM_SERVICE_AUTH_TOKEN": "platform-root-owner-service-token",
+        "CORE_PLATFORM_SERVICE_URL": "http://localhost:8086/api/core",
+        "CORS_ALLOWED_HEADERS": "*",
+        "CORS_ALLOWED_METHODS": "GET,POST,PUT,DELETE,OPTIONS",
+        "CORS_ALLOWED_ORIGINS": "http://localhost:3000,http://localhost:3001",
+        "CORS_ALLOW_CREDENTIALS": "true",
+        "CURL_CA_BUNDLE": "C:\\Program Files\\PostgreSQL\\18\\ssl\\certs\\ca-bundle.crt",
+        "DB_PASSWORD": "JavAmocroCha!mAfit@012",
+        "DB_USERNAME": "egov_user",
+        "DOTNET_CLI_TELEMETRY_OPTOUT": "true",
+        "DriverData": "C:\\Windows\\System32\\Drivers\\DriverData",
+        "EDITOR": "C:\\windows\\notepad.exe",
+        "EFC_6240_1262719628": "1",
+        "EFC_6240_1592913036": "1",
+        "EFC_6240_2283032206": "1",
+        "EFC_6240_2775293581": "1",
+        "EFC_6240_3789132940": "1",
+        "EUREKA_DEFAULT_ZONE": "http://localhost:8761/eureka/",
+        "FPS_BROWSER_APP_PROFILE_STRING": "Internet Explorer",
+        "FPS_BROWSER_USER_PROFILE_STRING": "Default",
+        "GDAL_DATA": "C:\\Program Files\\PostgreSQL\\18\\gdal-data",
+        "GIT_ASKPASS": "c:\\Users\\ebrim\\AppData\\Roaming\\Code\\User\\globalStorage\\vscode.git\\askpass\\493597c785d4c5cb\\askpass.sh",
+        "GIT_EDITOR": ":",
+        "GIT_MERGE_AUTOEDIT": "no",
+        "GIT_PAGER": "cat",
+        "GOOGLE_PLACES_API_KEY": "your-google-places-api-key",
+        "GOVERNMENT_SERVICE_URL": "http://localhost:8087/api/gov",
+        "HOME": "C:\\Users\\ebrim",
+        "HOMEDRIVE": "C:",
+        "HOMEPATH": "\\Users\\ebrim",
+        "INIT_CWD": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server",
+        "INTERNAL_SERVICE_AUTH_KEY": "0PI0uPlhTdE3Op6TUeNCzvHQkOMUsVQHwgEgjPJnJfQLCsWE286e+NdnYaVo9FnexYv5ucc9QbKOEAoTskjlxw==",
+        "JAVA_HOME": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.8.9-hotspot",
+        "JWT_EXPIRATION_MS": "86400000",
+        "JWT_REFRESH_EXPIRATION_MS": "604800000",
+        "JWT_RSA_PRIVATE_KEY_PATH": "C:\\Users\\ebrim\\Desktop\\WORKING-PRO\\BEST-JAVA-MICROSERVICE-VERSION-latest-production-root-owner-version\\keys\\jwt-private-key.pem",
+        "JWT_RSA_PUBLIC_KEY_PATH": "C:\\Users\\ebrim\\Desktop\\WORKING-PRO\\BEST-JAVA-MICROSERVICE-VERSION-latest-production-root-owner-version\\keys\\jwt-public-key.pem",
+        "JWT_SECRET": " 0PI0uPlhTdE3Op6TUeNCzvHQkOMUsVQHwgEgjPJnJfQLCsWE286e+NdnYaVo9FnexYv5ucc9QbKOEAoTskjlxw==",
+        "KAFKA_BOOTSTRAP_SERVERS": "localhost:9092",
+        "KAFKA_CONSUMER_GROUP_ID": "egov-consumer-group",
+        "LANG": "en_US.UTF-8",
+        "LOCALAPPDATA": "C:\\Users\\ebrim\\AppData\\Local",
+        "LOGONSERVER": "\\\\CHAM-DEMBA",
+        "MAVEN_HOME": "C:\\Program Files\\apache-maven-3.9.11",
+        "NEXT_PUBLIC_ADDRESLY_ADMIN_URL": "https://admin.addresly.com",
+        "NODE": "C:\\Program Files\\nodejs\\node.exe",
+        "NODE_EXE": "C:\\Program Files\\nodejs\\\\node.exe",
+        "npm_command": "exec",
+        "npm_config_cache": "C:\\Users\\ebrim\\AppData\\Local\\npm-cache",
+        "npm_config_globalconfig": "C:\\Users\\ebrim\\AppData\\Roaming\\npm\\etc\\npmrc",
+        "npm_config_global_prefix": "C:\\Users\\ebrim\\AppData\\Roaming\\npm",
+        "npm_config_init_module": "C:\\Users\\ebrim\\.npm-init.js",
+        "npm_config_local_prefix": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server",
+        "npm_config_node_gyp": "C:\\Program Files\\nodejs\\node_modules\\npm\\node_modules\\node-gyp\\bin\\node-gyp.js",
+        "npm_config_noproxy": "",
+        "npm_config_npm_version": "10.8.2",
+        "npm_config_prefix": "C:\\Users\\ebrim\\AppData\\Roaming\\npm",
+        "npm_config_userconfig": "C:\\Users\\ebrim\\.npmrc",
+        "npm_config_user_agent": "npm/10.8.2 node/v20.20.0 win32 x64 workspaces/false",
+        "npm_execpath": "C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js",
+        "npm_lifecycle_event": "npx",
+        "npm_lifecycle_script": "playwright",
+        "npm_node_execpath": "C:\\Program Files\\nodejs\\node.exe",
+        "npm_package_json": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server\\package.json",
+        "npm_package_name": "narrate-licensing-server",
+        "npm_package_version": "0.1.0",
+        "NPM_PREFIX_JS": "C:\\Program Files\\nodejs\\\\node_modules\\npm\\bin\\npm-prefix.js",
+        "NPM_PREFIX_NPX_CLI_JS": "C:\\Users\\ebrim\\AppData\\Roaming\\npm\\node_modules\\npm\\bin\\npx-cli.js",
+        "NPX_CLI_JS": "C:\\Program Files\\nodejs\\\\node_modules\\npm\\bin\\npx-cli.js",
+        "NUMBER_OF_PROCESSORS": "12",
+        "OneDrive": "C:\\Users\\ebrim\\OneDrive",
+        "OneDriveConsumer": "C:\\Users\\ebrim\\OneDrive",
+        "OS": "Windows_NT",
+        "OWNER_ADMIN_SERVICE_URL": "http://localhost:9085",
+        "Path": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server\\node_modules\\.bin;C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server\\node_modules\\.bin;C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\node_modules\\.bin;C:\\Users\\ebrim\\Desktop\\node_modules\\.bin;C:\\Users\\ebrim\\node_modules\\.bin;C:\\Users\\node_modules\\.bin;C:\\node_modules\\.bin;C:\\Program Files\\nodejs\\node_modules\\npm\\node_modules\\@npmcli\\run-script\\lib\\node-gyp-bin;C:\\Program Files\\PowerShell\\7;c:\\Users\\ebrim\\AppData\\Roaming\\Code\\User\\globalStorage\\github.copilot-chat\\debugCommand;c:\\Users\\ebrim\\AppData\\Roaming\\Code\\User\\globalStorage\\github.copilot-chat\\copilotCli;C:\\Users\\ebrim\\AppData\\Local\\Programs\\Microsoft VS Code;C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.8.9-hotspot\\bin;C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.16.8-hotspot\\bin;C:\\windows\\system32;C:\\windows;C:\\windows\\System32\\Wbem;C:\\windows\\System32\\WindowsPowerShell\\v1.0\\;C:\\windows\\System32\\OpenSSH\\;C:\\Program Files\\Intel\\WiFi\\bin\\;C:\\Program Files\\Common Files\\Intel\\WirelessCommon\\;C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR;C:\\Program Files\\Git\\cmd;C:\\Program Files\\apache-maven-3.9.11\\bin;;C:\\Program Files\\Docker\\Docker\\resources\\bin;C:\\Program Files\\nodejs\\;C:\\Program Files\\GitHub CLI\\;C:\\Program Files (x86)\\cloudflared\\;C:\\Program Files\\dotnet\\;C:\\Program Files\\PowerShell\\7\\;C:\\Users\\ebrim\\AppData\\Local\\Programs\\Python\\Python314\\Scripts\\;C:\\Users\\ebrim\\AppData\\Local\\Programs\\Python\\Python314\\;C:\\Users\\ebrim\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Users\\ebrim\\AppData\\Local\\Programs\\Microsoft VS Code\\bin;C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.8.9-hotspot\\bin;C:\\Users\\ebrim\\AppData\\Local\\GitHubDesktop\\bin;C:\\Users\\ebrim\\AppData\\Local\\Programs\\Antigravity\\bin;C:\\Users\\ebrim\\AppData\\Local\\Android\\Sdk\\platform-tools;C:\\Users\\ebrim\\AppData\\Roaming\\npm;C:\\Program Files\\GitHub CLI;C:\\Users\\ebrim\\.pg-cli;C:\\Users\\ebrim\\.dotnet\\tools;C:\\Users\\ebrim\\AppData\\Local\\Microsoft\\WinGet\\Packages\\PHP.PHP.8.4_Microsoft.Winget.Source_8wekyb3d8bbwe;;C:\\Users\\ebrim\\AppData\\Local\\Programs\\Composer\\bin;c:\\Users\\ebrim\\.vscode\\extensions\\ms-python.debugpy-2025.18.0-win32-x64\\bundled\\scripts\\noConfigScripts;c:\\Users\\ebrim\\.vscode\\extensions\\vscjava.vscode-java-debug-0.58.5\\bundled\\scripts\\noConfigScripts",
+        "PATHEXT": ".COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC;.CPL",
+        "PG_PLAYWRIGHT_SCREENSHOT_MODE": "off",
+        "PG_PLAYWRIGHT_TRACE_MODE": "off",
+        "PG_PLAYWRIGHT_VIDEO_MODE": "off",
+        "PG_SMOKE_BASE_URL": "http://127.0.0.1:8787",
+        "PG_SMOKE_BROWSER_MATRIX": "minimal",
+        "PG_SMOKE_JSON_REPORT_PATH": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\Memory-bank\\_generated\\playwright-smoke\\20260328T224605Z\\report.json",
+        "PG_SMOKE_PORT": "8787",
+        "PG_SMOKE_REPORT_DIR": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\Memory-bank\\_generated\\playwright-smoke\\20260328T224605Z\\html-report",
+        "PG_SMOKE_RESULTS_DIR": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\Memory-bank\\_generated\\playwright-smoke\\20260328T224605Z\\test-results",
+        "PLATFORM_BOOTSTRAP_ENABLED": "false",
+        "PLATFORM_ROOT_OWNER_EMAIL": "admin@paygam.com",
+        "PLATFORM_ROOT_OWNER_MFA_REQUIRED": "false",
+        "PLATFORM_ROOT_OWNER_MFA_TEST_CODES": "none",
+        "PLATFORM_ROOT_OWNER_MFA_TEST_ENABLED": "false",
+        "PLATFORM_ROOT_OWNER_MFA_TEST_SECRET": "none",
+        "PLATFORM_ROOT_OWNER_PASSWORD": "P@yGamR00t#Secure2025!",
+        "PLATFORM_ROOT_OWNER_USERNAME": "PaiSainSys87XzKqLw39Gmaha",
+        "POSTGIS_ENABLE_OUTDB_RASTERS": "1",
+        "POSTGIS_GDAL_ENABLED_DRIVERS": "GTiff PNG JPEG GIF XYZ DTED USGSDEM AAIGrid",
+        "POWERSHELL_DISTRIBUTION_CHANNEL": "MSI:Windows 10 Pro",
+        "PROCESSOR_ARCHITECTURE": "AMD64",
+        "PROCESSOR_IDENTIFIER": "Intel64 Family 6 Model 158 Stepping 10, GenuineIntel",
+        "PROCESSOR_LEVEL": "6",
+        "PROCESSOR_REVISION": "9e0a",
+        "ProgramData": "C:\\ProgramData",
+        "ProgramFiles": "C:\\Program Files",
+        "ProgramFiles(x86)": "C:\\Program Files (x86)",
+        "ProgramW6432": "C:\\Program Files",
+        "PROJ_LIB": "C:\\Program Files\\PostgreSQL\\18\\share\\contrib\\postgis-3.6\\proj",
+        "PROMPT": "$P$G",
+        "PSExecutionPolicyPreference": "Bypass",
+        "PSModulePath": "C:\\Users\\ebrim\\Documents\\PowerShell\\Modules;C:\\Program Files\\PowerShell\\Modules;c:\\program files\\powershell\\7\\Modules;C:\\Users\\ebrim\\Documents\\WindowsPowerShell\\Modules;C:\\Program Files\\WindowsPowerShell\\Modules;C:\\windows\\system32\\WindowsPowerShell\\v1.0\\Modules",
+        "PUBLIC": "C:\\Users\\Public",
+        "PYDEVD_DISABLE_FILE_VALIDATION": "1",
+        "PYTHONSTARTUP": "c:\\Users\\ebrim\\AppData\\Roaming\\Code\\User\\workspaceStorage\\42a10386c884efe3bd151291e512355f\\ms-python.python\\pythonrc.py",
+        "PYTHON_BASIC_REPL": "1",
+        "REDIS_DATABASE": "0",
+        "REDIS_HOST": "localhost",
+        "REDIS_PORT": "6379",
+        "REDIS_URL": "redis://localhost:6379/0",
+        "SESSIONNAME": "Console",
+        "SMTP_HOST": "sandbox.smtp.mailtrap.io",
+        "SMTP_PASSWORD": "96928d4bbd8981",
+        "SMTP_PORT": "2525",
+        "SMTP_USERNAME": "7408c041670696",
+        "SPRING_PROFILES_ACTIVE": "dev",
+        "SPRING_SECURITY_USER_NAME": "chamdembacham12",
+        "SPRING_SECURITY_USER_PASSWORD": "P@yGamR00t#Secure2025!",
+        "SystemDrive": "C:",
+        "SystemRoot": "C:\\windows",
+        "TEMP": "C:\\Users\\ebrim\\AppData\\Local\\Temp",
+        "TERM_PROGRAM": "vscode",
+        "TERM_PROGRAM_VERSION": "1.111.0",
+        "TMP": "C:\\Users\\ebrim\\AppData\\Local\\Temp",
+        "USERDOMAIN": "CHAM-DEMBA",
+        "USERDOMAIN_ROAMINGPROFILE": "CHAM-DEMBA",
+        "USERNAME": "ebrim",
+        "USERPROFILE": "C:\\Users\\ebrim",
+        "VSCODE_DEBUGPY_ADAPTER_ENDPOINTS": "c:\\Users\\ebrim\\.vscode\\extensions\\ms-python.debugpy-2025.18.0-win32-x64\\.noConfigDebugAdapterEndpoints\\endpoint-263ef42b70388da4.txt",
+        "VSCODE_GIT_ASKPASS_EXTRA_ARGS": "",
+        "VSCODE_GIT_ASKPASS_MAIN": "c:\\Users\\ebrim\\AppData\\Roaming\\Code\\User\\globalStorage\\vscode.git\\askpass\\493597c785d4c5cb\\askpass-main.js",
+        "VSCODE_GIT_ASKPASS_NODE": "C:\\Users\\ebrim\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+        "VSCODE_GIT_IPC_HANDLE": "\\\\.\\pipe\\vscode-git-c757beeec2-sock",
+        "VSCODE_INJECTION": "1",
+        "VSCODE_JAVA_EXEC": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.8.9-hotspot\\bin\\java",
+        "VSCODE_JDWP_ADAPTER_ENDPOINTS": "c:\\Users\\ebrim\\.vscode\\extensions\\vscjava.vscode-java-debug-0.58.5\\.noConfigDebugAdapterEndpoints\\endpoint-263ef42b70388da4.txt",
+        "VSCODE_PYTHON_AUTOACTIVATE_GUARD": "1",
+        "windir": "C:\\windows",
+        "ZES_ENABLE_SYSMAN": "1",
+        "HOST": "127.0.0.1",
+        "PORT": "8787",
+        "STORE_BACKEND": "json",
+        "ENABLE_EMAIL_OTP": "true",
+        "EXPOSE_DEV_OTP_CODE": "true"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "pg-generated\\01-smoke.generated.spec.ts",
+      "file": "pg-generated/01-smoke.generated.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "PG authored smoke",
+          "file": "pg-generated/01-smoke.generated.spec.ts",
+          "line": 4,
+          "column": 6,
+          "specs": [
+            {
+              "title": "@smoke @pg-authored homepage renders visible content",
+              "ok": true,
+              "tags": [
+                "smoke",
+                "pg-authored"
+              ],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1557,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-28T22:46:28.856Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ee59769d12dc27c6c75d-bdcf23df60dc18c38f43",
+              "file": "pg-generated/01-smoke.generated.spec.ts",
+              "line": 5,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "smoke.auth.spec.ts",
+      "file": "smoke.auth.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "@smoke email auth flow signs into the portal",
+          "ok": true,
+          "tags": [
+            "smoke"
+          ],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 36229,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-03-28T22:46:31.052Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "89b700196bc0e90bb933-ed4f3ee39a5246619a78",
+          "file": "smoke.auth.spec.ts",
+          "line": 57,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "smoke.health.spec.ts",
+      "file": "smoke.health.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "@smoke health endpoint returns ok",
+          "ok": true,
+          "tags": [
+            "smoke"
+          ],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 42,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-03-28T22:47:07.342Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e78fabf6f0ef5f134784-cea36763f9d12f32c822",
+          "file": "smoke.health.spec.ts",
+          "line": 3,
+          "column": 5
+        },
+        {
+          "title": "@smoke landing page responds",
+          "ok": true,
+          "tags": [
+            "smoke"
+          ],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 21,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-03-28T22:47:07.413Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e78fabf6f0ef5f134784-c1ee7adf18ff0a0c4a10",
+          "file": "smoke.health.spec.ts",
+          "line": 10,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "smoke.stripe-checkout.spec.ts",
+      "file": "smoke.stripe-checkout.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "@smoke stripe checkout creates sessions for all paid yearly sku keys",
+          "ok": true,
+          "tags": [
+            "smoke"
+          ],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 24574,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-03-28T22:47:07.463Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "34f48c1dd656345cc38f-88b2b0231a2351400e0c",
+          "file": "smoke.stripe-checkout.spec.ts",
+          "line": 15,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-03-28T22:46:24.860Z",
+    "duration": 67372.18800000001,
+    "expected": 5,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

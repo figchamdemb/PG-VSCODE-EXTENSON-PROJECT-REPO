@@ -47,4 +47,9 @@ In Extension Development Host settings:
 - `narrate.licensing.mode = backend`
 - `narrate.licensing.apiBaseUrl = http://127.0.0.1:8787`
 
+Trust Score and other server-backed Narrate features require authentication in backend mode:
+
+- preferred path: run `Narrate: Sign In (Email)` or `Narrate: Sign In (GitHub)`
+- manual fallback: set `narrate.licensing.sessionToken` in VS Code settings if you need to provide a bearer token directly
+
 Keep `narrate.licensing.mode = placeholder` if backend is not running.

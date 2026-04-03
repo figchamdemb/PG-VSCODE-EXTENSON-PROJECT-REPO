@@ -1,6 +1,6 @@
 # Tools & Commands
 
-LAST_UPDATED_UTC: 2026-02-28 03:54
+LAST_UPDATED_UTC: 2026-03-28 03:30
 UPDATED_BY: codex
 PROJECT_TYPE: frontend
 
@@ -16,13 +16,124 @@ Single source for local run commands, runtime inventory, and command-surface ref
 | PowerShell | 7+/Windows PowerShell | local command flow | required for `pg.ps1` workflows |
 | cloudflared | 2025.8.1 | local tunnel/public domain ingress | installed via winget (`Cloudflare.cloudflared`) |
 
+## First-Run Terminal Rules
+- Always run PG commands from the project root that contains `pg.ps1`.
+- PowerShell directory change:
+  - `Set-Location "C:\real\project\root"`
+- CMD directory change:
+  - `cd /d "C:\real\project\root"`
+- If unsure which commands are available for an installed project profile:
+  - `.\pg.ps1 help`
+- If extension popup says `needs a PG project root`, click `Open Fix Guide` for exact PowerShell/CMD commands and detected root suggestions.
+- If running `.\pg.ps1` from the wrong folder, wrapper now prints a plain-language fix with both shells and expected files (`pg.ps1`, `scripts/pg.ps1`).
+- Hosted `/help` now includes tabbed operator docs:
+  - `Command Help`
+  - `About Narrate`
+  - `About Memory-bank + PG Install`
+  - `Slack Decision Flow`
+  - `Automation + Cloud + Enterprise`
+  - `Providers + Handoff`
+  - the `Command Help` tab now groups rows by workflow family so extension prompt commands, frontend/backend integration, secure review, governance, and enterprise controls are easier to find
+  - the `Command Help` tab now also includes workflow shortcut buttons that jump the table directly into prompt, integration, secure review, and governance slices
+  - `integration-*`, `backend-start`, and `frontend-start` are now labeled as `Pro/Team/Enterprise` in `/help`, matching the entitlement matrix and pricing catalog
+  - the extension Help sidebar now also includes a quick-access jump list for prompt commands, frontend/backend workflow, secure review, decision sync, Slack commands, and troubleshooting
+- If scope changes, track request IDs in spec + milestones:
+  - add REQ tags in `Memory-bank/project-spec.md` (example: `[REQ-2026-03-05-01]`),
+  - map same REQ tags in `Memory-bank/project-details.md` milestone rows/session updates.
+- If UI/frontend work is requested:
+  - read `docs/FRONTEND_DESIGN_GUARDRAILS.md` first,
+  - if the user provides a design guide/prompt/screenshot, use that as the primary design source and keep the repo guide as fallback only.
+  - the guide now includes secure mobile auth/approvals/vault pattern examples and button families for React, React Native, and Kotlin/Compose work.
+  - translate those patterns natively instead of copying HTML/Tailwind literally into another stack.
+- Agent startup instruction files:
+  - `AGENTS.md` remains the canonical repo workflow contract
+  - `ANTIGRAVITY.md` and `GEMINI.md` now mirror the startup contract with stronger top-of-file override wording for extension-based agents
+  - `.agents/workflows/startup.md` is an optional workflow helper for tools that support repo-local startup workflows or slash-style startup commands
+  - `AI_ENFORCEMENT_GUIDE.md` explains why markdown can improve compliance but does not replace hook/script enforcement
+- Narrate extension startup guard:
+  - auto-detects nearest `AGENTS.md` / `pg.ps1` context from the active file/workspace
+  - auto-runs `.\pg.ps1 start -Yes -EnforcementMode strict` once per context per UTC day
+  - reruns startup when you move into a new nested repo/subproject
+  - keeps mandatory enforcement active per workspace across restart until you explicitly stop it
+  - if a workspace has root `AGENTS.md` or `Memory-bank/` evidence but startup context is broken, Narrate now shows a fail-closed popup again instead of silently skipping enforcement
+  - extension auto-start also adds `-SkipDevProfileNotice` so local-only dev-profile reminders do not leak into normal user-facing startup UX
+  - `scripts/start_memory_bank_session.ps1` now verifies the repo-root `AGENTS.md` seal before refresh/enforcement work and restores the read-only bit when the file contents still match the sealed hash
+  - if map-structure artifacts are stale or missing, startup now auto-runs the default map refresh before continuing instead of failing immediately
+  - startup failure popups now summarize the real blocker text instead of dumping raw PowerShell wrapper or ANSI noise
+  - manual retry command: `Narrate: Run Startup For Current Context`
+  - explicit stop command: `Narrate: Stop PG Enforcement For Workspace`
+  - explicit resume command: `Narrate: Resume PG Enforcement For Workspace`
+  - terminal parity commands: `./pg.ps1 stop-enforcement` and `./pg.ps1 resume-enforcement`
+  - the terminal/extension bridge file is `Memory-bank/_generated/pg-enforcement-bridge.json`; if the extension is not loaded yet, the pending request remains there until the watcher acknowledges it
+  - important: healthy auto-start still needs the PG project controls (`AGENTS.md`, `pg.ps1`), but once enforcement is active the extension also treats root `AGENTS.md` or `Memory-bank/` evidence as sufficient to keep the workspace blocked locally until fixed or stopped
+- Extension manifest note:
+  - VS Code now auto-generates command/view activation events from `contributes`, so `extension/package.json` keeps only explicit non-generated activation entries such as `onStartupFinished`
+  - `scripts/narrate_flow_check.ps1` now treats contributed command declarations plus runtime registration as the source of truth when auto-generated activation is in use; it no longer false-fails on intentionally removed redundant `onCommand:` entries
+  - if you still see old activation-event warnings in the Problems panel after the manifest cleanup, reload the window or close/reopen `extension/package.json` so the diagnostics refresh
+- AGENTS protection helper:
+  - seal or repair: `powershell -ExecutionPolicy Bypass -File .\scripts\agents_integrity.ps1 -Action seal`
+  - verify without resealing: `powershell -ExecutionPolicy Bypass -File .\scripts\agents_integrity.ps1 -Action verify`
+  - status: `powershell -ExecutionPolicy Bypass -File .\scripts\agents_integrity.ps1 -Action status`
+  - state file: `Memory-bank/_generated/agents-integrity.json`
+  - note: this is a local safeguard, not a cryptographic remote attestation; an owner with local write access can still intentionally reseal after approved edits
+- Narrate Trust runtime:
+  - active-file Trust is now server-backed through `/account/policy/trust/evaluate`
+  - Narrate sends active file content, component hint, nearest-project validation-library metadata, and local IDE diagnostics
+  - Trust auth now uses the signed-in licensing token from extension secret storage by default
+  - manual fallback remains available through the visible VS Code setting `narrate.licensing.sessionToken`
+  - guarded workflow commands now stop when Trust is blocked or when backend Trust cannot evaluate the active file
+  - latest dependency/coding verification findings are persisted into `Memory-bank/_generated/self-check-latest.json` so handoff prompts and external tools can read current warnings
+- Licensing browser-return flow:
+  - `Narrate: Sign In (GitHub)` now opens the provider sign-in page in the browser and returns to the installed editor through a trusted editor callback URI
+  - `Narrate: Upgrade Plan (Checkout)` still opens Stripe Checkout in the browser, but the hosted success/cancel pages now try to return the customer to the editor and auto-refresh the license on success
+  - backend allowlist envs for editor return: `OAUTH_CALLBACK_SCHEMES` and `OAUTH_EDITOR_CALLBACK_HOSTS`
+
+### One-time project bootstrap (PowerShell)
+- `pg install backend --target "."`
+- `pg install frontend --target "."` (frontend-only projects)
+- `./pg.ps1 upgrade-scaffold -DryRun`
+- `./pg.ps1 install backend --target "C:\real\other-repo" -UpgradeScaffold -DryRun`
+- `./pg.ps1 integration-init` (existing repo bootstrap for the shared frontend/backend integration ledger)
+- `.\pg.ps1 start -Yes`
+- `.\pg.ps1 map-structure` (legacy/half-built project scan)
+- `.\pg.ps1 status`
+
+### One-time project bootstrap (CMD)
+- `pg install backend --target "."`
+- `pg install frontend --target "."` (frontend-only projects)
+- `pg.cmd integration-init`
+- `pg.cmd start -Yes`
+- `pg.cmd map-structure`
+- `pg.cmd status`
+- note: in plain CMD prefer `pg.cmd ...`; reserve `.\pg.ps1 ...` for PowerShell and `pwsh`
+
+### Legacy project structure mapping (project root)
+- Command:
+  - `.\pg.ps1 map-structure`
+  - aliases: `.\pg.ps1 structure-map`, `.\pg.ps1 scan-structure`
+- Purpose:
+  - aggressively scan existing source tree and migration/schema artifacts,
+  - generate first-pass docs:
+    - `Memory-bank/code-tree/auto-*-tree.md`
+    - `Memory-bank/db-schema/auto-discovered-schema.md`
+    - `Memory-bank/_generated/map-structure-latest.json`
+- Optional tuning:
+  - `-MapProfile auto|backend|frontend|mobile`
+  - `-MapMaxDepth 4`
+  - `-MapMaxEntries 1400`
+  - `-MapMaxComponents 12`
+
 ## Core Commands
 ### Memory-bank session (project root)
 - Start:
   - `.\pg.ps1 start -Yes`
   - `.\pg.ps1 start -Yes -EnforcementMode warn|strict`
+  - `./pg.ps1 start -Yes -EnforcementMode strict -SkipDevProfileNotice` (internal extension startup path)
+  - default enforcement mode is now `strict` (legacy map docs must be fresh); use `-EnforcementMode warn` only when you intentionally need warning-only behavior.
+  - emergency bypass only: `.\pg.ps1 start -Yes -SkipMapStructureGate`
 - Status:
   - `.\pg.ps1 status`
+  - status output now includes daily retention summary (`daily_reports_count`, `daily_keep_days`, `daily_retention`).
 - End:
   - `.\pg.ps1 end -Note "finished for today"`
 - Alternate start:
@@ -31,8 +142,194 @@ Single source for local run commands, runtime inventory, and command-surface ref
   - `python scripts/build_frontend_summary.py`
 - Generate/update Memory-bank:
   - `python scripts/generate_memory_bank.py --profile frontend --keep-days 7`
+  - generator now auto-prunes future-dated daily files and oldest overflow files to enforce retention cap.
+  - generator now also rotates oversized append-only logs (`agentsGlobal-memory.md`, `mastermind.md`) into `Memory-bank/_archive/`.
+- Memory-bank enforcement now defaults to hard-blocking behavior:
+  - `scripts/memory_bank_guard.py` defaults to `strict`
+  - hook installers now default to `strict`
+  - CI guard defaults to `strict` unless `MB_ENFORCEMENT_MODE` is explicitly overridden
+  - `./pg.ps1 self-check` now runs the Memory-bank guard against the working tree after writing the self-check summary, so local agent edits are checked before commit hooks ever run
+  - same-machine rollout rule: extension/VSIX update is machine-wide after install + VS Code window reload, but hooks/session/generated state remain repo-local, so each existing repo still needs `./pg.ps1 start -Yes` and a strict self-check after receiving the updated repo files
+- Offline payment local workflow:
+  - use `Create Offline Reference` to generate the bank-transfer reference code
+  - the payer should include that `OFF...` code in the bank transfer note/description
+  - `Mark Payment Sent For Review` only flags the reference for manual review; it does not require a proof URL
+  - approval still happens only after admin bank reconciliation and offline review approval
 - Install hooks:
-  - `powershell -ExecutionPolicy Bypass -File scripts/install_memory_bank_hooks.ps1 -Mode warn`
+  - `powershell -ExecutionPolicy Bypass -File scripts/install_memory_bank_hooks.ps1 -Mode strict`
+
+### Scaffold upgrade workflow
+- Current repo preview:
+  - `./pg.ps1 upgrade-scaffold -DryRun`
+- Current repo apply:
+  - `./pg.ps1 upgrade-scaffold -Yes`
+- Refresh machine-global PG CLI payload:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\sync_global_pg_cli.ps1`
+- Cross-repo compatibility path from an updated PG root:
+  - `./pg.ps1 install backend --target "C:\real\other-repo" -UpgradeScaffold -DryRun`
+  - `./pg.ps1 install backend --target "C:\real\other-repo" -UpgradeScaffold -Yes`
+- True stale-repo local path after global sync:
+  - `pg install backend -UpgradeScaffold -DryRun`
+  - `pg install backend -UpgradeScaffold -Yes`
+- Output:
+  - report bundle at `Memory-bank/_generated/scaffold-upgrades/<session-id>/`
+  - scaffold version marker at `Memory-bank/_generated/pg-scaffold-version.json`
+- Default safety rules:
+  - preview-only unless `-Yes` is supplied
+  - preserve `Memory-bank/` history and app source
+  - replace PG-managed wrappers/scripts
+  - flag instruction-file conflicts for manual review instead of blind overwrite
+
+### Playwright authoring + full evidence workflow
+- Generate authored suite from the current frontend/server project:
+  - `./pg.ps1 playwright-author`
+- Run the existing PG Playwright suite only:
+  - `./pg.ps1 playwright-smoke-check -PlaywrightBrowserMatrix minimal|desktop|full -InstallPlaywrightBrowsers`
+- Run the full authored workflow in one command:
+  - `./pg.ps1 playwright-full-check -PlaywrightBrowserMatrix minimal|desktop|full -InstallPlaywrightBrowsers`
+- Generated/managed authored suite paths:
+  - `server/tests/pg-generated/`
+  - `Memory-bank/_generated/playwright-authoring/playwright-authoring-latest.json`
+- Latest run/report pointers:
+  - `Memory-bank/_generated/playwright-smoke/playwright-smoke-latest.json`
+  - `Memory-bank/_generated/playwright-full-check/playwright-full-check-latest.json`
+- Per-run failure evidence now also includes:
+  - `failures.json` (machine-readable failing-test list)
+  - `failures.md` (operator-friendly failing-test list)
+  - retained screenshot, video, trace, and `error-context.md` attachments from Playwright failures
+- Current authored-suite footprint:
+  - grouped route, forms, suspicious-input, accessibility, and commerce-like specs under `server/tests/pg-generated/`
+  - full-matrix authored run on this repo currently completes in roughly 20 minutes on one worker (`205` total tests, `105` passed, `100` skipped)
+
+### Narrate exact-view sync + enforcement bridge
+- Reading UX:
+  - exact side-by-side Narrate view now mirrors source-line selections into the narration pane and mirrors narration selections back to the source editor
+  - whole selected line ranges are highlighted on both sides and auto-revealed when they are outside the current viewport
+  - side-by-side open now preserves focus on the source editor so the Narrate pane follows the code instead of stealing focus
+- Terminal enforcement bridge:
+  - `./pg.ps1 stop-enforcement`
+  - `./pg.ps1 resume-enforcement`
+  - `pg.cmd stop-enforcement`
+  - `pg.cmd resume-enforcement`
+  - bridge file: `Memory-bank/_generated/pg-enforcement-bridge.json`
+  - expected behavior: if the updated extension host is active, the file status changes from `pending` to `applied`; otherwise the request remains queued until the extension watcher processes it
+  - shell rule: use `.\pg.ps1 ...` in PowerShell or `pwsh`, and use `pg.cmd ...` in plain CMD so users do not need to remember the PowerShell wrapper syntax
+
+### Frontend integration workflow (project root)
+- Purpose:
+  - keep backend/frontend handoff state in `Memory-bank/frontend-integration.md`, `Memory-bank/frontend-integration/state.json`, and page files under `Memory-bank/frontend-integration/pages/`
+  - enforce a short summary/index plus page-by-page detail with explicit agent identities and correction buckets
+- Canonical commands:
+  - `./pg.ps1 integration-init`
+  - `./pg.ps1 integration-worker -Role backend|frontend -PollSeconds 30`
+  - `./pg.ps1 backend-start`
+  - `./pg.ps1 frontend-start`
+  - `./pg.ps1 backend-start -Persistent -PollSeconds 30`
+  - `./pg.ps1 frontend-start -Persistent -PollSeconds 30`
+  - `./pg.ps1 backend-stop`
+  - `./pg.ps1 frontend-stop`
+  - `./pg.ps1 integration-stop -Role backend|frontend`
+  - `./pg.ps1 integration-end -Role backend|frontend`
+  - `./pg.ps1 integration-status`
+  - `./pg.ps1 integration-summary`
+  - `./pg.ps1 integration-next -Role backend|frontend`
+  - `./pg.ps1 integration-ready -StepId 01-auth-login`
+  - `./pg.ps1 integration-complete -StepId 01-auth-login`
+  - `./pg.ps1 integration-watch -Role frontend -PollSeconds 30 -Once`
+  - `./pg.ps1 integration-export -StepId 01-auth-login`
+  - `./pg.ps1 integration-report -StepId 01-auth-login -Kind backend-missing -Details "describe the blocker"`
+  - `./pg.ps1 integration-respond -StepId 01-auth-login -Resolution fixed -Details "describe the response"`
+  - `./pg.ps1 integration-open-page -PageId 02-dashboard`
+- Alias forms:
+  - `./pg.ps1 start backend`
+  - `./pg.ps1 start frontend`
+  - `./pg.ps1 integration worker backend`
+  - `./pg.ps1 integration summary`
+  - `./pg.ps1 integration stop backend`
+  - `./pg.ps1 integration end frontend`
+  - `./pg.ps1 integration page 02-dashboard`
+  - `./pg.ps1 integration ready 01-auth-login`
+  - `./pg.ps1 integration complete 01-auth-login`
+  - `./pg.ps1 integration report 01-auth-login`
+  - `./pg.ps1 integration respond 01-auth-login`
+- Notes:
+  - `integration-worker` is the dedicated persistent worker command; it maps to the same integration engine but defaults to worker-oriented session semantics and persistent watch behavior
+  - default integration polling cadence is `30` seconds unless `-PollSeconds` is explicitly passed
+  - `backend-start` and `frontend-start` now support `-Persistent` to claim the role and immediately enter the same local watch loop that `integration-watch` uses
+  - use `-Persistent` when each agent already has its own terminal/chat context and should keep heartbeating locally without requiring a second explicit watch command
+  - use `backend-stop`, `frontend-stop`, `integration-stop`, or `integration-end` from another terminal when a persistent worker needs to exit cleanly on the next heartbeat cycle instead of being killed abruptly
+  - the worker stop/end signal is stored in the minimal generated file `Memory-bank/_generated/frontend-integration-runtime.json`; the human-facing ledger remains in `Memory-bank/frontend-integration.*`
+  - that generated runtime file now uses a DPAPI-backed protected envelope instead of plain JSON on disk
+  - `scripts/project_setup.ps1` now auto-scaffolds the integration surface for new project bootstraps
+  - existing or legacy repos that predate this workflow may need one-time `./pg.ps1 integration-init` if `Memory-bank/frontend-integration.md` is missing
+  - `backend-start` and `frontend-start` are role-claim commands only; they do not replace `pg install ...` or `./pg.ps1 start -Yes`
+  - guard enforcement now requires the integration summary/state/page artifacts to exist and keeps integration page files at `<=500` lines
+  - `scripts/frontend_integration.ps1 -Action summary` now seeds page evidence so the generated login/dashboard ledgers include backend endpoints, auth notes, request/response/error examples, smoke notes, and developer action guidance by default
+  - when `PG_ACCESS_TOKEN`, `-AccessToken`, or lifecycle auth state is available, the same commands now sync through `/account/integration/orchestration/*` on the local server and write a redacted local projection while keeping full workflow detail on the server
+  - authenticated server-backed mode now requires the integration entitlement and a short-lived worker lease that rotates on each state/sync call
+  - server-backed mode keeps protected audit history and transition validation outside the local markdown ledger while still preserving local-only fallback for unauthenticated repos
+  - `local-first` here means the worker heartbeat/control loop can run without remote polling; it does not mean the private orchestration logic or audit trail have to live only on disk when authenticated server mode is available
+
+### Review workflow (project root)
+- Purpose:
+  - keep builder/reviewer handoff state in `Memory-bank/review-workflow.md`, `Memory-bank/review-workflow/state.json`, and page files under `Memory-bank/review-workflow/pages/`
+  - keep role heartbeat and stop/end control in `Memory-bank/_generated/review-workflow-runtime.json`
+  - force builder/reviewer communication through structured findings, builder replies, and reviewer approval notes instead of ad hoc chat handoff
+  - `/help` and the extension command help now list this workflow as `Pro/Team/Enterprise`, with Team/Enterprise called out as the collaborative and automation-heavy tiers
+- Canonical commands:
+  - `./pg.ps1 review-init -Title "review batch" -Details "scope"`
+  - `./pg.ps1 review-builder-start`
+  - `./pg.ps1 review-reviewer-start`
+  - `./pg.ps1 review-builder-start -Persistent -PollSeconds 30`
+  - `./pg.ps1 review-reviewer-start -Persistent -PollSeconds 30`
+  - `./pg.ps1 review-status`
+  - `./pg.ps1 review-summary`
+  - `./pg.ps1 review-report -PageId 01-review-workflow-baseline -Title "finding" -Kind medium -Details "evidence"`
+  - `./pg.ps1 review-respond -PageId 01-review-workflow-baseline -Resolution fixed -Details "patch + validation"`
+  - `./pg.ps1 review-approve -PageId 01-review-workflow-baseline -Details "verified"`
+  - `./pg.ps1 review-stop -Role builder|reviewer`
+  - `./pg.ps1 review-end -Details "finished"`
+  - `./pg.ps1 review-open-page -PageId 01-review-workflow-baseline`
+- Alias forms:
+  - `./pg.ps1 review init`
+  - `./pg.ps1 review builder-start`
+  - `./pg.ps1 review reviewer-start`
+  - `./pg.ps1 review status`
+  - `./pg.ps1 review summary`
+  - `./pg.ps1 review report 01-review-workflow-baseline`
+  - `./pg.ps1 review respond 01-review-workflow-baseline`
+  - `./pg.ps1 review approve 01-review-workflow-baseline`
+  - `./pg.ps1 review stop builder`
+  - `./pg.ps1 review end`
+  - `./pg.ps1 review page 01-review-workflow-baseline`
+- Notes:
+  - `review-init` creates the summary ledger, machine-readable state, generated runtime control file, and the first page markdown under `Memory-bank/review-workflow/pages/`
+  - `review-respond` acts as the builder publish command when no reviewer findings exist yet, then acts as the builder reply command once findings are open
+  - `review-report` records reviewer findings against the active or requested page and sets the next actor back to `builder`
+  - `review-approve` verifies open findings on the current page and marks that page approved
+  - `review-builder-start` and `review-reviewer-start` claim the role once; add `-Persistent` to keep a heartbeat loop running until `review-stop` or `review-end` is issued
+  - when `PG_ACCESS_TOKEN`, `-AccessToken`, or lifecycle auth state is available, the same commands now sync through `/account/review/orchestration/*` on the local server and write a redacted local projection while keeping full review detail on the server
+  - saved lifecycle auth in `Memory-bank/_generated/pg-cli-state.json` now auto-engages authenticated server-backed review mode on the normal `./pg.ps1 review-*` path again; explicit `-AccessToken` is only needed when you want to override the saved session
+  - authenticated server-backed mode now requires the secure review entitlement and a short-lived worker lease that rotates on each state/sync call
+  - `Memory-bank/_generated/review-workflow-runtime.json` is now stored as a DPAPI-protected envelope instead of plaintext JSON
+  - server-backed mode keeps protected audit history and transition validation outside the local markdown ledger while still preserving local-only fallback for unauthenticated repos
+  - local regression helper: `./scripts/review_workflow_regression_check.ps1`
+
+### Playwright smoke validation (project root or `server/`)
+- Server-local command:
+  - `Set-Location server; npm run playwright:install`
+  - `Set-Location server; npm run smoke:playwright`
+  - `Set-Location server; npm run smoke:playwright:report`
+- Repo-root validation path:
+  - `./pg.ps1 playwright-smoke-check -PlaywrightBrowserMatrix full -InstallPlaywrightBrowsers`
+  - `./pg.ps1 self-check -WarnOnly -EnableDbIndexMaintenanceCheck -PlaywrightBrowserMatrix desktop`
+  - `./pg.ps1 self-check -EnableDbIndexMaintenanceCheck -PlaywrightBrowserMatrix full -InstallPlaywrightBrowsers`
+  - Local/offline override example: `./pg.ps1 self-check -EnableDbIndexMaintenanceCheck -EnablePlaywrightSmokeCheck -PlaywrightBrowserMatrix full -InstallPlaywrightBrowsers -SkipRegistryFetch -AllowDbIndexConnectionWarning`
+- Notes:
+  - mandatory smoke now covers `/health`, `/`, and a real `/app` local email-auth flow
+  - the smoke harness uses a dedicated local port (`8791`) and smoke-only env overrides: `STORE_BACKEND=json`, `ENABLE_EMAIL_OTP=true`, `EXPOSE_DEV_OTP_CODE=true`
+  - PG-run smoke now writes HTML/JSON evidence under `Memory-bank/_generated/playwright-smoke/` and surfaces the latest artifact paths in the terminal + self-check summary
+  - browser matrix modes are `minimal` (chromium), `desktop` (chromium/firefox/webkit), and `full` (desktop + mobile Chrome/Safari)
 
 ### PG CLI lifecycle (project root)
 - Login and persist CLI auth/profile state:
@@ -180,6 +477,15 @@ Single source for local run commands, runtime inventory, and command-surface ref
   - dependency payload now includes local `npm audit --json --package-lock-only` severity metadata per package when lockfiles are present.
   - high/critical vulnerability severity in dependency scanner input is treated as blocker by server policy (`DEP-SEC-001`).
   - stale `@types/*` packages are now warning-only (`DEP-MAINT-003`) to reduce false hard blocks while keeping vulnerability severity gates strict.
+  - npm registry metadata lookup now uses bounded retry/backoff for transient failures (`408/425/429/500/502/503/504`, abort/timeout/network errors) to reduce false `DEP-REGISTRY-001` blocks in strict self-check.
+  - freshness/maintenance warnings now trigger backend dependency review via `/account/policy/dependency/review`, returning review action/status and official source links that are persisted into `self-check-latest.json`.
+
+### Coding verification notes
+- Server coding verification now also checks:
+  - hardcoded secret-like literals and private-key blocks in source code (`COD-SEC-*`)
+  - NestJS module metadata complexity and placeholder-like module names (`COD-NEST-*`)
+- Review-only policy remains separate from hard automation:
+  - "reuse existing logic before adding another same-purpose block" is documented policy, but not currently a deterministic automated check
 
 ### Scheduled dependency drift check (CI)
 - Workflow:
@@ -320,9 +626,12 @@ Single source for local run commands, runtime inventory, and command-surface ref
 - Optional flags:
   - `-PlaywrightWorkingDirectory .\server` (or any repo-relative path with Playwright config/tests)
   - `-PlaywrightConfigPath .\playwright.config.ts`
+  - `-PlaywrightBrowserMatrix minimal|desktop|full`
+  - `-InstallPlaywrightBrowsers`
 - Behavior:
   - fails closed when Playwright config/dependency/tests are missing.
   - if `@smoke` tag exists in tests, runs only smoke-tagged tests; otherwise runs full Playwright suite.
+  - writes HTML report, JSON report, and Playwright failure artifacts under `Memory-bank/_generated/playwright-smoke/`.
 
 ### Enforcement trigger bridge (project root)
 - Run trigger phase manually:
@@ -338,17 +647,22 @@ Single source for local run commands, runtime inventory, and command-surface ref
 
 ### As-you-go self-check bridge (project root, agent-first)
 - Run proactive verification while implementing changes:
-  - `.\pg.ps1 self-check -WarnOnly -EnableDbIndexMaintenanceCheck`
-  - `.\pg.ps1 as-you-go-check -WarnOnly -EnableDbIndexMaintenanceCheck` (alias)
+  - `.\pg.ps1 self-check -WarnOnly -EnableDbIndexMaintenanceCheck -PlaywrightBrowserMatrix desktop`
+  - `.\pg.ps1 as-you-go-check -WarnOnly -EnableDbIndexMaintenanceCheck -PlaywrightBrowserMatrix desktop` (alias)
 - Web/UI tasks:
-  - `.\pg.ps1 self-check -WarnOnly -EnableDbIndexMaintenanceCheck -EnablePlaywrightSmokeCheck`
+  - Playwright smoke is already mandatory inside `self-check`; no extra gate flag is required.
 - Strict completion check (before declaring task done):
-  - `.\pg.ps1 self-check -EnableDbIndexMaintenanceCheck`
+  - `.\pg.ps1 self-check -EnableDbIndexMaintenanceCheck -PlaywrightBrowserMatrix full -InstallPlaywrightBrowsers`
 - Behavior:
   - runs post-write enforcement trigger against changed files,
   - runs DB index maintenance diagnostics (JSON mode),
   - auto-generates DB fix plan when DB findings exist (unless `-SkipAutoDbFixPlan` is used),
-  - optionally runs Playwright smoke checks.
+  - always runs Playwright smoke checks and now persists the latest report/artifact paths into `Memory-bank/_generated/self-check-latest.json`.
+  - local dependency/coding/trust routes still resolve to `http://127.0.0.1:8787` by default; if logs show `127.0.0.1:8787` connection refusal, start the local backend before chasing Playwright or Cloudflare issues.
+- Hard enforcement before final Memory-bank update/commit:
+  - latest `Memory-bank/_generated/self-check-latest.json` must be `PASS`,
+  - warn-only runs are rejected for final commit,
+  - latest strict self-check must include the mandatory Playwright stage.
 - Optional flags:
   - `-ChangedPath <file1,file2,...>` (override changed-file detection)
   - `-ScanPath <path1,path2,...>`
@@ -367,9 +681,9 @@ Single source for local run commands, runtime inventory, and command-surface ref
   - `PG_ACCESS_TOKEN` environment variable
   - `Memory-bank/_generated/governance-agent-state.json` (`access_token`)
 - Prod profile behavior:
-  - `legacy`: dependency + coding only
-  - `standard` (default): dependency + coding + API contract + DB index maintenance
-  - `strict`: standard + Playwright smoke
+  - `legacy`: dependency + coding + Playwright smoke
+  - `standard` (default): legacy + API contract + DB index maintenance
+  - `strict`: standard + future strict-only overlays
   - if `-ProdProfile` is omitted and lifecycle state exists, `pg prod` auto-uses entitlement-synced `recommended_prod_profile` from `pg-cli-state.json`.
 - Optional flags:
   - `-IncludeDevDependencies` (default checks only runtime dependencies)
@@ -389,6 +703,9 @@ Single source for local run commands, runtime inventory, and command-surface ref
 ### Cloudflare tunnel (project root)
 - Install cloudflared:
   - `winget install -e --id Cloudflare.cloudflared --accept-package-agreements --accept-source-agreements`
+- Usage boundary:
+  - Cloudflare tunnel exposes the already-running local backend for public URL checks (`/`, `/pricing`, OAuth callbacks, webhook/browser access).
+  - It does not replace the local `127.0.0.1:8787` origin that `pg start`, dependency verification, and self-check enforcement call directly.
 - Quick temporary demo URL:
   - `powershell -ExecutionPolicy Bypass -File scripts/setup_cloudflare_tunnel.ps1 -Mode quick -OriginUrl http://127.0.0.1:8787`
 - Named domain tunnel:
@@ -401,6 +718,25 @@ Single source for local run commands, runtime inventory, and command-surface ref
   - `npm run compile`
 - Watch:
   - `npm run watch`
+
+### Local VSIX install (normal VS Code profile)
+- One-command compile + package + install (recommended):
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\local_extension_install.ps1`
+- Optional script flags:
+  - `-SkipCompile`
+  - `-SkipPackage`
+  - `-SkipInstall`
+  - `-NoForce`
+  - `-ExtensionDir <path>`
+- VS Code task buttons (Run Task):
+  - `compile-extension`
+  - `package-extension-vsix`
+  - `local-install-extension-vsix`
+- Verify installed extension:
+  - `code --list-extensions | findstr narrate`
+  - expected: `figchamdemb.narrate-vscode-extension`
+- Full local install + UI verification guide:
+  - `docs/LOCAL_VSIX_INSTALL_AND_UI_TEST.md`
 
 ### Licensing backend (from `server/`)
 - Install dependencies:
@@ -421,6 +757,10 @@ Single source for local run commands, runtime inventory, and command-surface ref
   - `npm run prisma:studio`
 - Open hosted landing page:
   - `http://127.0.0.1:8787/`
+- Open pricing matrix page:
+  - `http://127.0.0.1:8787/pricing`
+- Open tier command help page:
+  - `http://127.0.0.1:8787/help`
 - Open secure portal app:
   - `http://127.0.0.1:8787/app`
 
@@ -429,6 +769,20 @@ Single source for local run commands, runtime inventory, and command-surface ref
 - Choose `Run Narrate Extension (root workspace)` from `.vscode/launch.json`.
 - Option B: open `extension/` directly and run `Run Narrate Extension`.
 - If commands show `...not found` in Extension Development Host, restart using root workspace debug profile and rerun `Narrate: Run Command Diagnostics`.
+
+### Local VSIX install into normal VS Code
+- One-command reinstall:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\local_extension_install.ps1`
+- What it does:
+  - compile extension
+  - package VSIX
+  - install into the normal VS Code profile with `--force`
+- Windows note:
+  - the installer now prefers the VS Code CLI shim (`code.cmd`) instead of `Code.exe`
+  - if you previously saw `Code.exe: bad option: --install-extension`, rerun the updated installer script
+- Fast verification:
+  - `C:\Users\ebrim\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd --list-extensions | findstr narrate`
+  - then run `Developer: Reload Window` in normal VS Code so the Extensions pane refreshes the newly installed local VSIX
 
 ### Scalability architecture intake (policy workflow)
 - Policy source:
@@ -473,6 +827,9 @@ Single source for local run commands, runtime inventory, and command-surface ref
 - `Narrate: Show Project Quota`
 - `Narrate: Manage Devices`
 - `Narrate: Open Command Help` (opens/focuses the `Narrate Help` sidebar with command runbook + troubleshooting)
+- `Narrate: Open Model Settings` (one-click jump to VS Code Settings filtered to `narrate.model.*`)
+- `Narrate: Run Startup For Current Context` (re-runs nearest-context startup when auto-run failed or when you want to force a fresh startup check in the current repo/subrepo)
+- `Narrate: Open Toggle Control Panel` (opens/focuses the color-button non-technical toggle panel in the same `Narrate Help` sidebar)
 - `Narrate: Run Command Diagnostics` (runs local health + Slack health + dev-profile + governance worker + Narrate baseline checks, then auto-saves `Memory-bank/_generated/command-diagnostics-latest.md` and `.json` plus timestamped snapshots; completion toast includes quick actions to open/copy paths)
 - `Narrate: Generate Codebase Tour` (scans workspace architecture and opens onboarding report with entrypoints, route/controller surface, dependency hotspots, and coupling hotspots)
 - `Narrate: Run Dead Code Scan` (opens confidence-tiered dead-code candidate report; high confidence from TS unused diagnostics, medium/low from import-graph orphan detection)
@@ -483,21 +840,34 @@ Single source for local run commands, runtime inventory, and command-surface ref
 - `Narrate: OpenAPI Check` (short alias command for fast API contract validation run)
 - `Narrate: OpenAPI Fix Handoff Prompt` (runs validator and copies an LLM-ready mismatch-fix prompt to clipboard)
 - `Narrate: Environment Doctor Quick Fix (.env.example)` (runs doctor and appends missing referenced keys into `.env.example` placeholders)
-- `Narrate: Show Trust Score Report` (opens latest trust score findings with rule IDs, blockers, warnings, score, and grade)
+- `Narrate: Show Trust Score Report` (opens latest server-backed trust findings with rule IDs, blockers, warnings, score, and grade)
 - `Narrate: Open Trust Score Panel` (focuses sidebar panel with summary badge + findings)
 - `Narrate: Toggle Trust Score` (enable/disable trust scoring from UI)
-- `Narrate: Refresh Trust Score` (manual trust evaluation run for current active file)
+- `Narrate: Refresh Trust Score` (manual backend trust evaluation run for current active file plus local diagnostics)
 - `Narrate: Run Trust Score Workspace Scan` (runs aggregate trust scan across workspace source files and opens markdown summary report)
 - `Narrate: Restart TypeScript + Refresh Trust Score` (save all + restart TS server + trust refresh when Problems tab is stale)
-- `Narrate: Setup Validation Library` (install latest validation package with Zod recommended default, then refresh trust)
+- `Narrate: Setup Validation Library` (install latest validation package into the nearest active project root with Zod recommended default, then refresh trust)
+- `Narrate: Request Change Prompt` (now includes latest dependency/coding enforcement warnings from `self-check-latest.json`, plus dependency review action/status and official source URLs when server-backed review results exist)
 
 ### Reading-view defaults (settings)
+- Fast open command:
+  - `Narrate: Open Model Settings`
+- `narrate.model.baseUrl` (OpenAI-compatible endpoint; supports provider URLs like OpenAI/Ollama/OpenRouter)
+- `narrate.model.modelId` (provider model name/id)
+- `narrate.model.apiKey` (provider key; optional for local fallback paths)
+- `narrate.model.timeoutMs` (provider request timeout)
+- Provider proof test (Ollama example):
+  - run `ollama serve`,
+  - set `narrate.model.baseUrl = http://127.0.0.1:11434/v1`,
+  - set `narrate.model.modelId = llama3.1`,
+  - open any code file and run `Narrate: Toggle Reading Mode (Dev)`.
 - `narrate.reading.defaultViewMode`: `exact | section` (default `exact`)
 - `narrate.reading.defaultPaneMode`: `sideBySide | fullPage` (default `sideBySide`)
 - `narrate.reading.showStatusBarControls`: `true | false` (default `true`)
 - `narrate.trustScore.enabled`: `true | false` (default `true`)
 - `narrate.trustScore.showStatusBar`: `true | false` (default `true`)
 - `narrate.trustScore.autoRefreshOnSave`: `true | false` (default `true`; when `false`, use `Narrate: Refresh Trust Score`)
+- `narrate.trustScore.validationLibraryPolicy`: `off | warn | required` (default `warn`; metadata sent with Trust requests for controller/route files)
 - `narrate.trustScore.pgPushGateMode`: `off | relaxed | strict` (default `off`; strict blocks push on trust blockers/red status, relaxed warns and allows manual continue)
 - `narrate.trustScore.workspaceScanMaxFiles`: integer (default `250`)
 - `narrate.trustScore.workspaceScanIncludeGlob`: glob (default `**/*.{ts,tsx,js,jsx,py,java,go,rs,cs,php,rb}`)
@@ -607,6 +977,35 @@ Single source for local run commands, runtime inventory, and command-surface ref
 - `SLACK_ALLOWED_EMAILS` (comma-separated)
 - `SLACK_REQUEST_MAX_AGE_SECONDS`
 
+### Local admin portal test flow
+- Local origin health:
+  - `http://127.0.0.1:8787/health`
+- Local portal:
+  - `http://127.0.0.1:8787/app`
+- Easier local-only email sign-in:
+  - set `ENABLE_EMAIL_OTP="true"` in `server/.env`
+  - keep `.env.example` production-safe with both flags `false`
+  - for repeated local portal/extension retries, keep the local verify limiter loose enough to avoid five-hour lockouts during debugging:
+    - `AUTH_VERIFY_RATE_LIMIT_MAX="50"`
+    - `AUTH_VERIFY_RATE_LIMIT_WINDOW="15 minutes"`
+- Super-admin local test path:
+  - use the email already present in `SUPER_ADMIN_EMAILS` / `ADMIN_BOOTSTRAP_SUPER_ADMIN_EMAILS`
+  - click `Send Email Code` in `/app` or call `POST /auth/email/start`
+  - enter the code in `/app` or the extension email sign-in prompt when using the normal local verification flow
+  - optionally set `EXPOSE_DEV_OTP_CODE="true"` in `server/.env` so the returned `dev_code` can be used immediately in the same UI or prompt for local-only testing
+- Local GitHub/Google OAuth test path:
+  - for local provider sign-in on `127.0.0.1:8787`, keep `PUBLIC_BASE_URL`, `GITHUB_REDIRECT_URI`, `GOOGLE_REDIRECT_URI`, `CHECKOUT_SUCCESS_URL`, and `CHECKOUT_CANCEL_URL` pointed at `http://127.0.0.1:8787` in `server/.env`
+  - your GitHub or Google account email can be real; the common failure is redirect/origin mismatch, not the email identity itself
+  - the extension GitHub flow uses a trusted loopback `callback_url`, so `OAUTH_CALLBACK_ORIGINS` must continue to allow `http://127.0.0.1:8787` and local loopback callbacks
+- Cloudflare tunnel is optional for public-hostname/OAuth/webhook checks only; it is not required for the local `/app` admin test path when `127.0.0.1:8787` is healthy.
+
+### Enterprise offline package API surface
+- `POST /account/enterprise/offline-pack/activate`
+- `GET /account/enterprise/offline-pack/info`
+- `POST /account/enterprise/offline-pack/rotate`
+- `POST /pg-global-admin/board/enterprise/offline-pack/issue`
+- `POST /pg-global-admin/board/enterprise/offline-pack/revoke`
+
 ### Web account/team API surface (auth required)
 - `GET /account/summary`
 - `GET /account/billing/history`
@@ -649,10 +1048,36 @@ Single source for local run commands, runtime inventory, and command-surface ref
 - `POST /pg-global-admin/board/support/status`
 - `POST /pg-global-admin/board/subscription/revoke`
 - `POST /pg-global-admin/board/sessions/revoke-user`
+- `GET /pg-global-admin/board/payments/stripe-config` (super admin runtime Stripe config read)
+- `POST /pg-global-admin/board/payments/stripe-config` (super admin runtime Stripe config write)
+- `POST /pg-global-admin/board/payments/stripe-config/test` (super admin Stripe API connectivity test)
 - `POST /pg-global-admin/governance/slack-addon/team`
 - `POST /pg-global-admin/governance/slack-addon/user`
 - `POST /pg-global-admin/affiliate/conversion/confirm`
 - `POST /pg-global-admin/affiliate/payout/approve`
+
+### Stripe Runtime Config Operational Notes
+- Runtime config persistence file:
+  - `.narrate/stripe-runtime.local.json`
+  - override path via env: `STRIPE_RUNTIME_CONFIG_PATH`
+- Real Stripe test/live keys belong in `server/.env` or your deployment secret manager; keep `server/.env.example` placeholder-only.
+- Optional encrypted persistence key:
+  - `STRIPE_RUNTIME_VAULT_KEY`
+  - when set, super-admin Stripe secret updates persist encrypted at rest in the runtime config file
+  - when unset, Stripe secrets stay env/vault-managed only and are not written to disk
+- Legacy plaintext runtime files remain readable; resaving after `STRIPE_RUNTIME_VAULT_KEY` is configured migrates them forward into encrypted storage.
+- Checkout and webhook routes now read runtime config at request time.
+- Quick endpoint existence check (unauth expected `401` if route is mounted):
+  - `Invoke-WebRequest http://127.0.0.1:8787/<ADMIN_ROUTE_PREFIX>/board/payments/stripe-config`
+
+### Portal App Runtime Notes
+- `/app` portal frontend now uses ES-module script loading:
+  - `server/public/app.html` -> `<script type="module" src="/assets/site.js"></script>`
+- Portal logic split by concern:
+  - `/assets/site.js` (auth, billing, support, shell bindings)
+  - `/assets/site.teamGovernanceOps.js` (team + governance actions)
+  - `/assets/site.adminOps.js` (admin board + Stripe config actions)
+  - `/assets/site.adminPricingCatalogEditor.js` (structured pricing-catalog editor for plan cards, SKU cards, and notes)
 
 ### Export/report settings
 - `narrate.export.outputDir` (default `.narrate/exports`)
@@ -664,6 +1089,8 @@ Single source for local run commands, runtime inventory, and command-surface ref
 
 ### Enforcement settings (extension)
 - `narrate.enforcement.projectFramework` (default `unknown`)
+- `narrate.startupGuard.enabled` (default `true`)
+- `narrate.startupGuard.autoRunOnContextChange` (default `true`)
 - `narrate.enforcement.postWrite.enabled` (default `true`)
 - `narrate.enforcement.postWrite.warnOnly` (default `true`)
 - `narrate.enforcement.postWrite.debounceMs` (default `1200`)
@@ -692,6 +1119,7 @@ Single source for local run commands, runtime inventory, and command-surface ref
 - Never store API keys/tokens in committed docs/config.
 - Hook baseline:
   - `.githooks/pre-commit` runs `scripts/memory_bank_guard.py`
+  - `scripts/memory_bank_guard_milestones.py` provides spec-to-milestone alignment checks used by pre-commit guard.
   - `.githooks/pre-push` runs `scripts/enforcement_trigger.ps1 -Phase pre-push`
   - emergency bypass only: `SKIP_PG_ENFORCEMENT=1`
 

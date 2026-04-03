@@ -44,13 +44,23 @@ export interface AgentProfile {
     file_line_limit: number;
     production_checklist_required: boolean;
     offline_pack_supported: boolean;
+    frontend_design_guardrails_required: boolean;
+    frontend_design_default_reference: string;
+    frontend_design_reference_surfaces: string[];
+    frontend_design_target_platforms: string[];
+    user_design_guide_precedence: boolean;
+    design_similarity_mode: "similar-not-copy";
+    major_surface_consistency_required: boolean;
+    frontend_design_native_translation_required: boolean;
+    frontend_design_mobile_pattern_examples_required: boolean;
+    frontend_design_button_pattern_grammar_required: boolean;
   };
   evaluated_at: string;
 }
 
 // ── Profile version (bump when directives schema changes) ───────────────
 
-const PROFILE_VERSION = "1.0.0";
+const PROFILE_VERSION = "1.2.0";
 
 // ── Enforcement level by plan tier ──────────────────────────────────────
 
@@ -111,7 +121,31 @@ export function resolveAgentProfile(
       self_check_strict_on_complete: plan !== "free",
       file_line_limit: 500,
       production_checklist_required: prodChecklist,
-      offline_pack_supported: offlinePack
+      offline_pack_supported: offlinePack,
+      frontend_design_guardrails_required: true,
+      frontend_design_default_reference: "docs/FRONTEND_DESIGN_GUARDRAILS.md",
+      frontend_design_reference_surfaces: [
+        "docs/FRONTEND_DESIGN_GUARDRAILS.md",
+        "server/public/app.html",
+        "server/public/assets/site.css",
+        "server/public/assets/app.css",
+        "server/public/help.html",
+        "server/public/assets/help.css",
+        "server/public/pricing.html",
+        "server/public/assets/pricing.css"
+      ],
+      frontend_design_target_platforms: [
+        "web",
+        "react-web",
+        "react-native",
+        "android-compose"
+      ],
+      user_design_guide_precedence: true,
+      design_similarity_mode: "similar-not-copy",
+      major_surface_consistency_required: true,
+      frontend_design_native_translation_required: true,
+      frontend_design_mobile_pattern_examples_required: true,
+      frontend_design_button_pattern_grammar_required: true
     },
     evaluated_at: new Date().toISOString()
   };

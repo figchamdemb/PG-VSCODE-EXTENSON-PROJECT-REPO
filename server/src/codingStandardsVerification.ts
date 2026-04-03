@@ -1,6 +1,8 @@
 import { countRegexMatches, scanFunctions } from "./codingStandardsFunctionScan";
+import { evaluateNestModuleRules } from "./codingStandardsNestModuleRules";
 import { evaluateLogSafety } from "./codingStandardsLogSafety";
 import { evaluateQueryOptimization } from "./codingStandardsQueryOptimization";
+import { evaluateSecretSafety } from "./codingStandardsSecretSafety";
 import type { CodingStandardsThresholds } from "./policyVaultTypes";
 type VerificationSeverity = "blocker" | "warning";
 type ComponentType =
@@ -148,7 +150,11 @@ function evaluateSingleFile(
   const maxFindings = ctx.thresholds?.max_findings_per_file ?? MAX_FINDINGS_PER_FILE;
   let f = evaluateFileSizeLimits(filePath, componentType, lineCount, ctx, blockers, warnings);
   if (f < maxFindings) f += evaluateLogSafety(filePath, componentType, content, blockers);
+  if (f < maxFindings) f += evaluateSecretSafety(filePath, componentType, content, blockers);
   if (f < maxFindings) f += evaluateQueryOptimization(filePath, componentType, content, blockers, warnings, maxFindings);
+  if (ctx.normalizedFramework === "nestjs" && f < maxFindings) {
+    f += evaluateNestModuleRules(filePath, componentType, content, blockers, warnings);
+  }
   if (componentType === "controller") {
     f += evaluateControllerPatterns(filePath, content, blockers, ctx.thresholds);
     f += evaluateInputValidation(filePath, componentType, content, blockers);

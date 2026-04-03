@@ -1,0 +1,27 @@
+{
+  "results_directory": "Memory-bank/_generated/playwright-smoke/20260328T224605Z/test-results",
+  "failures_markdown_path": "Memory-bank/_generated/playwright-smoke/20260328T224605Z/failures.md",
+  "config_path": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server\\playwright.config.ts",
+  "working_directory": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server",
+  "json_report_path": "Memory-bank/_generated/playwright-smoke/20260328T224605Z/report.json",
+  "auto_installed_browsers": false,
+  "failures_json_path": "Memory-bank/_generated/playwright-smoke/20260328T224605Z/failures.json",
+  "html_report_path": "Memory-bank/_generated/playwright-smoke/20260328T224605Z/html-report",
+  "repo_root": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION",
+  "run_directory": "Memory-bank/_generated/playwright-smoke/20260328T224605Z",
+  "status": "pass",
+  "requested_run_mode": "auto",
+  "failures": [],
+  "failure_count": 0,
+  "stats": {
+    "expected": 5,
+    "unexpected": 0,
+    "flaky": 0,
+    "skipped": 0,
+    "duration_ms": 67372,
+    "total": 5
+  },
+  "generated_at_utc": "2026-03-28T22:46:05Z",
+  "run_mode": "smoke-tagged",
+  "browser_matrix": "minimal"
+}

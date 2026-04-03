@@ -4,9 +4,17 @@ import {
   evaluateCodingStandardsVerification
 } from "./codingStandardsVerification";
 import {
+  TrustScoreEvaluationRequest,
+  evaluateTrustScore
+} from "./trustScoreEvaluation";
+import {
   DependencyVerificationRequest,
   evaluateDependencyVerification
 } from "./dependencyVerification";
+import {
+  DependencyReviewRequest,
+  evaluateDependencyReview
+} from "./dependencyReview";
 import {
   ApiContractVerificationRequest,
   evaluateApiContractVerification
@@ -108,6 +116,26 @@ export function registerPolicyRoutes(
     }
   );
 
+  app.post<{ Body: DependencyReviewRequest }>(
+    "/account/policy/dependency/review",
+    async (request, reply) => {
+      const auth = deps.requireAuth(request, reply);
+      if (!auth) {
+        return;
+      }
+
+      const result = await evaluateDependencyReview(request.body ?? {});
+      deps.safeLogInfo("Dependency review completed", {
+        user_id: auth.user.id,
+        targets_checked: result.summary.targets_checked,
+        review_required: result.summary.review_required,
+        hold: result.summary.hold,
+        monitor: result.summary.monitor
+      });
+      return result;
+    }
+  );
+
   app.post<{ Body: CodingStandardsVerificationRequest }>(
     "/account/policy/coding/verify",
     async (request, reply) => {
@@ -120,6 +148,29 @@ export function registerPolicyRoutes(
       deps.safeLogInfo("Coding standards verification completed", {
         user_id: auth.user.id,
         verification_status: result.status,
+        blockers: result.summary.blockers,
+        warnings: result.summary.warnings,
+        checked_files: result.summary.checked_files
+      });
+      return result;
+    }
+  );
+
+  app.post<{ Body: TrustScoreEvaluationRequest }>(
+    "/account/policy/trust/evaluate",
+    async (request, reply) => {
+      const auth = deps.requireAuth(request, reply);
+      if (!auth) {
+        return;
+      }
+
+      const result = evaluateTrustScore(
+        request.body ?? {},
+        resolveCodingThresholds(resolvePlan(auth.user.id), lookupOverlay(auth.user.id))
+      );
+      deps.safeLogInfo("Trust score evaluation completed", {
+        user_id: auth.user.id,
+        trust_status: result.status,
         blockers: result.summary.blockers,
         warnings: result.summary.warnings,
         checked_files: result.summary.checked_files

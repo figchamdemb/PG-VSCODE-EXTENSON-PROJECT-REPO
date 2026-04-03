@@ -4,16 +4,26 @@ import * as path from "path";
 import { FeatureGateService } from "../licensing/featureGates";
 import { NarrationEngine } from "../narration/narrationEngine";
 import { renderNarrationDocument } from "../readingView/renderNarration";
+import { StartupContextEnforcer } from "../startup/startupContextEnforcer";
+import { TrustScoreService } from "../trust/trustScoreService";
 import { getCurrentMode } from "./modeState";
 import { resolveExportBaseDir, sanitizePathSegment, toWorkspaceRelativePath } from "./exportUtils";
 
 export function registerExportNarrationWorkspaceCommand(
   context: vscode.ExtensionContext,
   narrationEngine: NarrationEngine,
-  gates: FeatureGateService
+  gates: FeatureGateService,
+  trustScoreService: TrustScoreService,
+  startupContextEnforcer: StartupContextEnforcer
 ): vscode.Disposable {
   return vscode.commands.registerCommand("narrate.exportNarrationWorkspace", async () => {
-    await runExportNarrationWorkspace(context, narrationEngine, gates);
+    await runExportNarrationWorkspace(
+      context,
+      narrationEngine,
+      gates,
+      trustScoreService,
+      startupContextEnforcer
+    );
   });
 }
 
@@ -32,10 +42,19 @@ type WorkspaceExportStats = {
 async function runExportNarrationWorkspace(
   context: vscode.ExtensionContext,
   narrationEngine: NarrationEngine,
-  gates: FeatureGateService
+  gates: FeatureGateService,
+  trustScoreService: TrustScoreService,
+  startupContextEnforcer: StartupContextEnforcer
 ): Promise<void> {
+  const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+  if (!(await startupContextEnforcer.ensureWorkspaceReadyForAction("exporting workspace narration", workspaceUri))) {
+    return;
+  }
   const allowed = await gates.requireProFeature("Export Narration (Workspace)");
   if (!allowed) {
+    return;
+  }
+  if (!(await trustScoreService.ensureActionAllowed("Export Narration (Workspace)"))) {
     return;
   }
 

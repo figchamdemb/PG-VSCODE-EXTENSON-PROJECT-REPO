@@ -1,9 +1,9 @@
 import { randomUUID } from "crypto";
 import * as vscode from "vscode";
 
-const ACCESS_TOKEN_KEY = "narrate.licensing.accessToken";
-const ENTITLEMENT_TOKEN_KEY = "narrate.licensing.entitlementToken";
-const ENTITLEMENT_PUBLIC_KEY_KEY = "narrate.licensing.entitlementPublicKey";
+const SESSION_SLOT_KEY = "narrate.licensing.session";
+const LICENSE_PROOF_SLOT_KEY = "narrate.licensing.licenseProof";
+const LICENSE_PUBLIC_KEY_SLOT_KEY = "narrate.licensing.licensePublicKey";
 const INSTALL_ID_KEY = "narrate.licensing.installId";
 
 export class LicensingSecretStorage {
@@ -20,42 +20,42 @@ export class LicensingSecretStorage {
   }
 
   async getAccessToken(): Promise<string | undefined> {
-    const value = await this.context.secrets.get(ACCESS_TOKEN_KEY);
+    const value = await this.context.secrets.get(SESSION_SLOT_KEY);
     return value?.trim() ? value.trim() : undefined;
   }
 
   async setAccessToken(token: string): Promise<void> {
-    await this.context.secrets.store(ACCESS_TOKEN_KEY, token);
+    await this.context.secrets.store(SESSION_SLOT_KEY, token);
   }
 
   async clearAccessToken(): Promise<void> {
-    await this.context.secrets.delete(ACCESS_TOKEN_KEY);
+    await this.context.secrets.delete(SESSION_SLOT_KEY);
   }
 
   async getEntitlementToken(): Promise<string | undefined> {
-    const value = await this.context.secrets.get(ENTITLEMENT_TOKEN_KEY);
+    const value = await this.context.secrets.get(LICENSE_PROOF_SLOT_KEY);
     return value?.trim() ? value.trim() : undefined;
   }
 
   async setEntitlementToken(token: string): Promise<void> {
-    await this.context.secrets.store(ENTITLEMENT_TOKEN_KEY, token);
+    await this.context.secrets.store(LICENSE_PROOF_SLOT_KEY, token);
   }
 
   async clearEntitlementToken(): Promise<void> {
-    await this.context.secrets.delete(ENTITLEMENT_TOKEN_KEY);
+    await this.context.secrets.delete(LICENSE_PROOF_SLOT_KEY);
   }
 
   async getEntitlementPublicKey(): Promise<string | undefined> {
-    const value = await this.context.secrets.get(ENTITLEMENT_PUBLIC_KEY_KEY);
+    const value = await this.context.secrets.get(LICENSE_PUBLIC_KEY_SLOT_KEY);
     return value?.trim() ? value.trim() : undefined;
   }
 
   async setEntitlementPublicKey(pem: string): Promise<void> {
-    await this.context.secrets.store(ENTITLEMENT_PUBLIC_KEY_KEY, pem);
+    await this.context.secrets.store(LICENSE_PUBLIC_KEY_SLOT_KEY, pem);
   }
 
   async clearEntitlementPublicKey(): Promise<void> {
-    await this.context.secrets.delete(ENTITLEMENT_PUBLIC_KEY_KEY);
+    await this.context.secrets.delete(LICENSE_PUBLIC_KEY_SLOT_KEY);
   }
 
   async clearAll(): Promise<void> {

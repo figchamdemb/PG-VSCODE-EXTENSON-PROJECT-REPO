@@ -85,32 +85,43 @@ function extractOpenApiEndpoints(doc: OpenApiDoc, sourceFile: string): EndpointC
   const resolver = buildSchemaResolver(doc);
   const paths = doc.paths ?? {};
   for (const [rawPath, rawOperationMap] of Object.entries(paths)) {
-    if (!rawOperationMap || typeof rawOperationMap !== "object") {
-      continue;
-    }
-    const operationMap = rawOperationMap as Record<string, unknown>;
-    for (const methodKey of OPENAPI_METHODS) {
-      const rawOperation = operationMap[methodKey];
-      if (!rawOperation || typeof rawOperation !== "object") {
-        continue;
-      }
-      const operation = rawOperation as Record<string, unknown>;
-      endpoints.push({
-        method: methodKey.toUpperCase(),
-        path: normalizeApiPath(rawPath),
-        sourceFile,
-        requestFields: extractSchemaFields(
-          extractOpenApiRequestSchema(operation),
-          resolver
-        ),
-        responseFields: extractSchemaFields(
-          extractOpenApiResponseSchema(operation),
-          resolver
-        )
-      });
-    }
+    endpoints.push(...extractOpenApiEndpointsForPath(rawPath, rawOperationMap, sourceFile, resolver));
   }
   return endpoints;
+}
+
+function extractOpenApiEndpointsForPath(
+  rawPath: string,
+  rawOperationMap: unknown,
+  sourceFile: string,
+  resolver: SchemaResolver
+): EndpointContract[] {
+  if (!rawOperationMap || typeof rawOperationMap !== "object") {
+    return [];
+  }
+  const operationMap = rawOperationMap as Record<string, unknown>;
+  const endpoints: EndpointContract[] = [];
+  for (const methodKey of OPENAPI_METHODS) {
+    const operation = toOpenApiOperation(operationMap[methodKey]);
+    if (!operation) {
+      continue;
+    }
+    endpoints.push({
+      method: methodKey.toUpperCase(),
+      path: normalizeApiPath(rawPath),
+      sourceFile,
+      requestFields: extractSchemaFields(extractOpenApiRequestSchema(operation), resolver),
+      responseFields: extractSchemaFields(extractOpenApiResponseSchema(operation), resolver)
+    });
+  }
+  return endpoints;
+}
+
+function toOpenApiOperation(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  return value as Record<string, unknown>;
 }
 
 function buildSchemaResolver(doc: OpenApiDoc): SchemaResolver {

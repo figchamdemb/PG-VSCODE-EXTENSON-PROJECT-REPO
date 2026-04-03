@@ -15,6 +15,7 @@ import {
   TourSettings,
   TourSummary
 } from "./codebaseTourTypes";
+import { StartupContextEnforcer } from "../startup/startupContextEnforcer";
 import { Logger } from "../utils/logger";
 
 let lastTourSummary: TourSummary | undefined;
@@ -42,11 +43,17 @@ const SCRIPT_EXTENSIONS = new Set([
 ]);
 
 
-export function registerGenerateCodebaseTourCommand(logger: Logger): vscode.Disposable {
+export function registerGenerateCodebaseTourCommand(
+  logger: Logger,
+  startupContextEnforcer: StartupContextEnforcer
+): vscode.Disposable {
   return vscode.commands.registerCommand("narrate.generateCodebaseTour", async () => {
     const workspace = vscode.workspace.workspaceFolders?.[0];
     if (!workspace) {
       void vscode.window.showWarningMessage("Narrate: open a workspace folder before generating codebase tour.");
+      return;
+    }
+    if (!(await startupContextEnforcer.ensureWorkspaceReadyForAction("generating a codebase tour", workspace.uri))) {
       return;
     }
     const settings = getTourSettings();

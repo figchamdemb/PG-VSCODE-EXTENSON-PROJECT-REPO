@@ -56,6 +56,8 @@ export interface EntitlementMatrixEntry {
   ext_commit_quality_gate: boolean;
   ext_codebase_tour: boolean;
   ext_api_contract_validator: boolean;
+  ext_frontend_backend_integration: boolean;
+  ext_review_workflow: boolean;
   ext_environment_doctor: boolean;
 
   // ── Module availability ──────────────────────────────────────────────
@@ -91,6 +93,8 @@ export const ENTITLEMENT_MATRIX: Record<PlanTier, EntitlementMatrixEntry> = {
     ext_commit_quality_gate: false,
     ext_codebase_tour: false,
     ext_api_contract_validator: false,
+    ext_frontend_backend_integration: false,
+    ext_review_workflow: false,
     ext_environment_doctor: true,
 
     default_modules: ["narrate"]
@@ -122,6 +126,8 @@ export const ENTITLEMENT_MATRIX: Record<PlanTier, EntitlementMatrixEntry> = {
     ext_commit_quality_gate: false,
     ext_codebase_tour: false,
     ext_api_contract_validator: false,
+    ext_frontend_backend_integration: false,
+    ext_review_workflow: false,
     ext_environment_doctor: true,
 
     default_modules: ["narrate"]
@@ -156,6 +162,8 @@ export const ENTITLEMENT_MATRIX: Record<PlanTier, EntitlementMatrixEntry> = {
     ext_commit_quality_gate: true,
     ext_codebase_tour: true,
     ext_api_contract_validator: true,
+    ext_frontend_backend_integration: true,
+    ext_review_workflow: true,
     ext_environment_doctor: true,
 
     default_modules: ["narrate"]
@@ -190,6 +198,8 @@ export const ENTITLEMENT_MATRIX: Record<PlanTier, EntitlementMatrixEntry> = {
     ext_commit_quality_gate: true,
     ext_codebase_tour: true,
     ext_api_contract_validator: true,
+    ext_frontend_backend_integration: true,
+    ext_review_workflow: true,
     ext_environment_doctor: true,
 
     default_modules: ["narrate"]
@@ -224,6 +234,8 @@ export const ENTITLEMENT_MATRIX: Record<PlanTier, EntitlementMatrixEntry> = {
     ext_commit_quality_gate: true,
     ext_codebase_tour: true,
     ext_api_contract_validator: true,
+    ext_frontend_backend_integration: true,
+    ext_review_workflow: true,
     ext_environment_doctor: true,
 
     default_modules: ["narrate"]
@@ -324,8 +336,9 @@ function coreRows(): PlanComparisonRow[] {
 
 function limitsAndGovernanceRows(): PlanComparisonRow[] {
   return [
-    row("limits", "Device limit", "1", "1", "2", "seat-based", "seat-based"),
-    row("limits", "PG projects quota", "5", "5", "20/year", "team pool", "contract"),
+    row("limits", "Seat package", "1 user", "1 user", "1 user", "up to 5 seats standard", "standard + custom quote"),
+    row("limits", "Device limit per licensed user", "1", "1", "2", "10", "50 standard"),
+    row("limits", "Memory-bank project limit", "5", "5", "20", "200", "2000 standard + custom quote"),
     row("limits", "Provider policy", "basic", "basic", "basic", "org policy", "strict policy"),
     row("governance", "EOD reports", "❌", "❌", "✅", "✅", "✅"),
     row("governance", "Mastermind debates", "❌", "❌", "✅", "✅", "✅"),
@@ -349,6 +362,7 @@ function policyAndExtensionRows(): PlanComparisonRow[] {
     row("extension", "Commit quality gate", "❌", "❌", "✅", "✅", "✅"),
     row("extension", "Codebase tour", "❌", "❌", "✅", "✅", "✅"),
     row("extension", "API contract validator", "❌", "❌", "✅", "✅", "✅"),
+    row("extension", "Frontend/backend integration workflow", "❌", "❌", "✅", "✅", "✅"),
     row("extension", "Environment doctor", "✅", "✅", "✅", "✅", "✅"),
   ];
 }

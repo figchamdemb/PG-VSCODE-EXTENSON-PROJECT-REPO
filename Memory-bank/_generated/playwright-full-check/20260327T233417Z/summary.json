@@ -1,0 +1,40 @@
+{
+  "generated_at_utc": "2026-03-27T23:34:17Z",
+  "project_root": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION",
+  "working_directory": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server",
+  "browser_matrix": "full",
+  "author_summary_path": "Memory-bank\\_generated\\playwright-authoring\\playwright-authoring-latest.json",
+  "run_summary_path": "Memory-bank\\_generated\\playwright-smoke\\playwright-smoke-latest.json",
+  "author_status": "ready",
+  "run_status": "blocked",
+  "config_path": "C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server\\playwright.config.ts",
+  "html_report_path": "Memory-bank/_generated/playwright-smoke/20260327T232637Z/html-report",
+  "json_report_path": "Memory-bank/_generated/playwright-smoke/20260327T232637Z/report.json",
+  "results_directory": "Memory-bank/_generated/playwright-smoke/20260327T232637Z/test-results",
+  "failures_json_path": "Memory-bank/_generated/playwright-smoke/20260327T232637Z/failures.json",
+  "failures_markdown_path": "Memory-bank/_generated/playwright-smoke/20260327T232637Z/failures.md",
+  "failure_count": 1,
+  "authored_routes": [
+    "/",
+    "/app",
+    "/checkout/cancel",
+    "/checkout/success",
+    "/help",
+    "/oauth/github/complete",
+    "/oauth/google/complete",
+    "/pricing",
+    "/privacy",
+    "/terms"
+  ],
+  "generated_files": [
+    "server/tests/pg-generated/_pg.generated.helpers.ts",
+    "server/tests/pg-generated/README.md",
+    "server/tests/pg-generated/01-smoke.generated.spec.ts",
+    "server/tests/pg-generated/02-routes.generated.spec.ts",
+    "server/tests/pg-generated/03-forms.generated.spec.ts",
+    "server/tests/pg-generated/04-input-hardening.generated.spec.ts",
+    "server/tests/pg-generated/05-accessibility.generated.spec.ts",
+    "server/tests/pg-generated/07-commerce-like.generated.spec.ts"
+  ],
+  "status": "blocked"
+}

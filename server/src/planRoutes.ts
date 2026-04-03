@@ -3,15 +3,43 @@
  * Milestone 13B: Plan packaging + entitlement matrix v2.
  */
 
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   getPublicPlanComparison,
   getUpgradeTargets,
   ENTITLEMENT_MATRIX
 } from "./entitlementMatrix";
-import type { PlanTier } from "./types";
+import { StateStore } from "./store";
+import type { PlanTier, StoreState, UserRecord } from "./types";
 
 const VALID_TIERS = new Set<string>(Object.keys(ENTITLEMENT_MATRIX));
+
+type AdminAccessContext = {
+  isSuperAdmin: boolean;
+  permissions: Set<string>;
+  mode: "db" | "key";
+  userEmail?: string;
+};
+
+export interface RegisterPlanRoutesDeps {
+  store: StateStore;
+  requireAuth: (
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) => { user: UserRecord } | undefined;
+  resolveEffectivePlan: (
+    state: StoreState,
+    userId: string,
+    now: Date
+  ) => { plan: PlanTier };
+  requireAdminPermission: (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    permission: string
+  ) => Promise<AdminAccessContext | undefined>;
+  boardReadPermission: string;
+  adminRoutePrefix: string;
+}
 
 function buildTierResponse(entry: (typeof ENTITLEMENT_MATRIX)[PlanTier], tier: string): Record<string, unknown> {
   return {
@@ -31,13 +59,87 @@ function buildTierResponse(entry: (typeof ENTITLEMENT_MATRIX)[PlanTier], tier: s
     extension_features: {
       trust_score: entry.ext_trust_score, dead_code_scan: entry.ext_dead_code_scan,
       commit_quality_gate: entry.ext_commit_quality_gate, codebase_tour: entry.ext_codebase_tour,
-      api_contract_validator: entry.ext_api_contract_validator, environment_doctor: entry.ext_environment_doctor
+      api_contract_validator: entry.ext_api_contract_validator,
+      frontend_backend_integration: entry.ext_frontend_backend_integration,
+      environment_doctor: entry.ext_environment_doctor
     }
   };
 }
 
-export function registerPlanRoutes(app: FastifyInstance): void {
-  app.get("/api/plans/comparison", async () => ({ rows: getPublicPlanComparison() }));
+function isBrowserHtmlNavigation(request: FastifyRequest): boolean {
+  const acceptHeader = String(request.headers.accept ?? "").toLowerCase();
+  return acceptHeader.includes("text/html");
+}
+
+function resolvePlanForUser(
+  deps: RegisterPlanRoutesDeps,
+  userId: string
+): PlanTier {
+  const snapshot = deps.store.snapshot();
+  return deps.resolveEffectivePlan(snapshot, userId, new Date()).plan;
+}
+
+function registerPublicComparisonRoute(
+  app: FastifyInstance
+): void {
+  app.get("/api/plans/comparison", async (request, reply) => {
+    if (isBrowserHtmlNavigation(request)) {
+      return reply.redirect("/pricing");
+    }
+    return { rows: getPublicPlanComparison() };
+  });
+}
+
+function registerEnterpriseRawRoute(
+  app: FastifyInstance,
+  deps: RegisterPlanRoutesDeps
+): void {
+  app.get("/account/plans/comparison/raw", async (request, reply) => {
+    const auth = deps.requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
+    const plan = resolvePlanForUser(deps, auth.user.id);
+    if (plan !== "enterprise") {
+      return reply.code(403).send({
+        error: "enterprise plan required"
+      });
+    }
+    return {
+      scope: "enterprise",
+      rows: getPublicPlanComparison()
+    };
+  });
+}
+
+function registerAdminRawRoute(
+  app: FastifyInstance,
+  deps: RegisterPlanRoutesDeps
+): void {
+  app.get(`${deps.adminRoutePrefix}/board/plans/comparison/raw`, async (request, reply) => {
+    const admin = await deps.requireAdminPermission(
+      request,
+      reply,
+      deps.boardReadPermission
+    );
+    if (!admin) {
+      return;
+    }
+    return {
+      scope: "admin",
+      admin_mode: admin.mode,
+      rows: getPublicPlanComparison()
+    };
+  });
+}
+
+export function registerPlanRoutes(
+  app: FastifyInstance,
+  deps: RegisterPlanRoutesDeps
+): void {
+  registerPublicComparisonRoute(app);
+  registerEnterpriseRawRoute(app, deps);
+  registerAdminRawRoute(app, deps);
 
   app.get<{ Querystring: { current?: string } }>("/api/plans/upgrades", async (request, reply) => {
     const current = (request.query.current ?? "").trim().toLowerCase();

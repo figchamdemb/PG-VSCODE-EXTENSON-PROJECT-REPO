@@ -3,7 +3,6 @@ generator client {
 }
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 enum PlanTier {
   free
@@ -22,7 +21,6 @@ enum ModuleScope {
   memorybank
   bundle
 }
-
 enum SubscriptionStatus {
   active
   expired
@@ -48,7 +46,6 @@ enum OfflinePaymentStatus {
   approved
   rejected
 }
-
 enum RedeemStatus {
   unused
   used
@@ -115,7 +112,6 @@ enum AdminScopeType {
   department
   shop
 }
-
 enum JwtAlg {
   ES256
 }
@@ -314,6 +310,8 @@ model AffiliateConversion {
   status              AffiliateConversionStatus
   orderId             String?                   @map("order_id")
   grossAmountCents    Int                       @map("gross_amount_cents")
+  buyerDiscountCents  Int                       @map("buyer_discount_cents")
+  effectiveCommissionRateBps Int                @map("effective_commission_rate_bps")
   commissionAmountCents Int                     @map("commission_amount_cents")
   confirmedAt         DateTime?                 @map("confirmed_at") @db.Timestamptz(3)
   createdAt           DateTime                  @map("created_at") @db.Timestamptz(3)

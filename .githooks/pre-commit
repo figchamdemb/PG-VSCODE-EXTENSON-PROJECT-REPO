@@ -2,4 +2,14 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+
+# --- 100% enforcement: secret-leak guard (always blocks, no bypass) ---
+python "$repo_root/scripts/secrets_guard.py"
+secrets_exit=$?
+if [ $secrets_exit -ne 0 ]; then
+  echo "[pre-commit] BLOCKED by secrets-guard. Remove secrets before committing."
+  exit 1
+fi
+
+# --- Memory-bank policy guard ---
 python "$repo_root/scripts/memory_bank_guard.py"

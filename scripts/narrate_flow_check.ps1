@@ -97,15 +97,29 @@ try {
     $declared = @($pkg.contributes.commands | ForEach-Object { [string]$_.command })
     $activation = @($pkg.activationEvents | ForEach-Object { [string]$_ })
     $missingDeclared = @($requiredCommandIds | Where-Object { $_ -notin $declared })
-    $missingActivation = @($requiredCommandIds | Where-Object { ("onCommand:" + $_) -notin $activation })
+    $explicitOnCommandActivation = @($activation | Where-Object { $_ -like "onCommand:*" })
+    $missingActivation = @()
+    if ($explicitOnCommandActivation.Count -gt 0) {
+        $missingActivation = @($requiredCommandIds | Where-Object { ("onCommand:" + $_) -notin $explicitOnCommandActivation })
+    }
     if ($missingDeclared.Count -gt 0 -or $missingActivation.Count -gt 0) {
         $details = @(
-            "Missing command declarations: " + ($(if ($missingDeclared.Count -gt 0) { ($missingDeclared -join ", ") } else { "(none)" })),
-            "Missing activation events: " + ($(if ($missingActivation.Count -gt 0) { ($missingActivation -join ", ") } else { "(none)" }))
-        ) -join "`n"
+            "Missing command declarations: " + ($(if ($missingDeclared.Count -gt 0) { ($missingDeclared -join ", ") } else { "(none)" }))
+        )
+        if ($explicitOnCommandActivation.Count -gt 0) {
+            $details += "Missing activation events: " + ($(if ($missingActivation.Count -gt 0) { ($missingActivation -join ", ") } else { "(none)" }))
+        } else {
+            $details += "Activation events: validated via VS Code auto-generation from contributes.commands."
+        }
         Add-Result -results $results -step "Package command wiring" -ok $false -details $details
     } else {
-        Add-Result -results $results -step "Package command wiring" -ok $true -details ("All required command IDs declared + activated: " + ($requiredCommandIds -join ", "))
+        $details = "All required command IDs are declared in contributes.commands."
+        if ($explicitOnCommandActivation.Count -gt 0) {
+            $details += " Explicit onCommand activation events are present for the same command set."
+        } else {
+            $details += " VS Code auto-generated activation is in use; redundant onCommand entries are not required."
+        }
+        Add-Result -results $results -step "Package command wiring" -ok $true -details $details
     }
 } catch {
     Add-Result -results $results -step "Package command wiring" -ok $false -details $_.Exception.Message

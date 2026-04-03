@@ -16,37 +16,15 @@ export interface CreateOAuthHelpersDeps {
   googleClientSecret: string;
   googleRedirectUri: string;
   oauthCallbackOrigins: string[];
+  oauthCallbackSchemes: Set<string>;
+  oauthEditorCallbackHosts: Set<string>;
 }
 
 // ---------------------------------------------------------------------------
 // Factory – thin delegation layer.
 // ---------------------------------------------------------------------------
 export function createOAuthHelpers(deps: CreateOAuthHelpersDeps) {
-  return {
-    isAllowedOAuthCallbackUrl: (callbackUrl: string) =>
-      isAllowedOAuthCallbackUrl(deps, callbackUrl),
-    consumeOAuthState: (provider: "github" | "google", stateToken: string) =>
-      consumeOAuthState(deps, provider, stateToken),
-    exchangeGitHubOAuthCode: (code: string, stateValue: string) =>
-      exchangeGitHubOAuthCode(deps, code, stateValue),
-    exchangeGoogleOAuthCode: (code: string) =>
-      exchangeGoogleOAuthCode(deps, code),
-    fetchGitHubProfile: (accessToken: string) =>
-      fetchGitHubProfile(accessToken),
-    fetchGoogleProfile: (accessToken: string) =>
-      fetchGoogleProfile(accessToken),
-    resolveGitHubPrimaryEmail: (accessToken: string, profileEmail?: string) =>
-      resolveGitHubPrimaryEmail(accessToken, profileEmail),
-    findUserByEmail: (email: string) =>
-      findUserByEmail(deps, email),
-    getOrCreateUserByEmail: (
-      email: string, options?: { touchLastLogin?: boolean; createIfMissing?: boolean }
-    ) => getOrCreateUserByEmail(deps, email, options),
-    replyAfterOAuth: (
-      callbackUrl: string | null, reply: FastifyReply,
-      payload: ReplyAfterOAuthPayload
-    ) => replyAfterOAuth(deps, callbackUrl, reply, payload),
-  };
+  return createOAuthHelperSurface(deps);
 }
 
 // ---------------------------------------------------------------------------
@@ -61,6 +39,25 @@ type ReplyAfterOAuthPayload = {
   user_id?: string;
 };
 
+function createOAuthHelperSurface(deps: CreateOAuthHelpersDeps) {
+  return {
+    isAllowedOAuthCallbackUrl: (callbackUrl: string) => isAllowedOAuthCallbackUrl(deps, callbackUrl),
+    consumeOAuthState: (provider: "github" | "google", stateToken: string) =>
+      consumeOAuthState(deps, provider, stateToken),
+    exchangeGitHubOAuthCode: (code: string, stateValue: string) => exchangeGitHubOAuthCode(deps, code, stateValue),
+    exchangeGoogleOAuthCode: (code: string) => exchangeGoogleOAuthCode(deps, code),
+    fetchGitHubProfile: (accessToken: string) => fetchGitHubProfile(accessToken),
+    fetchGoogleProfile: (accessToken: string) => fetchGoogleProfile(accessToken),
+    resolveGitHubPrimaryEmail: (accessToken: string, profileEmail?: string) =>
+      resolveGitHubPrimaryEmail(accessToken, profileEmail),
+    findUserByEmail: (email: string) => findUserByEmail(deps, email),
+    getOrCreateUserByEmail: (email: string, options?: { touchLastLogin?: boolean; createIfMissing?: boolean }) =>
+      getOrCreateUserByEmail(deps, email, options),
+    replyAfterOAuth: (callbackUrl: string | null, reply: FastifyReply, payload: ReplyAfterOAuthPayload) =>
+      replyAfterOAuth(deps, callbackUrl, reply, payload)
+  };
+}
+
 function isAllowedOAuthCallbackUrl(
   deps: CreateOAuthHelpersDeps,
   callbackUrl: string
@@ -70,6 +67,10 @@ function isAllowedOAuthCallbackUrl(
   }
   try {
     const parsed = new URL(callbackUrl);
+    const scheme = parsed.protocol.replace(/:$/u, "").toLowerCase();
+    if (deps.oauthCallbackSchemes.has(scheme)) {
+      return deps.oauthEditorCallbackHosts.has(parsed.host.toLowerCase());
+    }
     const protocolAllowed =
       parsed.protocol === "https:" || parsed.protocol === "http:";
     if (!protocolAllowed) {
@@ -86,6 +87,9 @@ async function consumeOAuthState(
   provider: "github" | "google",
   stateToken: string
 ) {
+  if (deps.store.consumeOAuthStateRecord) {
+    return deps.store.consumeOAuthStateRecord(provider, stateToken);
+  }
   const snapshot = deps.store.snapshot();
   const record = snapshot.oauth_states.find(
     (item) =>

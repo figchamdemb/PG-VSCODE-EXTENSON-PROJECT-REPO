@@ -61,7 +61,7 @@ Defaults:
 - `STORE_PATH=./data/store.json`
 - `STORE_BACKEND=json`
 - `PUBLIC_BASE_URL=http://127.0.0.1:8787`
-- `DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DB_NAME?schema=narate_enterprise` (Prisma)
+- `DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DB_NAME?schema=narate_enterprise` (Prisma; canonical target is the dedicated `narate-enterprise` database with `narate_enterprise` schema)
 - `SUPER_ADMIN_EMAILS=owner@yourdomain.com,ops@yourdomain.com`
 - `SUPER_ADMIN_SOURCE=db`
 - `CLOUDFLARE_ACCESS_ENABLED=false`
@@ -109,9 +109,17 @@ Stripe (required for real checkout/webhook):
 
 - `STRIPE_SECRET_KEY=sk_...`
 - `STRIPE_WEBHOOK_SECRET=whsec_...`
+- `STRIPE_PUBLISHABLE_KEY=pk_...`
 - `STRIPE_PRICE_MAP={"pro:narrate":"price_xxx","pro:bundle":"price_yyy","team:bundle":"price_zzz"}`
 - `CHECKOUT_SUCCESS_URL=https://your-site/success`
 - `CHECKOUT_CANCEL_URL=https://your-site/cancel`
+- optional encrypted admin-board persistence: `STRIPE_RUNTIME_VAULT_KEY=...`
+
+Notes:
+
+- keep real Stripe test/live keys in `server/.env` or your deployment secret manager; `server/.env.example` stays placeholder-only.
+- if `STRIPE_RUNTIME_VAULT_KEY` is unset, Stripe secrets remain env-only and are not written to `STRIPE_RUNTIME_CONFIG_PATH`.
+- if `STRIPE_RUNTIME_VAULT_KEY` is set, super-admin Stripe config updates persist encrypted at rest instead of plaintext JSON.
 
 GitHub OAuth (required for GitHub sign-in):
 
@@ -279,7 +287,8 @@ Ownership model:
 ## Prisma
 
 - Prisma schema file: `server/prisma/schema.prisma`
-- Target DB schema for licensing tables: `narate_enterprise` (non-`public`)
+- Target DB schema for licensing tables: `narate_enterprise` (non-`public`) in the dedicated `narate-enterprise` database
+- Legacy `egov.narrate` is retired and should not be used for runtime connections, scripts, or operator tooling.
 - Commands:
   - `npm run prisma:generate`
   - `npm run prisma:dbpush`

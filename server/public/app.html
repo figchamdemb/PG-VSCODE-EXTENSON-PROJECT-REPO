@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PG Narrate Portal</title>
   <meta name="description" content="PG Narrate secure customer and enterprise admin portal." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/assets/site.css" />
   <link rel="stylesheet" href="/assets/app.css" />
 </head>
@@ -28,7 +29,7 @@
       <h2>Secure Sign In</h2>
       <p class="lead-sm">Sign in to open your customer, team, or admin workspace.</p>
       <div class="cards two">
-        <article class="card">
+        <article id="emailAuthCard" class="card auth-card" data-focus-target="emailInput">
           <h3>Email Login</h3>
           <label>Email</label>
           <input id="emailInput" type="email" placeholder="you@company.com" />
@@ -38,12 +39,18 @@
           <button id="verifyCodeBtn" class="btn btn-primary">Verify Email Login</button>
           <p id="authState" class="auth-state">Not signed in.</p>
         </article>
-        <article class="card">
+        <article id="oauthAuthCard" class="card auth-card" data-focus-target="tapSignSignupBtn">
           <h3>OAuth Login</h3>
           <p class="small">Use your existing account for faster onboarding.</p>
+          <div class="tap-sign-enrollment-box">
+            <p class="tap-sign-chip">TapSign Secure Login</p>
+            <h4>Sign Up with TapSign</h4>
+            <p class="small">TapSign will become the final device-backed login gate. Google and GitHub stay available, then TapSign approval from your phone will protect the account with the device enclave key.</p>
+            <button id="tapSignSignupBtn" class="btn btn-primary">Sign Up with TapSign</button>
+          </div>
           <button id="githubSignInBtn" class="btn btn-ghost">Sign In with GitHub</button>
           <button id="googleSignInBtn" class="btn btn-ghost">Sign In with Google</button>
-          <p class="small">GitHub and Google callback returns directly to this secure portal.</p>
+          <p class="small">GitHub and Google callback returns directly to this secure portal. After sign-in, the portal will keep prompting you to finish TapSign protection until the SDK-backed enrollment is completed.</p>
         </article>
       </div>
       <article class="card console-card">
@@ -67,6 +74,17 @@
         </aside>
 
         <section class="portal-content">
+          <article id="tapSignPromptCard" class="card portal-panel tap-sign-status hidden">
+            <div class="tap-sign-status-head">
+              <div>
+                <p class="tap-sign-chip">TapSign Final Gate</p>
+                <h3 id="tapSignStatusText">TapSign protection required</h3>
+              </div>
+              <button id="tapSignSetupBtn" class="btn btn-primary">Complete TapSign Protection</button>
+            </div>
+            <p id="tapSignStatusDetail" class="small">After Google, GitHub, or email login, this account should finish TapSign device protection for the final phone approval step.</p>
+          </article>
+
           <article class="card portal-panel" data-panel="overview">
             <h3>Account Overview</h3>
             <p class="small">See plan, renewal, quota, and entitlement state.</p>
@@ -82,6 +100,7 @@
             <div class="cards two compact-cards">
               <div class="card inner-card">
                 <h4>Stripe Checkout</h4>
+                <p class="small">Annual access is sold through one-time Stripe prices. Team starter guidance assumes up to 5 seats, while Enterprise Custom stays quote-based so larger seat counts or bigger Memory-bank quotas can be activated manually without adding public checkout SKUs.</p>
                 <label>Plan</label>
                 <select id="planSelect">
                   <option value="pro">Pro</option>
@@ -95,19 +114,23 @@
                   <option value="bundle">Bundle</option>
                 </select>
                 <label>Affiliate Code (optional)</label>
-                <input id="affiliateInput" type="text" placeholder="AFF123" />
+                <input id="affiliateInput" type="text" placeholder="REF123 or AFF123" />
+                <p class="small billing-hint">Referral codes pay at least £2.00 per paid buyer. Affiliate codes pay at least £2.50 per paid buyer. Buyers get the better of £2.50 off or 10% off annual checkout.</p>
                 <button id="checkoutBtn" class="btn btn-primary">Open Stripe Checkout</button>
+                <p id="billingSkuHint" class="small billing-hint">Select a plan and module to see the recommended annual SKU.</p>
+                <p class="small billing-hint">Checkout is charged in GBP. International cards can still pay, and your bank or card provider may convert the final amount into local currency on your statement. Full refund stays open for the first 5 days, and referral or affiliate payout stays on hold until that window closes.</p>
               </div>
               <div class="card inner-card">
                 <h4>Offline Payment</h4>
-                <label>Offline Amount (cents)</label>
+                <label>Offline Amount (minor units)</label>
                 <input id="offlineAmountInput" type="number" value="9900" />
+                <p class="small">The recommended GBP amount is auto-filled from the selected annual SKU so your bank transfer amount matches the pricing guide.</p>
                 <button id="createOfflineBtn" class="btn btn-secondary">Create Offline Reference</button>
                 <label>Reference Code</label>
                 <input id="offlineRefInput" type="text" placeholder="OFFXXXXXX" />
-                <label>Proof URL</label>
-                <input id="offlineProofInput" type="url" placeholder="https://proof.link/..." />
-                <button id="submitProofBtn" class="btn btn-ghost">Submit Payment Proof</button>
+                <p class="small billing-hint">Use this reference in your bank transfer note. After you send the payment, mark it for manual review. No payment-proof URL is required.</p>
+                <p class="small billing-hint">Your team then checks the bank manually. If the transfer is confirmed, the plan is approved. If no matching payment arrives, the request stays pending or is rejected.</p>
+                <button id="submitProofBtn" class="btn btn-ghost">Mark Payment Sent For Review</button>
               </div>
             </div>
             <div class="cards two compact-cards">
@@ -358,6 +381,42 @@
               </div>
             </div>
             <div class="card inner-card">
+              <h4>Stripe Runtime Config (Super Admin)</h4>
+              <p class="small">Set live/test Stripe keys, checkout mapping, and public pricing text without editing server env files.</p>
+              <label>Publishable Key (optional)</label>
+              <input id="adminStripePublishableKeyInput" type="text" placeholder="pk_live_..." />
+              <label>Secret Key (write only)</label>
+              <input id="adminStripeSecretKeyInput" type="password" placeholder="sk_live_..." />
+              <label>Webhook Secret (write only)</label>
+              <input id="adminStripeWebhookSecretInput" type="password" placeholder="whsec_..." />
+              <label>Stripe Price Map JSON (required 9 annual SKUs)</label>
+              <p class="small">Use one-time annual Stripe prices for: pro/team/enterprise x narrate/memorybank/bundle. If Stripe charge amounts change later, create a new <code>price_...</code> in Stripe and update only this map.</p>
+              <textarea id="adminStripePriceMapInput" rows="7" placeholder='{"pro:narrate":"price_...","pro:memorybank":"price_...","pro:bundle":"price_...","team:narrate":"price_...","team:memorybank":"price_...","team:bundle":"price_...","enterprise:narrate":"price_...","enterprise:memorybank":"price_...","enterprise:bundle":"price_..."}'></textarea>
+              <label>Public Pricing Catalog</label>
+              <p class="small">Edit visible pricing here without touching Stripe IDs. Team and enterprise entries can stay as starter-package or “from” pricing if final sizing is handled manually.</p>
+              <p class="small">If strict self-check mentions Playwright but the log shows <code>127.0.0.1:8787</code> connection refusal, fix the local backend first. Cloudflare tunnel helps public ingress, not this local dependency gate.</p>
+              <div id="adminPricingCatalogEditor" class="pricing-catalog-editor"></div>
+              <div class="inline-actions">
+                <button id="adminPricingCatalogResetBtn" class="btn btn-secondary">Reset Pricing Defaults</button>
+                <button id="adminPricingCatalogSyncBtn" class="btn btn-ghost">Rebuild JSON Preview</button>
+                <button id="adminPricingCatalogApplyJsonBtn" class="btn btn-ghost">Apply JSON To Cards</button>
+              </div>
+              <details class="pricing-json-details">
+                <summary>Advanced JSON / import</summary>
+                <p class="small">The field editor is the default path. Use this only if you want to paste/import a catalog manually, then click <strong>Apply JSON To Cards</strong>.</p>
+                <textarea id="adminPricingCatalogInput" rows="12" placeholder='{"plan_cards":{"pro":{"headline":"From £18/year"}},"skus":{"pro":{"narrate":{"amount_gbp":22,"minor_units":2200,"price_text":"£22 / year"}}}}'></textarea>
+              </details>
+              <label>Checkout Success URL</label>
+              <input id="adminStripeSuccessUrlInput" type="url" placeholder="https://your-domain.com/checkout/success" />
+              <label>Checkout Cancel URL</label>
+              <input id="adminStripeCancelUrlInput" type="url" placeholder="https://your-domain.com/checkout/cancel" />
+              <div class="inline-actions">
+                <button id="adminStripeConfigLoadBtn" class="btn btn-secondary">Load Stripe Config</button>
+                <button id="adminStripeConfigSaveBtn" class="btn btn-primary">Save Stripe Config</button>
+                <button id="adminStripeConfigTestBtn" class="btn btn-ghost">Test Stripe Connection</button>
+              </div>
+            </div>
+            <div class="card inner-card">
               <h4>Governance Slack Add-on Controls</h4>
               <label>Addon Active</label>
               <select id="adminGovernanceAddonActiveSelect">
@@ -378,6 +437,6 @@
     </section>
   </main>
 
-  <script src="/assets/site.js"></script>
+  <script type="module" src="/assets/site.js"></script>
 </body>
 </html>

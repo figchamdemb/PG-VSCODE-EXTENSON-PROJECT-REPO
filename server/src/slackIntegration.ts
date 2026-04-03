@@ -6,6 +6,7 @@ import { createSlackMastermindHelpers } from "./slackMastermindState";
 import { createSlackBlockBuilders, getStringLikeValue as getStringLikeValueImpl } from "./slackBlockBuilders";
 import { createSlackCommandHandlers } from "./slackCommandHandlers";
 import { createSlackActionHandlers } from "./slackActionHandlers";
+import { processSlackActionAsync, processSlackCommandAsync } from "./slackAsyncProcessing";
 
 export type SlackCommandAction = "help" | "summary" | "eod" | "thread" | "vote" | "decide";
 
@@ -109,86 +110,121 @@ export interface SlackIntegrationDeps {
   ) => Record<string, unknown>;
 }
 
-// ---------------------------------------------------------------------------
-// Factory – composes sub-factories and returns all Slack entry-points.
-// ---------------------------------------------------------------------------
 export function createSlackIntegration(deps: SlackIntegrationDeps) {
-  // ------- sub-factory composition -------
-
-  const { applyMastermindThreadCreateStateUpdate, applySlackDecisionStateUpdate } =
-    createSlackMastermindHelpers(deps);
-
-  const {
-    buildSlackThreadInteractionBlocks, parseSlackActionPayload, isUuidLike,
-  } = createSlackBlockBuilders(deps);
-
-  const dispatchFn = (
-    settings: StoreState["governance_settings"][number], text: string
-  ) => dispatchSlackGovernanceNotification(deps, settings, text);
-
-  const {
-    buildSlackHelpText, isSlackHelpCommand, getSlackCommandAction,
-    executeSlackGovernanceCommand,
-  } = createSlackCommandHandlers({
-    ...deps,
-    applyMastermindThreadCreateStateUpdate,
-    applySlackDecisionStateUpdate,
-    buildSlackThreadInteractionBlocks,
-    isUuidLike,
-    dispatchSlackGovernanceNotification: dispatchFn,
-  });
-
-  const resolveEmailFn = (slackUserId: string) =>
-    resolveSlackUserEmail(deps, slackUserId);
-
-  const { resolveSlackPayloadUser, executeSlackGovernanceAction } =
-    createSlackActionHandlers({
-      ...deps,
-      resolveSlackUserEmail: resolveEmailFn,
-      parseSlackActionPayload,
-      buildSlackThreadInteractionBlocks,
-      applySlackDecisionStateUpdate,
-      executeSlackGovernanceCommand,
-      dispatchSlackGovernanceNotification: dispatchFn,
-    });
-
-  // ------- public surface -------
-
+  const runtime = createSlackIntegrationRuntime(deps);
   return {
     verifySlackRequestSignature: (
-      request: FastifyRequest, rawBody: string, signingSecret: string
+      request: FastifyRequest,
+      rawBody: string,
+      signingSecret: string
     ) => verifySlackRequestSignature(deps, request, rawBody, signingSecret),
-    resolveSlackUserEmail: resolveEmailFn,
-    dispatchSlackGovernanceNotification: dispatchFn,
-    buildSlackHelpText,
-    isSlackHelpCommand,
-    getSlackCommandAction,
-    processSlackCommandAsync: (
-      responseUrl: string, slackUserId: string, text: string
-    ) => processSlackCommandAsync(
-      deps, responseUrl, slackUserId, text,
-      resolveEmailFn, getSlackCommandAction, executeSlackGovernanceCommand,
-      (url: string, response: SlackEphemeralResponse) => postSlackResponse(deps, url, response)
-    ),
-    processSlackActionAsync: (
-      responseUrl: string | null, payload: Record<string, unknown>,
-      actionId: string, action: Record<string, unknown>
-    ) => processSlackActionAsync(
-      deps, responseUrl, payload, actionId, action,
-      resolveSlackPayloadUser, executeSlackGovernanceAction,
-      (url: string | null, p: Record<string, unknown>, r: SlackEphemeralResponse) =>
-        postSlackActionFollowup(deps, url, p, r)
-    ),
-    executeSlackGovernanceCommand,
-    buildSlackThreadInteractionBlocks,
-    applyMastermindThreadCreateStateUpdate,
-    applySlackDecisionStateUpdate,
+    resolveSlackUserEmail: runtime.resolveEmailFn,
+    dispatchSlackGovernanceNotification: runtime.dispatchFn,
+    buildSlackHelpText: runtime.buildSlackHelpText,
+    isSlackHelpCommand: runtime.isSlackHelpCommand,
+    getSlackCommandAction: runtime.getSlackCommandAction,
+    processSlackCommandAsync: runtime.processSlackCommandAsync,
+    processSlackActionAsync: runtime.processSlackActionAsync,
+    executeSlackGovernanceCommand: runtime.executeSlackGovernanceCommand,
+    buildSlackThreadInteractionBlocks: runtime.buildSlackThreadInteractionBlocks,
+    applyMastermindThreadCreateStateUpdate: runtime.applyMastermindThreadCreateStateUpdate,
+    applySlackDecisionStateUpdate: runtime.applySlackDecisionStateUpdate
   };
 }
 
-// ---------------------------------------------------------------------------
-// Implementation functions (module-level).
-// ---------------------------------------------------------------------------
+function createSlackIntegrationRuntime(deps: SlackIntegrationDeps) {
+  const shared = createSlackSharedRuntime(deps);
+  const handlers = createSlackHandlersRuntime(deps, shared);
+  const asyncOps = createSlackAsyncRuntime(deps, shared, handlers);
+  return { ...shared, ...handlers, ...asyncOps };
+}
+
+function createSlackSharedRuntime(deps: SlackIntegrationDeps) {
+  const { applyMastermindThreadCreateStateUpdate, applySlackDecisionStateUpdate } = createSlackMastermindHelpers(deps);
+  const { buildSlackThreadInteractionBlocks, parseSlackActionPayload, isUuidLike } = createSlackBlockBuilders(deps);
+  const resolveEmailFn = (slackUserId: string) => resolveSlackUserEmail(deps, slackUserId);
+  const dispatchFn = (settings: StoreState["governance_settings"][number], text: string) =>
+    dispatchSlackGovernanceNotification(deps, settings, text);
+  return {
+    applyMastermindThreadCreateStateUpdate,
+    applySlackDecisionStateUpdate,
+    buildSlackThreadInteractionBlocks,
+    parseSlackActionPayload,
+    isUuidLike,
+    resolveEmailFn,
+    dispatchFn
+  };
+}
+
+function createSlackHandlersRuntime(
+  deps: SlackIntegrationDeps,
+  shared: ReturnType<typeof createSlackSharedRuntime>
+) {
+  const commandHandlers = createSlackCommandHandlers({
+    ...deps,
+    applyMastermindThreadCreateStateUpdate: shared.applyMastermindThreadCreateStateUpdate,
+    applySlackDecisionStateUpdate: shared.applySlackDecisionStateUpdate,
+    buildSlackThreadInteractionBlocks: shared.buildSlackThreadInteractionBlocks,
+    isUuidLike: shared.isUuidLike,
+    dispatchSlackGovernanceNotification: shared.dispatchFn
+  });
+  const actionHandlers = createSlackActionHandlers({
+    ...deps,
+    resolveSlackUserEmail: shared.resolveEmailFn,
+    parseSlackActionPayload: shared.parseSlackActionPayload,
+    buildSlackThreadInteractionBlocks: shared.buildSlackThreadInteractionBlocks,
+    applySlackDecisionStateUpdate: shared.applySlackDecisionStateUpdate,
+    executeSlackGovernanceCommand: commandHandlers.executeSlackGovernanceCommand,
+    dispatchSlackGovernanceNotification: shared.dispatchFn
+  });
+  return { ...commandHandlers, ...actionHandlers };
+}
+
+function createSlackAsyncRuntime(
+  deps: SlackIntegrationDeps,
+  shared: Pick<ReturnType<typeof createSlackSharedRuntime>, "resolveEmailFn">,
+  handlers: Pick<
+    ReturnType<typeof createSlackHandlersRuntime>,
+    "getSlackCommandAction" | "executeSlackGovernanceCommand" | "resolveSlackPayloadUser" | "executeSlackGovernanceAction"
+  >
+) {
+  const postResponseFn = (url: string, response: SlackEphemeralResponse) =>
+    postSlackResponse(deps, url, response);
+  const postActionFollowupFn = (
+    responseUrl: string | null,
+    payload: Record<string, unknown>,
+    response: SlackEphemeralResponse
+  ) => postSlackActionFollowup(deps, responseUrl, payload, response);
+  return {
+    processSlackCommandAsync: (responseUrl: string, slackUserId: string, text: string) =>
+      processSlackCommandAsync(
+        deps,
+        responseUrl,
+        slackUserId,
+        text,
+        shared.resolveEmailFn,
+        handlers.getSlackCommandAction,
+        handlers.executeSlackGovernanceCommand,
+        postResponseFn
+      ),
+    processSlackActionAsync: (
+      responseUrl: string | null,
+      payload: Record<string, unknown>,
+      actionId: string,
+      action: Record<string, unknown>
+    ) =>
+      processSlackActionAsync(
+        deps,
+        responseUrl,
+        payload,
+        actionId,
+        action,
+        handlers.resolveSlackPayloadUser,
+        handlers.executeSlackGovernanceAction,
+        postActionFollowupFn
+      )
+  };
+}
 
 function verifySlackRequestSignature(
   deps: SlackIntegrationDeps,
@@ -399,100 +435,3 @@ async function postSlackActionFollowup(
   }
 }
 
-async function processSlackCommandAsync(
-  deps: SlackIntegrationDeps,
-  responseUrl: string,
-  slackUserId: string,
-  text: string,
-  resolveSlackUserEmailFn: (slackUserId: string) => Promise<string | null>,
-  getSlackCommandActionFn: (text: string) => string,
-  executeSlackGovernanceCommandFn: (user: UserRecord, text: string) => Promise<SlackEphemeralResponse>,
-  postSlackResponseFn: (url: string, response: SlackEphemeralResponse) => Promise<void>
-): Promise<void> {
-  try {
-    const action = getSlackCommandActionFn(text);
-    const userEmail = await resolveSlackUserEmailFn(slackUserId);
-    if (!userEmail) {
-      await postSlackResponseFn(responseUrl, {
-        response_type: "ephemeral",
-        text: "Could not resolve your Slack email. Ensure Slack bot scope includes `users:read.email`."
-      });
-      return;
-    }
-
-    if (deps.SLACK_ALLOWED_EMAILS.size > 0 && !deps.SLACK_ALLOWED_EMAILS.has(userEmail)) {
-      await postSlackResponseFn(responseUrl, {
-        response_type: "ephemeral",
-        text: `Email ${userEmail} is not authorized for Slack governance commands.`
-      });
-      return;
-    }
-
-    const existingUser = deps.findUserByEmail(userEmail);
-    const createIfMissing = action === "eod" || action === "thread" || action === "vote";
-    if (!existingUser && !createIfMissing) {
-      await postSlackResponseFn(responseUrl, {
-        response_type: "ephemeral",
-        text: "No linked account found for your Slack email. Sign in once at the web portal, then retry."
-      });
-      return;
-    }
-    const user =
-      existingUser ??
-      (await deps.getOrCreateUserByEmail(userEmail, { touchLastLogin: false, createIfMissing }));
-    const payload = await executeSlackGovernanceCommandFn(user, text);
-    await postSlackResponseFn(responseUrl, payload);
-  } catch (error) {
-    deps.safeLogError("Async Slack command execution failed", { error: deps.toErrorMessage(error) });
-    try {
-      await postSlackResponseFn(responseUrl, {
-        response_type: "ephemeral",
-        text: `Slack command failed: ${deps.toErrorMessage(error)}`
-      });
-    } catch (postError) {
-      deps.safeLogError("Failed posting async Slack error response", {
-        error: deps.toErrorMessage(postError)
-      });
-    }
-  }
-}
-
-async function processSlackActionAsync(
-  deps: SlackIntegrationDeps,
-  responseUrl: string | null,
-  payload: Record<string, unknown>,
-  actionId: string,
-  action: Record<string, unknown>,
-  resolveSlackPayloadUserFn: (payload: Record<string, unknown>) => Promise<UserRecord | null>,
-  executeSlackGovernanceActionFn: (
-    user: UserRecord, actionId: string, action: Record<string, unknown>
-  ) => Promise<SlackEphemeralResponse>,
-  postSlackActionFollowupFn: (
-    url: string | null, payload: Record<string, unknown>, response: SlackEphemeralResponse
-  ) => Promise<void>
-): Promise<void> {
-  try {
-    const user = await resolveSlackPayloadUserFn(payload);
-    if (!user) {
-      await postSlackActionFollowupFn(responseUrl, payload, {
-        response_type: "ephemeral",
-        text: "Slack user is not authorized."
-      });
-      return;
-    }
-    const result = await executeSlackGovernanceActionFn(user, actionId, action);
-    await postSlackActionFollowupFn(responseUrl, payload, result);
-  } catch (error) {
-    deps.safeLogError("Async Slack action execution failed", { error: deps.toErrorMessage(error) });
-    try {
-      await postSlackActionFollowupFn(responseUrl, payload, {
-        response_type: "ephemeral",
-        text: `Slack action failed: ${deps.toErrorMessage(error)}`
-      });
-    } catch (postError) {
-      deps.safeLogError("Failed posting async Slack action error response", {
-        error: deps.toErrorMessage(postError)
-      });
-    }
-  }
-}

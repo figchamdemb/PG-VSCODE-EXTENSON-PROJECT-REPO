@@ -4,7 +4,7 @@ import { StateStore } from "./store";
 import { ensureDeviceRecord, resolveEffectivePlan } from "./entitlementHelpers";
 import { addHours, addMinutes, normalizeEmail, toErrorMessage } from "./serverUtils";
 import { PLAN_RULES } from "./rules";
-import { UserRecord } from "./types";
+import { OAuthStateRecord, UserRecord } from "./types";
 
 export interface RegisterAuthOAuthRoutesDeps {
   store: StateStore;
@@ -83,18 +83,17 @@ export function registerAuthOAuthRoutes(
         });
       }
       const stateToken = randomBytes(24).toString("hex");
-      await deps.store.update((state) => {
-        state.oauth_states.push({
-          id: randomUUID(),
-          state: stateToken,
-          provider: "github",
-          install_id: installId,
-          callback_url: callbackUrl,
-          created_at: new Date().toISOString(),
-          expires_at: addMinutes(new Date(), deps.oauthStateTtlMinutes).toISOString(),
-          consumed_at: null
-        });
-      });
+      const oauthStateRecord: OAuthStateRecord = {
+        id: randomUUID(),
+        state: stateToken,
+        provider: "github",
+        install_id: installId,
+        callback_url: callbackUrl,
+        created_at: new Date().toISOString(),
+        expires_at: addMinutes(new Date(), deps.oauthStateTtlMinutes).toISOString(),
+        consumed_at: null
+      };
+      await persistOAuthStateRecord(deps.store, oauthStateRecord);
       const githubAuthorizeUrl = new URL("https://github.com/login/oauth/authorize");
       githubAuthorizeUrl.searchParams.set("client_id", deps.githubClientId);
       githubAuthorizeUrl.searchParams.set("redirect_uri", deps.githubRedirectUri);
@@ -194,18 +193,17 @@ export function registerAuthOAuthRoutes(
         });
       }
       const stateToken = randomBytes(24).toString("hex");
-      await deps.store.update((state) => {
-        state.oauth_states.push({
-          id: randomUUID(),
-          state: stateToken,
-          provider: "google",
-          install_id: installId,
-          callback_url: callbackUrl,
-          created_at: new Date().toISOString(),
-          expires_at: addMinutes(new Date(), deps.oauthStateTtlMinutes).toISOString(),
-          consumed_at: null
-        });
-      });
+      const oauthStateRecord: OAuthStateRecord = {
+        id: randomUUID(),
+        state: stateToken,
+        provider: "google",
+        install_id: installId,
+        callback_url: callbackUrl,
+        created_at: new Date().toISOString(),
+        expires_at: addMinutes(new Date(), deps.oauthStateTtlMinutes).toISOString(),
+        consumed_at: null
+      };
+      await persistOAuthStateRecord(deps.store, oauthStateRecord);
       const googleAuthorizeUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
       googleAuthorizeUrl.searchParams.set("client_id", deps.googleClientId);
       googleAuthorizeUrl.searchParams.set("redirect_uri", deps.googleRedirectUri);
@@ -286,5 +284,18 @@ export function registerAuthOAuthRoutes(
         message: toErrorMessage(error)
       });
     }
+  });
+}
+
+async function persistOAuthStateRecord(
+  store: StateStore,
+  record: OAuthStateRecord
+): Promise<void> {
+  if (store.appendOAuthStateRecord) {
+    await store.appendOAuthStateRecord(record);
+    return;
+  }
+  await store.update((state) => {
+    state.oauth_states.push(record);
   });
 }

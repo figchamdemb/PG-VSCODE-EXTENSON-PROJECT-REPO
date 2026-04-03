@@ -12,6 +12,21 @@
       "problemMatcher": [
         "$tsc"
       ]
+    },
+    {
+      "label": "package-extension-vsix",
+      "type": "shell",
+      "command": "npx @vscode/vsce package",
+      "options": {
+        "cwd": "${workspaceFolder}/extension"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "local-install-extension-vsix",
+      "type": "shell",
+      "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}/scripts/local_extension_install.ps1\"",
+      "problemMatcher": []
     }
   ]
 }

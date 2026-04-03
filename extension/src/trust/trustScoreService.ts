@@ -1,27 +1,31 @@
 import * as vscode from "vscode";
 import {
-  buildTrustReportMarkdown,
-  computeTrustReport,
   getStatusBackgroundColor,
   getStatusTextColor
-} from "./trustScoreAnalysis";
-import { fetchServerPolicyFindings } from "./serverPolicyBridge";
+} from "./trustScoreAnalysisUtils";
+import {
+  buildServerTrustErrorReport,
+  fetchServerTrustReports
+} from "./serverPolicyBridge";
+import { LicensingSecretStorage } from "../licensing/secretStorage";
 import { Logger } from "../utils/logger";
 import {
   narrateConfig,
-  mergeServerFindings,
   buildReportTooltip,
+  isAuthenticationRequiredReport,
   maybeOfferValidationSetup,
   maybeOfferDiagnosticsHint,
   isDocumentAnalyzable
 } from "./trustScoreHelpers";
 import { ANALYZABLE_LANGUAGES } from "./trustScoreTypes";
 import type { TrustReport } from "./trustScoreTypes";
+import { buildTrustReportMarkdown } from "./trustScoreAnalysisUtils";
 
 export type { TrustSeverity, ComponentType, TrustFinding, TrustReport } from "./trustScoreTypes";
 
 export class TrustScoreService implements vscode.Disposable {
   private readonly statusBar: vscode.StatusBarItem;
+  private readonly licensingStorage: LicensingSecretStorage;
   private latestReport: TrustReport | undefined;
   private readonly reportUpdatedEmitter = new vscode.EventEmitter<TrustReport | undefined>();
   private lastValidationSuggestionAt = 0;
@@ -32,6 +36,7 @@ export class TrustScoreService implements vscode.Disposable {
     private readonly context: vscode.ExtensionContext,
     private readonly logger: Logger
   ) {
+    this.licensingStorage = new LicensingSecretStorage(context);
     this.statusBar = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right,
       99
@@ -106,15 +111,72 @@ export class TrustScoreService implements vscode.Disposable {
     await vscode.window.showTextDocument(doc, { preview: false });
   }
 
-  computeReportForDocument(document: vscode.TextDocument): TrustReport | undefined {
-    return isDocumentAnalyzable(document, ANALYZABLE_LANGUAGES) ? computeTrustReport(document) : undefined;
+  async computeReportForDocument(document: vscode.TextDocument): Promise<TrustReport | undefined> {
+    if (!isDocumentAnalyzable(document, ANALYZABLE_LANGUAGES)) {
+      return undefined;
+    }
+    return this.fetchTrustReportForDocument(document);
   }
 
   async handleConfigurationChanged(event: vscode.ConfigurationChangeEvent): Promise<void> {
     const keys = ["enabled", "showStatusBar", "autoRefreshOnSave", "validationLibraryPolicy",
-      "autoSuggestValidationInstall", "showDiagnosticsRecoveryHint", "serverPolicyEnabled"];
+      "autoSuggestValidationInstall", "showDiagnosticsRecoveryHint"];
     if (!keys.some((k) => event.affectsConfiguration(`narrate.trustScore.${k}`))) return;
     await this.refreshActiveEditor(false);
+  }
+
+  async ensureActionAllowed(actionLabel: string): Promise<boolean> {
+    if (!this.isTrustScoreEnabled()) {
+      void vscode.window.showErrorMessage(
+        `Narrate: ${actionLabel} is blocked until Trust Score is enabled and passes.`
+      );
+      return false;
+    }
+
+    await this.refreshNow();
+    const report = this.latestReport;
+    if (!report) {
+      void vscode.window.showErrorMessage(
+        `Narrate: ${actionLabel} is blocked because Trust Score could not evaluate the active file.`
+      );
+      return false;
+    }
+
+    if (isAuthenticationRequiredReport(report)) {
+      const picked = await vscode.window.showWarningMessage(
+        `Narrate: ${actionLabel} requires authentication before server trust evaluation can run. Sign in to Narrate, then refresh Trust Score.`,
+        "Show Trust Report"
+      );
+      if (picked === "Show Trust Report") {
+        await this.showLatestReport();
+      }
+      return false;
+    }
+
+    if (report.blockers === 0 && report.status !== "red") {
+      return true;
+    }
+
+    const actions: string[] = ["Show Trust Report"];
+    if (report.findings.some((finding) => finding.ruleId === "TRUST-TS-001")) {
+      actions.push("Restart TS + Refresh Trust");
+    }
+    if (report.findings.some(isValidationFinding)) {
+      actions.push("Setup Validation Library");
+    }
+
+    const picked = await vscode.window.showErrorMessage(
+      `Narrate: ${actionLabel} blocked by Trust Score (${report.score}/100, ${report.blockers} blocker(s)).`,
+      ...actions
+    );
+    if (picked === "Show Trust Report") {
+      await this.showLatestReport();
+    } else if (picked === "Restart TS + Refresh Trust") {
+      await vscode.commands.executeCommand("narrate.restartTypeScriptAndRefreshTrust");
+    } else if (picked === "Setup Validation Library") {
+      await vscode.commands.executeCommand("narrate.setupValidationLibrary");
+    }
+    return false;
   }
 
   private renderIdleState(): void {
@@ -147,19 +209,55 @@ export class TrustScoreService implements vscode.Disposable {
 
   private async evaluateDocument(document: vscode.TextDocument): Promise<void> {
     try {
-      const report = computeTrustReport(document);
-      const serverFindings = await fetchServerPolicyFindings(report.file, document.getText(), report.lineCount, this.logger);
-      if (serverFindings.length > 0) mergeServerFindings(report, serverFindings);
+      const report = await this.fetchTrustReportForDocument(document);
       this.latestReport = report;
       this.renderReport(report);
       const throttleOk = this.shouldThrottle("lastValidationSuggestionAt");
       await maybeOfferValidationSetup(report, narrateConfig("trustScore.autoSuggestValidationInstall", true) && throttleOk);
       const diagThrottleOk = this.shouldThrottle("lastDiagnosticsRecoveryHintAt");
       await maybeOfferDiagnosticsHint(report, narrateConfig("trustScore.showDiagnosticsRecoveryHint", true) && diagThrottleOk);
-      this.logger.info(`Trust Score updated: ${report.score}/100 (${report.blockers} blockers, ${report.warnings} warnings, server:${serverFindings.length}) for ${report.file}`);
+      this.logger.info(`Trust Score updated: ${report.score}/100 (${report.blockers} blockers, ${report.warnings} warnings) for ${report.file}`);
     } catch (error) {
       this.logger.warn(`Trust Score evaluation failed: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+
+  private async fetchTrustReportForDocument(
+    document: vscode.TextDocument
+  ): Promise<TrustReport> {
+    try {
+      const [report] = await fetchServerTrustReports(
+        [document],
+        this.logger,
+        await this.resolveSessionToken()
+      );
+      if (report) {
+        return report;
+      }
+      return buildServerTrustErrorReport(
+        document,
+        "Server trust evaluation returned no report for the active file."
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return buildServerTrustErrorReport(
+        document,
+        message
+      );
+    }
+  }
+
+  private async resolveSessionToken(): Promise<string | undefined> {
+    const secretToken = await this.licensingStorage.getAccessToken();
+    if (secretToken) {
+      return secretToken;
+    }
+
+    const configuredToken = vscode.workspace
+      .getConfiguration("narrate")
+      .get<string>("licensing.sessionToken", "")
+      .trim();
+    return configuredToken || undefined;
   }
 
   private shouldThrottle(field: "lastValidationSuggestionAt" | "lastDiagnosticsRecoveryHintAt"): boolean {
@@ -171,6 +269,17 @@ export class TrustScoreService implements vscode.Disposable {
 
   private renderReport(report: TrustReport): void {
     if (!narrateConfig("trustScore.showStatusBar", true)) { this.statusBar.hide(); this.reportUpdatedEmitter.fire(report); return; }
+    if (isAuthenticationRequiredReport(report)) {
+      this.statusBar.text = "$(key) Trust Sign-In";
+      this.statusBar.tooltip = buildReportTooltip(report, narrateConfig("trustScore.autoRefreshOnSave", true));
+      this.statusBar.command = "narrate.showTrustScoreReport";
+      this.statusBar.color = new vscode.ThemeColor("statusBarItem.warningForeground");
+      this.statusBar.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
+      this.statusBar.show();
+      this.reportUpdatedEmitter.fire(report);
+      return;
+    }
+
     const icon = report.status === "green" ? "$(pass-filled)" : report.status === "yellow" ? "$(warning)" : "$(error)";
     this.statusBar.text = `${icon} Trust ${report.score}/100 ${report.grade}`;
     this.statusBar.tooltip = buildReportTooltip(report, narrateConfig("trustScore.autoRefreshOnSave", true));
@@ -180,4 +289,11 @@ export class TrustScoreService implements vscode.Disposable {
     this.statusBar.show();
     this.reportUpdatedEmitter.fire(report);
   }
+}
+
+function isValidationFinding(finding: { ruleId: string }): boolean {
+  return (
+    finding.ruleId === "TRUST-CSTD-VAL-001" ||
+    finding.ruleId === "TRUST-CSTD-VAL-002"
+  );
 }

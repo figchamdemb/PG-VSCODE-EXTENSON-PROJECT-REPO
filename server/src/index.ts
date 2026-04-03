@@ -14,8 +14,11 @@ import { registerGovernanceRoutes } from "./governanceRoutes";
 import { createGovernanceHelpers } from "./governanceHelpers";
 import { createOAuthHelpers } from "./oauthHelpers";
 import { registerPaymentsRoutes } from "./paymentsRoutes";
+import { createStripeRuntimeConfigManager } from "./stripeRuntimeConfig";
 import { registerTeamRoutes } from "./teamRoutes";
 import { registerPolicyRoutes } from "./policyRoutes";
+import { registerIntegrationOrchestrationRoutes } from "./integrationOrchestrationRoutes";
+import { registerReviewOrchestrationRoutes } from "./reviewOrchestrationRoutes";
 import { createSessionAuthHelpers } from "./sessionAuthHelpers";
 import { createSlackIntegration } from "./slackIntegration";
 import { registerSlackRoutes } from "./slackRoutes";
@@ -54,6 +57,7 @@ import {
   verifyStripeSignature
 } from "./serverUtils";
 import { JsonStore, StateStore } from "./store";
+import { ModuleScope, PaidPlanTier } from "./types";
 import {
   canManageTeamRole,
   hasActiveTeamSeat,
@@ -65,7 +69,7 @@ const HOST = process.env.HOST ?? "127.0.0.1";
 const ADMIN_KEY = process.env.ADMIN_KEY ?? "dev-admin-key";
 const SESSION_TTL_HOURS = 24 * 30;
 const TRIAL_DURATION_HOURS = 48;
-const REFUND_WINDOW_DAYS = 7;
+const REFUND_WINDOW_DAYS = 5;
 const OFFLINE_REF_TTL_DAYS = 7;
 const DEFAULT_AFFILIATE_RATE_BPS = 1000;
 const OAUTH_STATE_TTL_MINUTES = 10;
@@ -79,17 +83,16 @@ const GOOGLE_REDIRECT_URI =
   (process.env.GOOGLE_REDIRECT_URI ?? `http://${HOST}:${PORT}/auth/google/callback`).trim();
 const STRIPE_SECRET_KEY = (process.env.STRIPE_SECRET_KEY ?? "").trim();
 const STRIPE_WEBHOOK_SECRET = (process.env.STRIPE_WEBHOOK_SECRET ?? "").trim();
+const STRIPE_PUBLISHABLE_KEY = (process.env.STRIPE_PUBLISHABLE_KEY ?? "").trim();
 const STRIPE_PRICE_MAP_RAW = (process.env.STRIPE_PRICE_MAP ?? "").trim();
+const PRICING_CATALOG_RAW = (process.env.PRICING_CATALOG ?? "").trim();
+const STRIPE_RUNTIME_VAULT_KEY = (process.env.STRIPE_RUNTIME_VAULT_KEY ?? "").trim();
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL ?? `http://${HOST}:${PORT}`).trim();
-const OAUTH_CALLBACK_ORIGINS = parseOriginList(
-  process.env.OAUTH_CALLBACK_ORIGINS,
-  PUBLIC_BASE_URL
-);
+const OAUTH_CALLBACK_ORIGINS = parseOriginList(process.env.OAUTH_CALLBACK_ORIGINS, PUBLIC_BASE_URL);
+const OAUTH_CALLBACK_SCHEMES = parseStringAllowList(process.env.OAUTH_CALLBACK_SCHEMES ?? "vscode,cursor,windsurf,vscodium");
+const OAUTH_EDITOR_CALLBACK_HOSTS = parseStringAllowList(process.env.OAUTH_EDITOR_CALLBACK_HOSTS ?? "figchamdemb.narrate-vscode-extension,figchamdemb.narrate");
 const ENABLE_EMAIL_OTP = parseBooleanEnv(process.env.ENABLE_EMAIL_OTP, true);
-const EXPOSE_DEV_OTP_CODE = parseBooleanEnv(
-  process.env.EXPOSE_DEV_OTP_CODE,
-  NODE_ENV !== "production"
-);
+const EXPOSE_DEV_OTP_CODE = parseBooleanEnv(process.env.EXPOSE_DEV_OTP_CODE, NODE_ENV !== "production");
 const SUPER_ADMIN_EMAILS = parseEmailAllowList(process.env.SUPER_ADMIN_EMAILS);
 const SUPER_ADMIN_SOURCE = parseSuperAdminSource(process.env.SUPER_ADMIN_SOURCE);
 const ADMIN_AUTH_MODE = parseAdminAuthMode(process.env.ADMIN_AUTH_MODE);
@@ -132,24 +135,23 @@ const CLOUDFLARE_ACCESS_JWKS_TTL_SECONDS = clampInt(
   60,
   3600
 );
-
-const CHECKOUT_SUCCESS_URL =
-  (process.env.CHECKOUT_SUCCESS_URL ?? `${PUBLIC_BASE_URL}/checkout/success`).trim();
-const CHECKOUT_CANCEL_URL =
-  (process.env.CHECKOUT_CANCEL_URL ?? `${PUBLIC_BASE_URL}/checkout/cancel`).trim();
-const STORE_PATH = process.env.STORE_PATH
-  ? path.resolve(process.env.STORE_PATH)
-  : path.resolve(process.cwd(), "data", "store.json");
+const CHECKOUT_SUCCESS_URL = (process.env.CHECKOUT_SUCCESS_URL ?? `${PUBLIC_BASE_URL}/checkout/success`).trim();
+const CHECKOUT_CANCEL_URL = (process.env.CHECKOUT_CANCEL_URL ?? `${PUBLIC_BASE_URL}/checkout/cancel`).trim();
+const STRIPE_RUNTIME_CONFIG_PATH = process.env.STRIPE_RUNTIME_CONFIG_PATH ? path.resolve(process.env.STRIPE_RUNTIME_CONFIG_PATH) : path.resolve(process.cwd(), ".narrate", "stripe-runtime.local.json");
+const STORE_PATH = process.env.STORE_PATH ? path.resolve(process.env.STORE_PATH) : path.resolve(process.cwd(), "data", "store.json");
 const PUBLIC_DIR = path.resolve(__dirname, "..", "public");
 const DATABASE_TARGET = describeDatabaseTarget(process.env.DATABASE_URL);
 const STRIPE_PRICE_MAP = parseStripePriceMap(STRIPE_PRICE_MAP_RAW);
 type AdminPermissionKey = (typeof ADMIN_PERMISSION_KEYS)[keyof typeof ADMIN_PERMISSION_KEYS];
-const app = Fastify({ logger: true, trustProxy: true });
+const app = Fastify({
+  logger: true,
+  trustProxy: true,
+  bodyLimit: 10 * 1024 * 1024
+});
 const prisma = new PrismaClient();
 const store: StateStore =
   STORE_BACKEND === "prisma" ? new PrismaStateStore(prisma) : new JsonStore(STORE_PATH);
 const { safeLogInfo, safeLogWarn, safeLogError } = createSafeLoggers(app.log);
-
 const gov = createGovernanceHelpers({
   GOVERNANCE_ALLOW_PRO,
   GOVERNANCE_DEFAULT_MAX_DEBATE_CHARS,
@@ -184,7 +186,9 @@ const {
   googleClientId: GOOGLE_CLIENT_ID,
   googleClientSecret: GOOGLE_CLIENT_SECRET,
   googleRedirectUri: GOOGLE_REDIRECT_URI,
-  oauthCallbackOrigins: OAUTH_CALLBACK_ORIGINS
+  oauthCallbackOrigins: OAUTH_CALLBACK_ORIGINS,
+  oauthCallbackSchemes: OAUTH_CALLBACK_SCHEMES,
+  oauthEditorCallbackHosts: OAUTH_EDITOR_CALLBACK_HOSTS
 });
 const {
   issueEntitlement,
@@ -228,7 +232,8 @@ const {
   store,
   refundWindowDays: REFUND_WINDOW_DAYS,
   defaultAffiliateRateBps: DEFAULT_AFFILIATE_RATE_BPS,
-  stripePriceMap: STRIPE_PRICE_MAP
+  stripePriceMap: STRIPE_PRICE_MAP,
+  getPricingCatalog: () => stripeRuntimeConfigManager.pricingCatalogPublic()
 });
 const slack = createSlackIntegration({
   SLACK_BOT_TOKEN,
@@ -261,11 +266,25 @@ const slack = createSlackIntegration({
   getString,
   getObject
 });
-
+const stripeRuntimeConfigManager = createStripeRuntimeConfigManager({
+  configPath: STRIPE_RUNTIME_CONFIG_PATH,
+  encryptionKey: STRIPE_RUNTIME_VAULT_KEY,
+  initial: {
+    stripe_secret_key: STRIPE_SECRET_KEY,
+    stripe_webhook_secret: STRIPE_WEBHOOK_SECRET,
+    stripe_publishable_key: STRIPE_PUBLISHABLE_KEY,
+    stripe_price_map_raw: STRIPE_PRICE_MAP_RAW,
+    pricing_catalog_raw: PRICING_CATALOG_RAW,
+    checkout_success_url: CHECKOUT_SUCCESS_URL,
+    checkout_cancel_url: CHECKOUT_CANCEL_URL
+  }
+});
 function buildProductionReadinessConfig() {
+  const stripeSnapshot = stripeRuntimeConfigManager.snapshot();
   return {
     nodeEnv: NODE_ENV, storeBackend: STORE_BACKEND, adminKey: ADMIN_KEY,
-    stripeSecretKey: STRIPE_SECRET_KEY, stripeWebhookSecret: STRIPE_WEBHOOK_SECRET,
+    stripeSecretKey: stripeSnapshot.secretKey, stripeWebhookSecret: stripeSnapshot.webhookSecret,
+    stripeRuntimeVaultKeyConfigured: Boolean(STRIPE_RUNTIME_VAULT_KEY),
     githubClientId: GITHUB_CLIENT_ID, githubClientSecret: GITHUB_CLIENT_SECRET,
     googleClientId: GOOGLE_CLIENT_ID, googleClientSecret: GOOGLE_CLIENT_SECRET,
     sessionCookieSecure: SESSION_COOKIE_SECURE, exposeDevOtpCode: EXPOSE_DEV_OTP_CODE,
@@ -275,7 +294,6 @@ function buildProductionReadinessConfig() {
     host: HOST, port: PORT
   };
 }
-
 function buildRuntimeConfig() {
   return {
     publicDir: PUBLIC_DIR, cloudflareAccessEnabled: CLOUDFLARE_ACCESS_ENABLED,
@@ -285,10 +303,14 @@ function buildRuntimeConfig() {
     onWarn: (message: string) => safeLogWarn(message)
   };
 }
-
 async function bootstrap(): Promise<void> {
+  await stripeRuntimeConfigManager.initialize();
   runProductionReadinessCheck(buildProductionReadinessConfig(), safeLogWarn, safeLogError);
   safeLogInfo("Database target resolved", { database_target: DATABASE_TARGET });
+  safeLogInfo("Stripe runtime config initialized", {
+    stripe_runtime_config_path: STRIPE_RUNTIME_CONFIG_PATH,
+    secret_storage_mode: stripeRuntimeConfigManager.publicView().secret_storage_mode
+  });
   await store.initialize();
   safeLogInfo("Store initialized", { store_backend: STORE_BACKEND });
   await ensureAdminRbacBaselineSafely();
@@ -315,18 +337,12 @@ function registerAllRoutes(): void {
   registerTeamAndGovernanceRoutes();
   registerPaymentAndAffiliateRoutes();
 }
-
 function registerStaticPageRoutes(): void {
   const staticPages: Array<[string, string]> = [
-    ["/", "index.html"],
-    ["/terms", "terms.html"],
-    ["/privacy", "privacy.html"],
-    ["/checkout/success", "checkout-success.html"],
-    ["/checkout/cancel", "checkout-cancel.html"],
-    ["/oauth/github/complete", "oauth-complete.html"],
-    ["/oauth/google/complete", "oauth-complete.html"],
-    ["/app", "app.html"],
-    ["/help", "help.html"]
+    ["/", "index.html"], ["/terms", "terms.html"], ["/privacy", "privacy.html"],
+    ["/checkout/success", "checkout-success.html"], ["/checkout/cancel", "checkout-cancel.html"],
+    ["/oauth/github/complete", "oauth-complete.html"], ["/oauth/google/complete", "oauth-complete.html"],
+    ["/app", "app.html"], ["/help", "help.html"], ["/pricing", "pricing.html"]
   ];
   for (const [route, file] of staticPages) {
     app.get(route, async (_request, reply) => {
@@ -334,15 +350,22 @@ function registerStaticPageRoutes(): void {
     });
   }
 }
-
 function registerInfraRoutes(): void {
+  app.get("/favicon.ico", async (_request, reply) => reply.redirect("/favicon.svg"));
   registerHealthRoutes(app, {
     storeBackend: STORE_BACKEND,
     nodeEnv: NODE_ENV,
     startedAt: SERVER_STARTED_AT,
     checkStoreReady: () => store.checkReady()
   });
-  registerPlanRoutes(app);
+  registerPlanRoutes(app, {
+    store,
+    requireAuth,
+    resolveEffectivePlan,
+    requireAdminPermission,
+    boardReadPermission: ADMIN_PERMISSION_KEYS.BOARD_READ,
+    adminRoutePrefix: ADMIN_ROUTE_PREFIX
+  });
   registerSlackRoutes(app, {
     slackCommandsEnabled: SLACK_COMMANDS_ENABLED,
     slackSigningSecret: SLACK_SIGNING_SECRET,
@@ -355,7 +378,6 @@ function registerInfraRoutes(): void {
     getString
   });
 }
-
 function buildAuthDeps() {
   return {
     store, githubClientId: GITHUB_CLIENT_ID, githubClientSecret: GITHUB_CLIENT_SECRET,
@@ -372,7 +394,6 @@ function buildAuthDeps() {
     getOrCreateUserByEmail, replyAfterOAuth, setSessionCookie, clearSessionCookie, getSessionTokenFromCookie
   };
 }
-
 function buildAccountDeps() {
   return {
     store, requireAuth, issueEntitlement, trialDurationHours: TRIAL_DURATION_HOURS,
@@ -383,17 +404,14 @@ function buildAccountDeps() {
     boardReadPermission: ADMIN_PERMISSION_KEYS.BOARD_READ, safeLogWarn, toErrorMessage
   };
 }
-
-function registerAuthAndAccountRoutes(): void {
-  registerAuthRoutes(app, buildAuthDeps());
-  registerAccountRoutes(app, buildAccountDeps());
-}
-
+function registerAuthAndAccountRoutes(): void { registerAuthRoutes(app, buildAuthDeps()); registerAccountRoutes(app, buildAccountDeps()); }
 function registerPolicyAndEnforcementRoutes(): void {
   registerPolicyRoutes(app, {
     requireAuth, safeLogInfo, store, resolveEffectivePlan, requireAdminPermission,
     adminPermissionKeys: ADMIN_PERMISSION_KEYS, adminRoutePrefix: ADMIN_ROUTE_PREFIX
   });
+  registerIntegrationOrchestrationRoutes(app, { requireAuth, safeLogInfo, store, resolveEffectivePlan });
+  registerReviewOrchestrationRoutes(app, { requireAuth, safeLogInfo, store, resolveEffectivePlan });
   registerEnforcementAuditRoutes(app, {
     requireAuth, safeLogInfo, store, requireAdminPermission,
     adminPermissionKeys: ADMIN_PERMISSION_KEYS, adminRoutePrefix: ADMIN_ROUTE_PREFIX
@@ -404,7 +422,6 @@ function registerPolicyAndEnforcementRoutes(): void {
     packVersions: PACK_VERSIONS, safeLogInfo, safeLogWarn, toErrorMessage
   });
 }
-
 function buildGovernanceDeps() {
   return {
     requireAuth, store, resolveGovernanceContextForUser: gov.resolveGovernanceContextForUser,
@@ -424,7 +441,6 @@ function buildGovernanceDeps() {
     getSuperAdminEmailSet, resolveEffectivePlan, safeLogWarn, normalizeEmail
   };
 }
-
 function buildAdminDeps() {
   return {
     store, requireAdminPermission, adminPermissionKeys: ADMIN_PERMISSION_KEYS,
@@ -432,18 +448,31 @@ function buildAdminDeps() {
     grantSubscriptionByEmail, grantSubscriptionByUserId, upsertProviderPolicy
   };
 }
-
 function registerTeamAndGovernanceRoutes(): void {
-  registerTeamRoutes(app, { store, requireAuth, getOrCreateUserByEmail, grantSubscriptionByUserId, upsertProviderPolicy });
-  registerGovernanceRoutes(app, buildGovernanceDeps());
-  registerAdminRoutes(app, buildAdminDeps());
+  registerTeamRoutes(app, { store, requireAuth, getOrCreateUserByEmail, grantSubscriptionByUserId, upsertProviderPolicy }); registerGovernanceRoutes(app, buildGovernanceDeps()); registerAdminRoutes(app, buildAdminDeps());
 }
-
 function buildPaymentsDeps() {
   return {
-    requireAuth, store, stripeSecretKey: STRIPE_SECRET_KEY,
-    stripeWebhookSecret: STRIPE_WEBHOOK_SECRET, checkoutSuccessUrl: CHECKOUT_SUCCESS_URL,
-    checkoutCancelUrl: CHECKOUT_CANCEL_URL, resolveStripePriceId, safeJson,
+    requireAuth,
+    isAllowedCheckoutReturnUrl: isAllowedOAuthCallbackUrl,
+    store,
+    getStripeRuntimeConfig: () => stripeRuntimeConfigManager.snapshot(),
+    getStripeRuntimeConfigPublic: () => stripeRuntimeConfigManager.publicView(),
+    getPricingCatalogPublic: () => stripeRuntimeConfigManager.pricingCatalogPublic(),
+    updateStripeRuntimeConfig: (input: {
+      stripe_secret_key?: string;
+      stripe_webhook_secret?: string;
+      stripe_publishable_key?: string;
+      stripe_price_map_raw?: string;
+      pricing_catalog_raw?: string;
+      checkout_success_url?: string;
+      checkout_cancel_url?: string;
+    }, updatedBy: string | null) => stripeRuntimeConfigManager.update(input, updatedBy),
+    testStripeRuntimeConfig: () => stripeRuntimeConfigManager.testConnection(),
+    resolveStripePriceId: (planId: PaidPlanTier, moduleScope: ModuleScope) =>
+      stripeRuntimeConfigManager.resolvePriceId(planId, moduleScope) ??
+      resolveStripePriceId(planId, moduleScope),
+    safeJson,
     verifyStripeSignature, getObject, getString, normalizeEmail, asPaidPlanTier,
     asModuleScope, getNumber, grantSubscriptionByEmail, recordAffiliatePaidConversion,
     addDays, offlineRefTtlDays: OFFLINE_REF_TTL_DAYS, generateCode,
@@ -451,21 +480,14 @@ function buildPaymentsDeps() {
     adminRoutePrefix: ADMIN_ROUTE_PREFIX, grantSubscriptionByUserId, toErrorMessage
   };
 }
-
 function buildAffiliateDeps() {
   return {
     requireAuth, store, clampCommissionRate,
     defaultAffiliateRateBps: DEFAULT_AFFILIATE_RATE_BPS, generateCode, normalizeEmail,
+    getPricingCatalogPublic: () => stripeRuntimeConfigManager.pricingCatalogPublic(),
     requireAdminPermission, adminPermissionKeys: ADMIN_PERMISSION_KEYS,
     adminRoutePrefix: ADMIN_ROUTE_PREFIX, recordAffiliatePaidConversion, toErrorMessage
   };
 }
-
-function registerPaymentAndAffiliateRoutes(): void {
-  registerPaymentsRoutes(app, buildPaymentsDeps());
-  registerAffiliateRoutes(app, buildAffiliateDeps());
-}
-bootstrap().catch((error) => {
-  console.error(sanitizeLogValue(error));
-  process.exit(1);
-});
+function registerPaymentAndAffiliateRoutes(): void { registerPaymentsRoutes(app, buildPaymentsDeps()); registerAffiliateRoutes(app, buildAffiliateDeps()); }
+bootstrap().catch((error) => { console.error(sanitizeLogValue(error)); process.exit(1); });

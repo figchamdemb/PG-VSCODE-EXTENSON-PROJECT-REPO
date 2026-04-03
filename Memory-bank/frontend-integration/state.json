@@ -1,0 +1,613 @@
+{
+  "version": 1,
+  "project_root": "C:/Users/ebrim/Desktop/PG VSCODE-EXTENSION",
+  "last_updated_utc": "2026-03-19T16:19:48Z",
+  "backend_agent": {
+    "agent_id": "backend-copilot-gpt-5-4-main",
+    "role": "backend",
+    "agent_family": "copilot",
+    "model_name": "GPT-5.4",
+    "session_mode": "interactive",
+    "status": "stopped",
+    "started_at_utc": "2026-03-19T16:15:42Z",
+    "last_heartbeat_utc": "2026-03-19T16:19:20Z",
+    "last_poll_utc": "2026-03-19T16:19:20Z"
+  },
+  "frontend_agent": {
+    "agent_id": "frontend-copilot-gpt-5-4-main",
+    "role": "frontend",
+    "agent_family": "copilot",
+    "model_name": "GPT-5.4",
+    "session_mode": "interactive",
+    "status": "completed",
+    "started_at_utc": "2026-03-19T16:11:03Z",
+    "last_heartbeat_utc": "2026-03-19T16:12:08Z",
+    "last_poll_utc": "2026-03-19T16:12:08Z"
+  },
+  "sources": {
+    "openapi_files": [],
+    "postman_files": []
+  },
+  "summary": {
+    "poll_seconds": 2,
+    "pending_backend_corrections": 0,
+    "pending_developer_actions": 0,
+    "completed_pages": 0,
+    "ready_for_frontend": 1,
+    "latest_activity": [
+      "[2026-03-19 16:19] backend worker acknowledged stop request and exited with status 'stopped' (requested_by=manual-backend-stopped).",
+      "[2026-03-19 16:19] backend stop requested. Worker will exit with status 'stopped' on the next heartbeat cycle.",
+      "[2026-03-19 16:18] Next page for backend: 02-dashboard [planned]",
+      "[2026-03-19 16:18] Next page for backend: 02-dashboard [planned]",
+      "[2026-03-19 16:18] Next page for backend: 02-dashboard [planned]",
+      "[2026-03-19 16:17] Next page for backend: 02-dashboard [planned]",
+      "[2026-03-19 16:17] Next page for backend: 02-dashboard [planned]",
+      "[2026-03-19 16:17] Next page for backend: 02-dashboard [planned]",
+      "[2026-03-19 16:17] Next page for backend: 02-dashboard [planned]",
+      "[2026-03-19 16:16] Next page for backend: 02-dashboard [planned]",
+      "[2026-03-19 16:16] Next page for backend: 02-dashboard [planned]",
+      "[2026-03-19 16:15] Next page for backend: 02-dashboard [planned]"
+    ]
+  },
+  "pages": [
+    {
+      "page_id": "01-auth-login",
+      "page_name": "Login",
+      "page_file": "Memory-bank/frontend-integration/pages/01-login.md",
+      "status": "ready_for_frontend",
+      "owner_role": "backend",
+      "owner_agent_id": "backend-copilot-gpt-5-4-main",
+      "source_mode": "backend-inference",
+      "source_refs": [],
+      "backend": {
+        "summary": "Backend auth path documented",
+        "endpoints": [
+          "POST /auth/email/start issues a login code for the submitted email address.",
+          "POST /auth/email/verify exchanges email, code, and install_id for a session token.",
+          "POST /auth/session/signout expires the current session token and clears the local sign-in state."
+        ],
+        "auth_requirements": [
+          "Enable ENABLE_EMAIL_OTP=true for local email-login verification.",
+          "Enable EXPOSE_DEV_OTP_CODE=true only when you need the local dev_code shortcut for smoke or manual testing.",
+          "GitHub and Google sign-in still require provider credentials and callback configuration."
+        ],
+        "headers": [
+          "Content-Type: application/json for email start and verify requests."
+        ],
+        "query_params": [],
+        "request_examples": [
+          "POST /auth/email/start -> { \"email\": \"smoke-auth@example.com\" }",
+          "POST /auth/email/verify -> { \"email\": \"smoke-auth@example.com\", \"code\": \"123456\", \"install_id\": \"web-smoke-auth\" }"
+        ],
+        "response_examples": [
+          "/auth/email/start returns { \"status\": \"code_sent\", \"email\": \"...\", \"expires_at\": \"...\" } and optional dev_code in local smoke mode.",
+          "/auth/email/verify returns { \"access_token\": \"...\", \"expires_in_sec\": ..., \"user_id\": \"...\" }."
+        ],
+        "error_examples": [
+          "/auth/email/start returns 400 when email is missing.",
+          "/auth/email/verify returns 400 for missing or expired codes and 401 for invalid codes."
+        ],
+        "db_verification_note": "Auth challenges are stored in auth_challenges; successful verification creates a sessions record and updates users.last_login_at.",
+        "smoke_status": "pass",
+        "smoke_note": "Mandatory Playwright smoke now covers the local portal email-auth flow on the dedicated smoke server.",
+        "frontend_instructions": "Use the shared login flow and the published test account before frontend smoke.",
+        "ui_notes": "Keep distinct send-code, verify-code, signed-in, invalid-code, and expired-code states visible to the developer and user.",
+        "credentials": {
+          "auth_mode": "email-otp|oauth",
+          "test_accounts": [
+            "Use any local test email for the baseline auth smoke flow.",
+            "Use an email listed in SUPER_ADMIN_EMAILS or ADMIN_BOOTSTRAP_SUPER_ADMIN_EMAILS when admin access also needs validation."
+          ],
+          "headers": [],
+          "required_secrets_present": false,
+          "tested_successfully": false,
+          "notes": "Local smoke does not require external mail delivery when dev_code exposure is enabled."
+        }
+      },
+      "frontend": {
+        "summary": "",
+        "changed_files": [],
+        "route_mapping_confirmed": false,
+        "playwright_status": "pending",
+        "screenshot_paths": [],
+        "limitations": []
+      },
+      "handoff": {
+        "findings": [
+          {
+            "title": "Sample finding",
+            "details": "Validation example for structured frontend-to-backend correction routing.",
+            "kind": "backend-missing",
+            "status": "open",
+            "timestamp_utc": "2026-03-17T18:55:21Z"
+          }
+        ],
+        "responses": [
+          {
+            "title": "Sample response",
+            "details": "Backend reviewed the finding and returned the step to ready_for_frontend.",
+            "resolution": "fixed",
+            "status": "closed",
+            "timestamp_utc": "2026-03-17T18:55:24Z"
+          }
+        ],
+        "frontend_finding_status": "open",
+        "backend_response_status": "answered",
+        "current_kind": "backend-missing",
+        "resolution": "fixed"
+      },
+      "developer_actions": [
+        "Set ENABLE_EMAIL_OTP=true in server/.env before local auth verification.",
+        "Enable EXPOSE_DEV_OTP_CODE=true only for local-only shortcut testing when needed."
+      ],
+      "known_blockers": [
+        "Validation example for structured frontend-to-backend correction routing."
+      ],
+      "validation": {
+        "frontend_page_line_count": 0,
+        "frontend_page_line_limit": 500,
+        "trust_status": "pending",
+        "self_check_status": "pending"
+      },
+      "timestamps": {
+        "created_at_utc": "2026-03-17T18:54:05Z",
+        "updated_at_utc": "2026-03-19T16:15:45Z",
+        "ready_at_utc": "2026-03-17T18:55:18Z",
+        "completed_at_utc": ""
+      }
+    },
+    {
+      "page_id": "02-dashboard",
+      "page_name": "Dashboard",
+      "page_file": "Memory-bank/frontend-integration/pages/02-dashboard.md",
+      "status": "planned",
+      "owner_role": "",
+      "owner_agent_id": "",
+      "source_mode": "backend-inference",
+      "source_refs": [],
+      "backend": {
+        "summary": "Dashboard seed is based on the signed-in portal overview and account-summary routes. No OpenAPI or Postman refs were detected yet; start from the live backend route surface and captured responses.",
+        "endpoints": [
+          "GET /account/summary returns account, plan, quota, governance, team, and admin-access data for the signed-in user.",
+          "GET /entitlement/status returns the signed entitlement claims for the active install.",
+          "POST /devices/list returns the device records associated with the signed-in account."
+        ],
+        "auth_requirements": [
+          "Requires an active session cookie or bearer token from the login flow.",
+          "Admin and team controls appear conditionally based on account summary permissions."
+        ],
+        "headers": [
+          "Authorization: Bearer <access_token> for direct API verification when not using the portal session cookie."
+        ],
+        "query_params": [],
+        "request_examples": [
+          "GET /account/summary with the session created by /auth/email/verify.",
+          "GET /entitlement/status after sign-in to confirm plan and feature claims."
+        ],
+        "response_examples": [
+          "/account/summary returns { \"ok\": true, \"account\": { \"email\": \"...\" }, \"plan\": \"...\" } plus quota, governance, team, and admin flags.",
+          "/entitlement/status returns { \"entitlement_token\": \"...\", \"claims\": { ... } }."
+        ],
+        "error_examples": [
+          "/account/summary returns 401 when the session or bearer token is missing.",
+          "Protected dashboard actions should surface permission-based 401 or 403 responses when the signed-in account lacks access."
+        ],
+        "db_verification_note": "Account summary reads from users, subscriptions, trials, project_quotas, devices, team_memberships, and related admin-access records.",
+        "smoke_status": "pending",
+        "smoke_note": "Use the authenticated session created during smoke to validate the portal overview and summary payloads.",
+        "frontend_instructions": "After sign-in, verify the overview panel, profile header, and conditional nav state against /account/summary before marking the page ready.",
+        "ui_notes": "Capture signed-out, loading, signed-in, team-enabled, and admin-enabled states for the overview shell.",
+        "credentials": {
+          "auth_mode": "session-or-bearer",
+          "test_accounts": [
+            "Use the same local email auth account created during the login smoke flow.",
+            "For admin-nav coverage, sign in with a local email that is listed in SUPER_ADMIN_EMAILS or ADMIN_BOOTSTRAP_SUPER_ADMIN_EMAILS."
+          ],
+          "headers": [
+            "Authorization: Bearer <access_token> for direct API checks when bypassing the browser session."
+          ],
+          "required_secrets_present": false,
+          "tested_successfully": false,
+          "notes": "Dashboard smoke depends on a successful login flow first."
+        }
+      },
+      "frontend": {
+        "summary": "",
+        "changed_files": [],
+        "route_mapping_confirmed": false,
+        "playwright_status": "pending",
+        "screenshot_paths": [],
+        "limitations": []
+      },
+      "handoff": {
+        "findings": [],
+        "responses": [],
+        "frontend_finding_status": "none",
+        "backend_response_status": "none",
+        "current_kind": "",
+        "resolution": ""
+      },
+      "developer_actions": [
+        "Complete the local login flow before validating dashboard and account-summary behavior."
+      ],
+      "known_blockers": [],
+      "validation": {
+        "frontend_page_line_count": 0,
+        "frontend_page_line_limit": 500,
+        "trust_status": "pending",
+        "self_check_status": "pending"
+      },
+      "timestamps": {
+        "created_at_utc": "2026-03-17T18:54:05Z",
+        "updated_at_utc": "2026-03-19T16:15:45Z",
+        "ready_at_utc": "",
+        "completed_at_utc": ""
+      }
+    },
+    {
+      "page_id": "03-client",
+      "page_name": "Client",
+      "page_file": "Memory-bank/frontend-integration/pages/03-client.md",
+      "status": "planned",
+      "owner_role": "",
+      "owner_agent_id": "",
+      "source_mode": "backend-inference",
+      "source_refs": [],
+      "backend": {
+        "summary": "Client seeded from the current integration scaffolding. No OpenAPI or Postman refs were detected yet; start from the live backend route surface and captured responses.",
+        "endpoints": [
+          "Record the concrete routes this page calls before marking it ready_for_frontend."
+        ],
+        "auth_requirements": [
+          "Confirm whether this page is public or requires an existing session before frontend wiring."
+        ],
+        "headers": [],
+        "query_params": [],
+        "request_examples": [
+          "Capture at least one representative request payload for Client during backend verification."
+        ],
+        "response_examples": [
+          "Capture at least one representative response payload for Client during backend verification."
+        ],
+        "error_examples": [
+          "Capture the expected validation, empty, and server-error responses for Client during backend verification."
+        ],
+        "db_verification_note": "Add the tables or store records touched by Client when backend verification is complete.",
+        "smoke_status": "pending",
+        "smoke_note": "Use the mandatory smoke suite as baseline, then attach page-specific browser proof when this page is handed off.",
+        "frontend_instructions": "Map the UI route and API calls for Client, then attach smoke evidence before completion.",
+        "ui_notes": "Record loading, empty, success, and error states for Client.",
+        "credentials": {
+          "auth_mode": "unknown",
+          "test_accounts": [],
+          "headers": [],
+          "required_secrets_present": false,
+          "tested_successfully": false,
+          "notes": "No OpenAPI or Postman refs were detected yet; start from the live backend route surface and captured responses."
+        }
+      },
+      "frontend": {
+        "summary": "",
+        "changed_files": [],
+        "route_mapping_confirmed": false,
+        "playwright_status": "pending",
+        "screenshot_paths": [],
+        "limitations": []
+      },
+      "handoff": {
+        "findings": [],
+        "responses": [],
+        "frontend_finding_status": "none",
+        "backend_response_status": "none",
+        "current_kind": "",
+        "resolution": ""
+      },
+      "developer_actions": [],
+      "known_blockers": [],
+      "validation": {
+        "frontend_page_line_count": 0,
+        "frontend_page_line_limit": 500,
+        "trust_status": "pending",
+        "self_check_status": "pending"
+      },
+      "timestamps": {
+        "created_at_utc": "2026-03-17T18:54:05Z",
+        "updated_at_utc": "2026-03-19T16:15:45Z",
+        "ready_at_utc": "",
+        "completed_at_utc": ""
+      }
+    },
+    {
+      "page_id": "04-screencast",
+      "page_name": "Screencast",
+      "page_file": "Memory-bank/frontend-integration/pages/04-screencast.md",
+      "status": "planned",
+      "owner_role": "",
+      "owner_agent_id": "",
+      "source_mode": "backend-inference",
+      "source_refs": [],
+      "backend": {
+        "summary": "Screencast seeded from the current integration scaffolding. No OpenAPI or Postman refs were detected yet; start from the live backend route surface and captured responses.",
+        "endpoints": [
+          "Record the concrete routes this page calls before marking it ready_for_frontend."
+        ],
+        "auth_requirements": [
+          "Confirm whether this page is public or requires an existing session before frontend wiring."
+        ],
+        "headers": [],
+        "query_params": [],
+        "request_examples": [
+          "Capture at least one representative request payload for Screencast during backend verification."
+        ],
+        "response_examples": [
+          "Capture at least one representative response payload for Screencast during backend verification."
+        ],
+        "error_examples": [
+          "Capture the expected validation, empty, and server-error responses for Screencast during backend verification."
+        ],
+        "db_verification_note": "Add the tables or store records touched by Screencast when backend verification is complete.",
+        "smoke_status": "pending",
+        "smoke_note": "Use the mandatory smoke suite as baseline, then attach page-specific browser proof when this page is handed off.",
+        "frontend_instructions": "Map the UI route and API calls for Screencast, then attach smoke evidence before completion.",
+        "ui_notes": "Record loading, empty, success, and error states for Screencast.",
+        "credentials": {
+          "auth_mode": "unknown",
+          "test_accounts": [],
+          "headers": [],
+          "required_secrets_present": false,
+          "tested_successfully": false,
+          "notes": "No OpenAPI or Postman refs were detected yet; start from the live backend route surface and captured responses."
+        }
+      },
+      "frontend": {
+        "summary": "",
+        "changed_files": [],
+        "route_mapping_confirmed": false,
+        "playwright_status": "pending",
+        "screenshot_paths": [],
+        "limitations": []
+      },
+      "handoff": {
+        "findings": [],
+        "responses": [],
+        "frontend_finding_status": "none",
+        "backend_response_status": "none",
+        "current_kind": "",
+        "resolution": ""
+      },
+      "developer_actions": [],
+      "known_blockers": [],
+      "validation": {
+        "frontend_page_line_count": 0,
+        "frontend_page_line_limit": 500,
+        "trust_status": "pending",
+        "self_check_status": "pending"
+      },
+      "timestamps": {
+        "created_at_utc": "2026-03-17T18:54:05Z",
+        "updated_at_utc": "2026-03-19T16:15:45Z",
+        "ready_at_utc": "",
+        "completed_at_utc": ""
+      }
+    },
+    {
+      "page_id": "05-screenshot",
+      "page_name": "Screenshot",
+      "page_file": "Memory-bank/frontend-integration/pages/05-screenshot.md",
+      "status": "planned",
+      "owner_role": "",
+      "owner_agent_id": "",
+      "source_mode": "backend-inference",
+      "source_refs": [],
+      "backend": {
+        "summary": "Screenshot seeded from the current integration scaffolding. No OpenAPI or Postman refs were detected yet; start from the live backend route surface and captured responses.",
+        "endpoints": [
+          "Record the concrete routes this page calls before marking it ready_for_frontend."
+        ],
+        "auth_requirements": [
+          "Confirm whether this page is public or requires an existing session before frontend wiring."
+        ],
+        "headers": [],
+        "query_params": [],
+        "request_examples": [
+          "Capture at least one representative request payload for Screenshot during backend verification."
+        ],
+        "response_examples": [
+          "Capture at least one representative response payload for Screenshot during backend verification."
+        ],
+        "error_examples": [
+          "Capture the expected validation, empty, and server-error responses for Screenshot during backend verification."
+        ],
+        "db_verification_note": "Add the tables or store records touched by Screenshot when backend verification is complete.",
+        "smoke_status": "pending",
+        "smoke_note": "Use the mandatory smoke suite as baseline, then attach page-specific browser proof when this page is handed off.",
+        "frontend_instructions": "Map the UI route and API calls for Screenshot, then attach smoke evidence before completion.",
+        "ui_notes": "Record loading, empty, success, and error states for Screenshot.",
+        "credentials": {
+          "auth_mode": "unknown",
+          "test_accounts": [],
+          "headers": [],
+          "required_secrets_present": false,
+          "tested_successfully": false,
+          "notes": "No OpenAPI or Postman refs were detected yet; start from the live backend route surface and captured responses."
+        }
+      },
+      "frontend": {
+        "summary": "",
+        "changed_files": [],
+        "route_mapping_confirmed": false,
+        "playwright_status": "pending",
+        "screenshot_paths": [],
+        "limitations": []
+      },
+      "handoff": {
+        "findings": [],
+        "responses": [],
+        "frontend_finding_status": "none",
+        "backend_response_status": "none",
+        "current_kind": "",
+        "resolution": ""
+      },
+      "developer_actions": [],
+      "known_blockers": [],
+      "validation": {
+        "frontend_page_line_count": 0,
+        "frontend_page_line_limit": 500,
+        "trust_status": "pending",
+        "self_check_status": "pending"
+      },
+      "timestamps": {
+        "created_at_utc": "2026-03-17T18:54:05Z",
+        "updated_at_utc": "2026-03-19T16:15:45Z",
+        "ready_at_utc": "",
+        "completed_at_utc": ""
+      }
+    },
+    {
+      "page_id": "06-screenshotter",
+      "page_name": "Screenshotter",
+      "page_file": "Memory-bank/frontend-integration/pages/06-screenshotter.md",
+      "status": "planned",
+      "owner_role": "",
+      "owner_agent_id": "",
+      "source_mode": "backend-inference",
+      "source_refs": [],
+      "backend": {
+        "summary": "Screenshotter seeded from the current integration scaffolding. No OpenAPI or Postman refs were detected yet; start from the live backend route surface and captured responses.",
+        "endpoints": [
+          "Record the concrete routes this page calls before marking it ready_for_frontend."
+        ],
+        "auth_requirements": [
+          "Confirm whether this page is public or requires an existing session before frontend wiring."
+        ],
+        "headers": [],
+        "query_params": [],
+        "request_examples": [
+          "Capture at least one representative request payload for Screenshotter during backend verification."
+        ],
+        "response_examples": [
+          "Capture at least one representative response payload for Screenshotter during backend verification."
+        ],
+        "error_examples": [
+          "Capture the expected validation, empty, and server-error responses for Screenshotter during backend verification."
+        ],
+        "db_verification_note": "Add the tables or store records touched by Screenshotter when backend verification is complete.",
+        "smoke_status": "pending",
+        "smoke_note": "Use the mandatory smoke suite as baseline, then attach page-specific browser proof when this page is handed off.",
+        "frontend_instructions": "Map the UI route and API calls for Screenshotter, then attach smoke evidence before completion.",
+        "ui_notes": "Record loading, empty, success, and error states for Screenshotter.",
+        "credentials": {
+          "auth_mode": "unknown",
+          "test_accounts": [],
+          "headers": [],
+          "required_secrets_present": false,
+          "tested_successfully": false,
+          "notes": "No OpenAPI or Postman refs were detected yet; start from the live backend route surface and captured responses."
+        }
+      },
+      "frontend": {
+        "summary": "",
+        "changed_files": [],
+        "route_mapping_confirmed": false,
+        "playwright_status": "pending",
+        "screenshot_paths": [],
+        "limitations": []
+      },
+      "handoff": {
+        "findings": [],
+        "responses": [],
+        "frontend_finding_status": "none",
+        "backend_response_status": "none",
+        "current_kind": "",
+        "resolution": ""
+      },
+      "developer_actions": [],
+      "known_blockers": [],
+      "validation": {
+        "frontend_page_line_count": 0,
+        "frontend_page_line_limit": 500,
+        "trust_status": "pending",
+        "self_check_status": "pending"
+      },
+      "timestamps": {
+        "created_at_utc": "2026-03-17T18:54:05Z",
+        "updated_at_utc": "2026-03-19T16:15:45Z",
+        "ready_at_utc": "",
+        "completed_at_utc": ""
+      }
+    },
+    {
+      "page_id": "07-server",
+      "page_name": "Server",
+      "page_file": "Memory-bank/frontend-integration/pages/07-server.md",
+      "status": "planned",
+      "owner_role": "",
+      "owner_agent_id": "",
+      "source_mode": "backend-inference",
+      "source_refs": [],
+      "backend": {
+        "summary": "Server seeded from the current integration scaffolding. No OpenAPI or Postman refs were detected yet; start from the live backend route surface and captured responses.",
+        "endpoints": [
+          "Record the concrete routes this page calls before marking it ready_for_frontend."
+        ],
+        "auth_requirements": [
+          "Confirm whether this page is public or requires an existing session before frontend wiring."
+        ],
+        "headers": [],
+        "query_params": [],
+        "request_examples": [
+          "Capture at least one representative request payload for Server during backend verification."
+        ],
+        "response_examples": [
+          "Capture at least one representative response payload for Server during backend verification."
+        ],
+        "error_examples": [
+          "Capture the expected validation, empty, and server-error responses for Server during backend verification."
+        ],
+        "db_verification_note": "Add the tables or store records touched by Server when backend verification is complete.",
+        "smoke_status": "pending",
+        "smoke_note": "Use the mandatory smoke suite as baseline, then attach page-specific browser proof when this page is handed off.",
+        "frontend_instructions": "Map the UI route and API calls for Server, then attach smoke evidence before completion.",
+        "ui_notes": "Record loading, empty, success, and error states for Server.",
+        "credentials": {
+          "auth_mode": "unknown",
+          "test_accounts": [],
+          "headers": [],
+          "required_secrets_present": false,
+          "tested_successfully": false,
+          "notes": "No OpenAPI or Postman refs were detected yet; start from the live backend route surface and captured responses."
+        }
+      },
+      "frontend": {
+        "summary": "",
+        "changed_files": [],
+        "route_mapping_confirmed": false,
+        "playwright_status": "pending",
+        "screenshot_paths": [],
+        "limitations": []
+      },
+      "handoff": {
+        "findings": [],
+        "responses": [],
+        "frontend_finding_status": "none",
+        "backend_response_status": "none",
+        "current_kind": "",
+        "resolution": ""
+      },
+      "developer_actions": [],
+      "known_blockers": [],
+      "validation": {
+        "frontend_page_line_count": 0,
+        "frontend_page_line_limit": 500,
+        "trust_status": "pending",
+        "self_check_status": "pending"
+      },
+      "timestamps": {
+        "created_at_utc": "2026-03-17T18:54:05Z",
+        "updated_at_utc": "2026-03-19T16:15:45Z",
+        "ready_at_utc": "",
+        "completed_at_utc": ""
+      }
+    }
+  ]
+}

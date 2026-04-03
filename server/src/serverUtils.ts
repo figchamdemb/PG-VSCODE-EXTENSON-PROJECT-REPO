@@ -196,26 +196,16 @@ export function parseOriginList(raw: string | undefined, fallbackOrigin: string)
 }
 
 export function verifyStripeSignature(payload: string, signatureHeader: string, secret: string): boolean {
-  const parts = signatureHeader.split(",").map((item) => item.trim());
-  const timestamp = parts.find((item) => item.startsWith("t="))?.slice(2);
-  const signatures = parts.filter((item) => item.startsWith("v1=")).map((item) => item.slice(3));
-  if (!timestamp || signatures.length === 0) {
+  const parsed = parseStripeSignatureHeader(signatureHeader);
+  if (!parsed) {
     return false;
   }
+  const { timestamp, signatures } = parsed;
 
   const expected = createHmac("sha256", secret)
     .update(`${timestamp}.${payload}`)
     .digest("hex");
-  const expectedBuffer = Buffer.from(expected, "utf8");
-
-  const hasMatch = signatures.some((candidate) => {
-    const candidateBuffer = Buffer.from(candidate, "utf8");
-    if (candidateBuffer.length !== expectedBuffer.length) {
-      return false;
-    }
-    return timingSafeEqual(candidateBuffer, expectedBuffer);
-  });
-  if (!hasMatch) {
+  if (!hasMatchingStripeSignature(signatures, expected)) {
     return false;
   }
 
@@ -225,6 +215,34 @@ export function verifyStripeSignature(payload: string, signatureHeader: string, 
   }
   const ageSeconds = Math.abs(Math.floor(Date.now() / 1000) - timestampSeconds);
   return ageSeconds <= 300;
+}
+
+function parseStripeSignatureHeader(
+  signatureHeader: string
+): { timestamp: string; signatures: string[] } | null {
+  const parts = signatureHeader.split(",").map((item) => item.trim());
+  const timestamp = parts.find((item) => item.startsWith("t="))?.slice(2);
+  const signatures = parts
+    .filter((item) => item.startsWith("v1="))
+    .map((item) => item.slice(3));
+  if (!timestamp || signatures.length === 0) {
+    return null;
+  }
+  return { timestamp, signatures };
+}
+
+function hasMatchingStripeSignature(signatures: string[], expected: string): boolean {
+  const expectedBuffer = Buffer.from(expected, "utf8");
+  for (const candidate of signatures) {
+    const candidateBuffer = Buffer.from(candidate, "utf8");
+    if (candidateBuffer.length !== expectedBuffer.length) {
+      continue;
+    }
+    if (timingSafeEqual(candidateBuffer, expectedBuffer)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /* ── Typed value extractors ───────────────────────────────── */

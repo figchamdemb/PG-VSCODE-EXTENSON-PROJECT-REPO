@@ -231,10 +231,7 @@ async function getSuperAdminEmailSet(deps: AdminAuthHelpersDeps): Promise<Set<st
         where: { status: "active", isSuperAdmin: true },
         select: { email: true }
       });
-      rows
-        .map((row) => normalizeEmail(row.email))
-        .filter((email): email is string => Boolean(email))
-        .forEach((email) => superAdminEmails.add(email));
+      appendNormalizedEmails(superAdminEmails, rows.map((row) => row.email));
     } catch (error) {
       deps.safeLogWarn("Failed to load super-admin emails from DB", {
         error: toErrorMessage(error),
@@ -246,4 +243,13 @@ async function getSuperAdminEmailSet(deps: AdminAuthHelpersDeps): Promise<Set<st
     }
   }
   return superAdminEmails;
+}
+
+function appendNormalizedEmails(target: Set<string>, emails: string[]): void {
+  for (const email of emails) {
+    const normalized = normalizeEmail(email);
+    if (normalized) {
+      target.add(normalized);
+    }
+  }
 }

@@ -5,6 +5,8 @@ import * as vscode from "vscode";
 import { runPowerShellCommand } from "../governance/powerShellRunner";
 import { RepoRootResolution, resolveRepoRoot } from "../utils/repoRootResolver";
 import { Logger } from "../utils/logger";
+import { showPgRootGuidance } from "./pgRootGuidance";
+import { ensureDevProfileReady } from "./devProfilePreflight";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -66,7 +68,9 @@ export function registerRunMcpCloudScoreCommand(
 
 async function runMcpCloudScore(logger: Logger): Promise<void> {
   const repo = resolveRepoRoot();
-  if (!repo) { vscode.window.showWarningMessage("Narrate: open a workspace with pg.ps1 before running MCP cloud score."); return; }
+  if (!repo) { await showPgRootGuidance("MCP cloud score"); return; }
+  const canContinue = await ensureDevProfileReady(repo, "MCP cloud score");
+  if (!canContinue) { return; }
   const scriptPath = path.join(repo.repoRoot, "scripts", "mcp_cloud_score_verify.ps1");
   if (!fs.existsSync(scriptPath)) { vscode.window.showWarningMessage("Narrate: mcp_cloud_score_verify.ps1 not found."); return; }
   const result = await vscode.window.withProgress(

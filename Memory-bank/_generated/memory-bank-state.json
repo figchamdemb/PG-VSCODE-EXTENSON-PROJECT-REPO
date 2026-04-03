@@ -1,7 +1,10 @@
 {
-  "generated_at_utc": "2026-03-01 19:37",
+  "generated_at_utc": "2026-03-28 22:45",
   "profile": "frontend",
   "keep_days": 7,
-  "daily_file": "Memory-bank/daily/2026-03-01.md",
-  "removed_daily_files": []
+  "daily_file": "Memory-bank/daily/2026-03-28.md",
+  "removed_daily_files": [],
+  "long_file_rotations": [],
+  "agents_global_max_lines": 2500,
+  "mastermind_max_lines": 1800
 }

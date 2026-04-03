@@ -3,6 +3,13 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { AdminPermissionKeys } from "./adminRbacBootstrap";
 import { StateStore } from "./store";
 import { UserRecord } from "./types";
+import { PublicPricingCatalog } from "./pricingCatalog";
+import {
+  affiliateProgramFromCatalog,
+  isAffiliatePayoutEligible,
+  resolveAffiliateCodeKind,
+  summarizeAffiliateProgress
+} from "./affiliateProgram";
 
 type AdminAccessContext = {
   mode: "db" | "key";
@@ -33,13 +40,15 @@ export interface RegisterAffiliateRoutesDeps {
     code: string,
     buyerEmail: string,
     orderId: string,
-    grossAmountCents: number
+    grossAmountCents: number,
+    buyerDiscountCents?: number
   ) => Promise<AffiliatePaidConversionResult>;
+  getPricingCatalogPublic: () => PublicPricingCatalog;
   toErrorMessage: (error: unknown) => string;
 }
 
 export function registerAffiliateRoutes(app: FastifyInstance, deps: RegisterAffiliateRoutesDeps): void {
-  app.post<{ Body: { code?: string; commission_rate_bps?: number } }>(
+  app.post<{ Body: { code?: string; commission_rate_bps?: number; kind?: "referral" | "affiliate" } }>(
     "/affiliate/code/create",
     (request, reply) => handleCreateAffiliateCode(request, reply, deps)
   );
@@ -54,6 +63,9 @@ export function registerAffiliateRoutes(app: FastifyInstance, deps: RegisterAffi
     (request, reply) => handleConfirmConversion(request, reply, deps)
   );
   app.get("/affiliate/dashboard", (request, reply) => handleDashboard(request, reply, deps));
+  app.get("/affiliate/program", async () => {
+    return { ok: true, program: affiliateProgramFromCatalog(deps.getPricingCatalogPublic()) };
+  });
   app.post<{ Body: { affiliate_user_id?: string; payout_reference?: string } }>(
     `${deps.adminRoutePrefix}/affiliate/payout/approve`,
     (request, reply) => handleApprovePayout(request, reply, deps)
@@ -61,7 +73,7 @@ export function registerAffiliateRoutes(app: FastifyInstance, deps: RegisterAffi
 }
 
 async function handleCreateAffiliateCode(
-  request: FastifyRequest<{ Body: { code?: string; commission_rate_bps?: number } }>,
+  request: FastifyRequest<{ Body: { code?: string; commission_rate_bps?: number; kind?: "referral" | "affiliate" } }>,
   reply: FastifyReply,
   deps: RegisterAffiliateRoutesDeps
 ) {
@@ -72,24 +84,30 @@ async function handleCreateAffiliateCode(
   }
 
   const requestedCode = request.body?.code?.trim().toUpperCase();
+  const requestedKind = request.body?.kind === "affiliate" ? "affiliate" : "referral";
   const commissionRateBps = clampCommissionRate(
     request.body?.commission_rate_bps ?? defaultAffiliateRateBps
   );
 
   const snapshot = store.snapshot();
   const existing = snapshot.affiliate_codes.find(
-    (item) => item.user_id === auth.user.id && item.status === "active"
+    (item) =>
+      item.user_id === auth.user.id &&
+      item.status === "active" &&
+      resolveAffiliateCodeKind(item.code) === requestedKind
   );
   if (existing) {
     return {
       ok: true,
       code: existing.code,
+      kind: resolveAffiliateCodeKind(existing.code),
       commission_rate_bps: existing.commission_rate_bps,
       idempotent: true
     };
   }
 
-  const code = requestedCode && requestedCode.length >= 6 ? requestedCode : generateCode("AFF");
+  const codePrefix = requestedKind === "affiliate" ? "AFF" : "REF";
+  const code = requestedCode && requestedCode.length >= 6 ? requestedCode : generateCode(codePrefix);
   if (snapshot.affiliate_codes.some((item) => item.code === code)) {
     return reply.code(409).send({ error: "affiliate code already exists" });
   }
@@ -105,7 +123,7 @@ async function handleCreateAffiliateCode(
     });
   });
 
-  return { ok: true, code, commission_rate_bps: commissionRateBps, idempotent: false };
+  return { ok: true, code, kind: resolveAffiliateCodeKind(code), commission_rate_bps: commissionRateBps, idempotent: false };
 }
 
 async function handleTrackClick(
@@ -136,6 +154,8 @@ async function handleTrackClick(
       status: "clicked",
       order_id: null,
       gross_amount_cents: 0,
+      buyer_discount_cents: 0,
+      effective_commission_rate_bps: affiliateCode.commission_rate_bps,
       commission_amount_cents: 0,
       confirmed_at: null,
       created_at: new Date().toISOString(),
@@ -195,6 +215,8 @@ async function handleDashboard(
   }
 
   const snapshot = store.snapshot();
+  const pricingCatalog = deps.getPricingCatalogPublic();
+  const affiliateProgram = affiliateProgramFromCatalog(pricingCatalog);
   const codes = snapshot.affiliate_codes.filter((item) => item.user_id === auth.user.id);
   const conversions = snapshot.affiliate_conversions.filter(
     (item) => item.affiliate_user_id === auth.user.id
@@ -204,20 +226,48 @@ async function handleDashboard(
   );
 
   const pendingCommission = conversions
-    .filter((item) => item.status === "paid_confirmed" && item.payout_id === null)
+    .filter(
+      (item) =>
+        item.status === "paid_confirmed" &&
+        item.payout_id === null &&
+        isAffiliatePayoutEligible(pricingCatalog, item.created_at)
+    )
+    .reduce((sum, item) => sum + item.commission_amount_cents, 0);
+
+  const heldCommission = conversions
+    .filter(
+      (item) =>
+        item.status === "paid_confirmed" &&
+        item.payout_id === null &&
+        !isAffiliatePayoutEligible(pricingCatalog, item.created_at)
+    )
     .reduce((sum, item) => sum + item.commission_amount_cents, 0);
 
   const paidCommission = payouts
     .filter((item) => item.status === "approved" || item.status === "paid")
     .reduce((sum, item) => sum + item.amount_cents, 0);
 
+  const activeCode = codes.find((item) => item.status === "active") ?? null;
+  const paidReferralsCount = conversions.filter((item) => item.status === "paid_confirmed").length;
+  const progress = summarizeAffiliateProgress(
+    pricingCatalog,
+    activeCode?.commission_rate_bps ?? affiliateProgram.default_commission_rate_bps,
+    paidReferralsCount
+  );
+
   return {
     ok: true,
     codes,
+    program: affiliateProgram,
     summary: {
       conversions_total: conversions.length,
+      paid_referrals_count: paidReferralsCount,
       pending_commission_cents: pendingCommission,
-      paid_commission_cents: paidCommission
+      held_commission_cents: heldCommission,
+      paid_commission_cents: paidCommission,
+      current_commission_rate_bps: progress.currentCommissionRateBps,
+      current_bonus_bps: progress.currentBonusBps,
+      next_milestone: progress.nextTier
     }
   };
 }
@@ -243,14 +293,16 @@ async function handleApprovePayout(
   }
 
   const snapshot = store.snapshot();
+  const pricingCatalog = deps.getPricingCatalogPublic();
   const pending = snapshot.affiliate_conversions.filter(
     (item) =>
       item.affiliate_user_id === affiliateUserId &&
       item.status === "paid_confirmed" &&
-      item.payout_id === null
+      item.payout_id === null &&
+      isAffiliatePayoutEligible(pricingCatalog, item.created_at)
   );
   if (pending.length === 0) {
-    return reply.code(400).send({ error: "no pending affiliate commission for user" });
+    return reply.code(400).send({ error: "no payout-eligible affiliate commission for user yet" });
   }
 
   const amountCents = pending.reduce((sum, item) => sum + item.commission_amount_cents, 0);
@@ -261,6 +313,7 @@ async function handleApprovePayout(
     .map((item) => item.created_at)
     .sort((a, b) => b.localeCompare(a))[0];
   const payoutId = randomUUID();
+  const pendingIds = new Set(pending.map((item) => item.id));
 
   await store.update((state) => {
     state.affiliate_payouts.push({
@@ -276,11 +329,7 @@ async function handleApprovePayout(
     });
 
     for (const conversion of state.affiliate_conversions) {
-      if (
-        conversion.affiliate_user_id === affiliateUserId &&
-        conversion.status === "paid_confirmed" &&
-        conversion.payout_id === null
-      ) {
+      if (pendingIds.has(conversion.id)) {
         conversion.payout_id = payoutId;
       }
     }

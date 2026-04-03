@@ -11,11 +11,13 @@
     "smoke:web": "node scripts/smoke-web.mjs",
     "smoke:playwright": "playwright test --config playwright.config.ts --grep @smoke",
     "seed:governance-user": "node scripts/bootstrap-governance-user.mjs",
-    "prisma:generate": "prisma generate",
-    "prisma:dbpush": "prisma db push",
-    "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:migrate:status": "prisma migrate status",
-    "prisma:studio": "prisma studio"
+    "prisma:generate": "prisma generate --config ./prisma.config.ts",
+    "prisma:dbpush": "prisma db push --config ./prisma.config.ts",
+    "prisma:migrate:deploy": "prisma migrate deploy --config ./prisma.config.ts",
+    "prisma:migrate:status": "prisma migrate status --config ./prisma.config.ts",
+    "prisma:studio": "prisma studio --config ./prisma.config.ts",
+    "smoke:playwright:report": "playwright show-report",
+    "playwright:install": "playwright install chromium firefox webkit"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

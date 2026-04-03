@@ -59,6 +59,7 @@ export interface EntitlementClaimPayload {
     commit_quality_gate: boolean;
     codebase_tour: boolean;
     api_contract_validator: boolean;
+    frontend_backend_integration: boolean;
     environment_doctor: boolean;
   };
   iat: number;
@@ -178,6 +179,7 @@ export function buildEntitlementClaims(
       commit_quality_gate: matrix.ext_commit_quality_gate,
       codebase_tour: matrix.ext_codebase_tour,
       api_contract_validator: matrix.ext_api_contract_validator,
+      frontend_backend_integration: matrix.ext_frontend_backend_integration,
       environment_doctor: matrix.ext_environment_doctor
     },
     iat: Math.floor(now.getTime() / 1000),

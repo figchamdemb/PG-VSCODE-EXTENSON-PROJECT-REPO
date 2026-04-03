@@ -53,12 +53,22 @@ function compareRequestFields(contract: EndpointContract, call: FrontendCall): A
   const mismatches: ApiContractMismatch[] = [];
   const callMap = new Map(call.requestFields.map((field) => [field.name, field]));
   const contractMap = new Map(contract.requestFields.map((field) => [field.name, field]));
+  appendMissingRequiredRequestFieldMismatches(mismatches, contract, call, callMap);
+  appendRequestNamingAndTypeMismatches(mismatches, contract, call, contractMap);
+  return mismatches;
+}
 
+function appendMissingRequiredRequestFieldMismatches(
+  target: ApiContractMismatch[],
+  contract: EndpointContract,
+  call: FrontendCall,
+  callMap: Map<string, FieldShape>
+): void {
   for (const backendField of contract.requestFields.filter((field) => field.required)) {
     if (callMap.has(backendField.name)) {
       continue;
     }
-    mismatches.push({
+    target.push({
       ruleId: "API-REQ-001",
       severity: "blocker",
       method: call.method,
@@ -68,17 +78,24 @@ function compareRequestFields(contract: EndpointContract, call: FrontendCall): A
       message: `Missing required request field \`${backendField.name}\`.`
     });
   }
+}
 
+function appendRequestNamingAndTypeMismatches(
+  target: ApiContractMismatch[],
+  contract: EndpointContract,
+  call: FrontendCall,
+  contractMap: Map<string, FieldShape>
+): void {
   for (const frontendField of call.requestFields) {
     if (contractMap.has(frontendField.name)) {
-      mismatches.push(...compareFieldTypes(contract, call, frontendField));
+      target.push(...compareFieldTypes(contract, call, frontendField));
       continue;
     }
     const mappedField = findNamingMatch(contract.requestFields, frontendField.name);
     if (!mappedField) {
       continue;
     }
-    mismatches.push({
+    target.push({
       ruleId: "API-REQ-002",
       severity: "warning",
       method: call.method,
@@ -88,8 +105,6 @@ function compareRequestFields(contract: EndpointContract, call: FrontendCall): A
       message: `Field naming mismatch: frontend \`${frontendField.name}\` vs backend \`${mappedField.name}\`.`
     });
   }
-
-  return mismatches;
 }
 
 function compareFieldTypes(

@@ -3,6 +3,8 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { FeatureGateService } from "../licensing/featureGates";
 import { NarrationEngine } from "../narration/narrationEngine";
+import { StartupContextEnforcer } from "../startup/startupContextEnforcer";
+import { TrustScoreService } from "../trust/trustScoreService";
 import { getCurrentMode } from "./modeState";
 import { resolveExportBaseDir, sanitizePathSegment } from "./exportUtils";
 import { GitClient } from "../git/gitClient";
@@ -12,10 +14,18 @@ import { DiffFile, DiffLine } from "../git/types";
 export function registerGenerateChangeReportCommand(
   context: vscode.ExtensionContext,
   narrationEngine: NarrationEngine,
-  gates: FeatureGateService
+  gates: FeatureGateService,
+  trustScoreService: TrustScoreService,
+  startupContextEnforcer: StartupContextEnforcer
 ): vscode.Disposable {
   return vscode.commands.registerCommand("narrate.generateChangeReport", async () => {
-    await runGenerateChangeReport(context, narrationEngine, gates);
+    await runGenerateChangeReport(
+      context,
+      narrationEngine,
+      gates,
+      trustScoreService,
+      startupContextEnforcer
+    );
   });
 }
 
@@ -29,10 +39,19 @@ interface FileAnalysis {
 async function runGenerateChangeReport(
   context: vscode.ExtensionContext,
   narrationEngine: NarrationEngine,
-  gates: FeatureGateService
+  gates: FeatureGateService,
+  trustScoreService: TrustScoreService,
+  startupContextEnforcer: StartupContextEnforcer
 ): Promise<void> {
+  const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+  if (!(await startupContextEnforcer.ensureWorkspaceReadyForAction("generating a change report", workspaceUri))) {
+    return;
+  }
   const prereqs = await validateChangeReportPrereqs(gates);
   if (!prereqs) return;
+  if (!(await trustScoreService.ensureActionAllowed("Generate Change Report"))) {
+    return;
+  }
   const { git, parsedFiles } = prereqs;
   const mode = getCurrentMode(context);
   const repoRoot = await git.getRepositoryRoot();

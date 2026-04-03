@@ -111,7 +111,7 @@ async function scoreWorkspaceFiles(
         });
         try {
           const document = await vscode.workspace.openTextDocument(uri);
-          const report = trustScoreService.computeReportForDocument(document);
+          const report = await trustScoreService.computeReportForDocument(document);
           if (report) {
             items.push(report);
           }

@@ -1,0 +1,63 @@
+
+> narrate-licensing-server@0.1.0 dev
+> tsx watch src/index.ts
+
+{"level":40,"time":1774676148890,"pid":48852,"hostname":"CHAM-DEMBA","msg":"[readiness] ADMIN_KEY is still the default 'dev-admin-key'"}
+{"level":40,"time":1774676148892,"pid":48852,"hostname":"CHAM-DEMBA","msg":"[readiness] EXPOSE_DEV_OTP_CODE=true leaks OTP codes in responses"}
+{"level":40,"time":1774676148892,"pid":48852,"hostname":"CHAM-DEMBA","msg":"[readiness] SESSION_COOKIE_SECURE=false – cookies sent over plain HTTP"}
+{"level":40,"time":1774676148892,"pid":48852,"hostname":"CHAM-DEMBA","msg":"[readiness] STRIPE_RUNTIME_VAULT_KEY is empty – admin-entered Stripe secret changes will not persist encrypted; keep keys in env or external vault."}
+{"level":40,"time":1774676148892,"pid":48852,"hostname":"CHAM-DEMBA","msg":"[readiness] HOST=0.0.0.0 in a non-production environment – binding all interfaces"}
+{"level":30,"time":1774676148896,"pid":48852,"hostname":"CHAM-DEMBA","database_target":"91.98.162.101:5433/narate-enterprise?schema=narate_enterprise","msg":"Database target resolved"}
+{"level":30,"time":1774676148897,"pid":48852,"hostname":"CHAM-DEMBA","stripe_runtime_config_path":"C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server\\.narrate\\stripe-runtime.local.json","secret_storage_mode":"env-only","msg":"Stripe runtime config initialized"}
+{"level":30,"time":1774676160276,"pid":48852,"hostname":"CHAM-DEMBA","store_backend":"prisma","msg":"Store initialized"}
+06:00:48 [tsx] change in ./src\stripePaymentHandlers.ts Rerunning...
+c{"level":40,"time":1774677708612,"pid":25768,"hostname":"CHAM-DEMBA","msg":"[readiness] ADMIN_KEY is still the default 'dev-admin-key'"}
+{"level":40,"time":1774677708614,"pid":25768,"hostname":"CHAM-DEMBA","msg":"[readiness] EXPOSE_DEV_OTP_CODE=true leaks OTP codes in responses"}
+{"level":40,"time":1774677708614,"pid":25768,"hostname":"CHAM-DEMBA","msg":"[readiness] SESSION_COOKIE_SECURE=false – cookies sent over plain HTTP"}
+{"level":40,"time":1774677708614,"pid":25768,"hostname":"CHAM-DEMBA","msg":"[readiness] STRIPE_RUNTIME_VAULT_KEY is empty – admin-entered Stripe secret changes will not persist encrypted; keep keys in env or external vault."}
+{"level":40,"time":1774677708614,"pid":25768,"hostname":"CHAM-DEMBA","msg":"[readiness] HOST=0.0.0.0 in a non-production environment – binding all interfaces"}
+{"level":30,"time":1774677708614,"pid":25768,"hostname":"CHAM-DEMBA","database_target":"91.98.162.101:5433/narate-enterprise?schema=narate_enterprise","msg":"Database target resolved"}
+{"level":30,"time":1774677708615,"pid":25768,"hostname":"CHAM-DEMBA","stripe_runtime_config_path":"C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server\\.narrate\\stripe-runtime.local.json","secret_storage_mode":"env-only","msg":"Stripe runtime config initialized"}
+{"level":30,"time":1774677723811,"pid":25768,"hostname":"CHAM-DEMBA","store_backend":"prisma","msg":"Store initialized"}
+{"level":30,"time":1774677728835,"pid":25768,"hostname":"CHAM-DEMBA","msg":"Server listening at http://127.0.0.1:8799"}
+{"level":30,"time":1774677728835,"pid":25768,"hostname":"CHAM-DEMBA","msg":"Server listening at http://172.25.96.1:8799"}
+{"level":30,"time":1774677728835,"pid":25768,"hostname":"CHAM-DEMBA","msg":"Server listening at http://192.168.137.1:8799"}
+{"level":30,"time":1774677728835,"pid":25768,"hostname":"CHAM-DEMBA","msg":"Server listening at http://192.168.103.127:8799"}
+{"level":30,"time":1774677728835,"pid":25768,"hostname":"CHAM-DEMBA","msg":"Narrate licensing server started on http://0.0.0.0:8799"}
+06:02:45 [tsx] change in ./src\stripePaymentHandlers.ts Restarting...
+c{"level":40,"time":1774677781755,"pid":12828,"hostname":"CHAM-DEMBA","msg":"[readiness] ADMIN_KEY is still the default 'dev-admin-key'"}
+{"level":40,"time":1774677781756,"pid":12828,"hostname":"CHAM-DEMBA","msg":"[readiness] EXPOSE_DEV_OTP_CODE=true leaks OTP codes in responses"}
+{"level":40,"time":1774677781756,"pid":12828,"hostname":"CHAM-DEMBA","msg":"[readiness] SESSION_COOKIE_SECURE=false – cookies sent over plain HTTP"}
+{"level":40,"time":1774677781756,"pid":12828,"hostname":"CHAM-DEMBA","msg":"[readiness] STRIPE_RUNTIME_VAULT_KEY is empty – admin-entered Stripe secret changes will not persist encrypted; keep keys in env or external vault."}
+{"level":40,"time":1774677781756,"pid":12828,"hostname":"CHAM-DEMBA","msg":"[readiness] HOST=0.0.0.0 in a non-production environment – binding all interfaces"}
+{"level":30,"time":1774677781756,"pid":12828,"hostname":"CHAM-DEMBA","database_target":"91.98.162.101:5433/narate-enterprise?schema=narate_enterprise","msg":"Database target resolved"}
+{"level":30,"time":1774677781758,"pid":12828,"hostname":"CHAM-DEMBA","stripe_runtime_config_path":"C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server\\.narrate\\stripe-runtime.local.json","secret_storage_mode":"env-only","msg":"Stripe runtime config initialized"}
+{"level":30,"time":1774677788917,"pid":12828,"hostname":"CHAM-DEMBA","store_backend":"prisma","msg":"Store initialized"}
+{"level":30,"time":1774677790922,"pid":12828,"hostname":"CHAM-DEMBA","msg":"Server listening at http://127.0.0.1:8799"}
+{"level":30,"time":1774677790922,"pid":12828,"hostname":"CHAM-DEMBA","msg":"Server listening at http://172.25.96.1:8799"}
+{"level":30,"time":1774677790922,"pid":12828,"hostname":"CHAM-DEMBA","msg":"Server listening at http://192.168.137.1:8799"}
+{"level":30,"time":1774677790922,"pid":12828,"hostname":"CHAM-DEMBA","msg":"Server listening at http://192.168.103.127:8799"}
+{"level":30,"time":1774677790923,"pid":12828,"hostname":"CHAM-DEMBA","msg":"Narrate licensing server started on http://0.0.0.0:8799"}
+06:06:44 [tsx] change in ./src\stripePaymentHandlers.ts Restarting...
+c{"level":40,"time":1774678013886,"pid":22588,"hostname":"CHAM-DEMBA","msg":"[readiness] ADMIN_KEY is still the default 'dev-admin-key'"}
+{"level":40,"time":1774678013888,"pid":22588,"hostname":"CHAM-DEMBA","msg":"[readiness] EXPOSE_DEV_OTP_CODE=true leaks OTP codes in responses"}
+{"level":40,"time":1774678013888,"pid":22588,"hostname":"CHAM-DEMBA","msg":"[readiness] SESSION_COOKIE_SECURE=false – cookies sent over plain HTTP"}
+{"level":40,"time":1774678013888,"pid":22588,"hostname":"CHAM-DEMBA","msg":"[readiness] STRIPE_RUNTIME_VAULT_KEY is empty – admin-entered Stripe secret changes will not persist encrypted; keep keys in env or external vault."}
+{"level":40,"time":1774678013888,"pid":22588,"hostname":"CHAM-DEMBA","msg":"[readiness] HOST=0.0.0.0 in a non-production environment – binding all interfaces"}
+{"level":30,"time":1774678013889,"pid":22588,"hostname":"CHAM-DEMBA","database_target":"91.98.162.101:5433/narate-enterprise?schema=narate_enterprise","msg":"Database target resolved"}
+{"level":30,"time":1774678013891,"pid":22588,"hostname":"CHAM-DEMBA","stripe_runtime_config_path":"C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server\\.narrate\\stripe-runtime.local.json","secret_storage_mode":"env-only","msg":"Stripe runtime config initialized"}
+{"level":30,"time":1774678023171,"pid":22588,"hostname":"CHAM-DEMBA","store_backend":"prisma","msg":"Store initialized"}
+06:08:14 [tsx] change in ./src\stripePaymentHandlers.ts Rerunning...
+c{"level":40,"time":1774678107039,"pid":9228,"hostname":"CHAM-DEMBA","msg":"[readiness] ADMIN_KEY is still the default 'dev-admin-key'"}
+{"level":40,"time":1774678107041,"pid":9228,"hostname":"CHAM-DEMBA","msg":"[readiness] EXPOSE_DEV_OTP_CODE=true leaks OTP codes in responses"}
+{"level":40,"time":1774678107041,"pid":9228,"hostname":"CHAM-DEMBA","msg":"[readiness] SESSION_COOKIE_SECURE=false – cookies sent over plain HTTP"}
+{"level":40,"time":1774678107041,"pid":9228,"hostname":"CHAM-DEMBA","msg":"[readiness] STRIPE_RUNTIME_VAULT_KEY is empty – admin-entered Stripe secret changes will not persist encrypted; keep keys in env or external vault."}
+{"level":40,"time":1774678107041,"pid":9228,"hostname":"CHAM-DEMBA","msg":"[readiness] HOST=0.0.0.0 in a non-production environment – binding all interfaces"}
+{"level":30,"time":1774678107041,"pid":9228,"hostname":"CHAM-DEMBA","database_target":"91.98.162.101:5433/narate-enterprise?schema=narate_enterprise","msg":"Database target resolved"}
+{"level":30,"time":1774678107042,"pid":9228,"hostname":"CHAM-DEMBA","stripe_runtime_config_path":"C:\\Users\\ebrim\\Desktop\\PG VSCODE-EXTENSION\\server\\.narrate\\stripe-runtime.local.json","secret_storage_mode":"env-only","msg":"Stripe runtime config initialized"}
+{"level":30,"time":1774678116621,"pid":9228,"hostname":"CHAM-DEMBA","store_backend":"prisma","msg":"Store initialized"}
+{"level":30,"time":1774678119887,"pid":9228,"hostname":"CHAM-DEMBA","msg":"Server listening at http://127.0.0.1:8799"}
+{"level":30,"time":1774678119888,"pid":9228,"hostname":"CHAM-DEMBA","msg":"Server listening at http://172.25.96.1:8799"}
+{"level":30,"time":1774678119888,"pid":9228,"hostname":"CHAM-DEMBA","msg":"Server listening at http://192.168.137.1:8799"}
+{"level":30,"time":1774678119888,"pid":9228,"hostname":"CHAM-DEMBA","msg":"Server listening at http://192.168.103.127:8799"}
+{"level":30,"time":1774678119888,"pid":9228,"hostname":"CHAM-DEMBA","msg":"Narrate licensing server started on http://0.0.0.0:8799"}

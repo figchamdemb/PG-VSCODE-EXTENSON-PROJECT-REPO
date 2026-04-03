@@ -1,11 +1,11 @@
 {
-  "started_at_utc": "2026-03-01T15:59:39Z",
-  "expires_at_utc": "2026-03-02T03:59:39Z",
+  "started_at_utc": "2026-03-28T22:32:00Z",
+  "expires_at_utc": "2026-03-29T10:32:00Z",
   "profile": "frontend",
   "author": "agent",
   "max_commits": 5,
   "max_hours": 12,
-  "anchor_commit": "67236490aea724e9629683a3463402047fa9ba82",
+  "anchor_commit": "c006e2999d7dd80126a642ed7e00e22678633ea8",
   "required_start_docs": [
     "Memory-bank/daily/LATEST.md",
     "Memory-bank/project-spec.md",
@@ -13,7 +13,8 @@
     "Memory-bank/structure-and-db.md",
     "Memory-bank/tools-and-commands.md",
     "Memory-bank/agentsGlobal-memory.md",
-    "Memory-bank/mastermind.md"
+    "Memory-bank/mastermind.md",
+    "Memory-bank/frontend-integration.md"
   ],
   "daily_keep_days": 7
 }

@@ -1,6 +1,6 @@
-﻿# Narrate Flow Check
+# Narrate Flow Check
 
-UTC: 2026-03-01T13:33:28.4770042Z
+UTC: 2026-03-19T09:23:39.6739998Z
 
 - PASS: 5
 - FAIL: 0
@@ -8,7 +8,7 @@ UTC: 2026-03-01T13:33:28.4770042Z
 ## PASS - Package command wiring
 
 ```text
-All required command IDs declared + activated: narrate.toggleReadingModeDev, narrate.toggleReadingModeEdu, narrate.requestChangePrompt, narrate.exportNarrationFile, narrate.exportNarrationWorkspace, narrate.generateChangeReport, narrate.switchNarrationMode, narrate.switchReadingViewMode, narrate.switchReadingPaneMode, narrate.switchReadingSnippetMode, narrate.switchEduDetailLevel, narrate.refreshReadingView, narrate.runFlowInteractionCheck
+All required command IDs are declared in contributes.commands. VS Code auto-generated activation is in use; redundant onCommand entries are not required.
 ```
 
 ## PASS - Extension runtime registration
@@ -26,7 +26,12 @@ All core flow source files exist.
 ## PASS - Extension compile
 
 ```text
-Skipped by flag (-SkipCompile).
+> narrate-vscode-extension@0.1.0 compile
+> npm run clean && tsc -p ./
+
+
+> narrate-vscode-extension@0.1.0 clean
+> rimraf dist
 ```
 
 ## PASS - Runtime interaction surface
